@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
+import 'package:time_tracker/format.dart';
 
 class EntryList extends StatelessWidget {
   final List<TimeEntry> entries;
@@ -15,18 +16,9 @@ class EntryList extends StatelessWidget {
         final e = entries[i];
         return ListTile(
           title: Text(e.task),
-          trailing: Text(_fmt(Duration(seconds: e.seconds))),
+          trailing: Text(Duration(seconds: e.seconds).hms),
         );
       },
     );
-  }
-
-  String _fmt(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    final s = d.inSeconds % 60;
-    return '${h.toString().padLeft(2, '0')}:'
-        '${m.toString().padLeft(2, '0')}:'
-        '${s.toString().padLeft(2, '0')}';
   }
 }

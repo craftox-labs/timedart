@@ -16,12 +16,15 @@ ThemeData buildAppTheme(Brightness brightness) {
       titleMedium: TextStyle(fontWeight: FontWeight.w600),
       bodyMedium: TextStyle(height: 1.4),
     ),
-    // ── App bar ──
+    // ── App bar ── flat, same colour as the body, with a primary hairline under it
     appBarTheme: AppBarTheme(
-      backgroundColor: scheme.surfaceBright,
+      backgroundColor: scheme.surface,
       foregroundColor: scheme.primary,
-      centerTitle: true,
-      elevation: 2,
+      elevation: 0,
+      scrolledUnderElevation:
+          0, // M3 would otherwise lift/tint it when content scrolls under
+      surfaceTintColor: Colors.transparent, // kill the M3 scroll tint overlay
+      shape: Border(bottom: BorderSide(color: scheme.primary, width: 1)),
     ),
     // --- Divider ---
     dividerTheme: DividerThemeData(
@@ -54,14 +57,14 @@ ThemeData buildAppTheme(Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(50),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(color: scheme.primary),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(50),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(color: scheme.primary, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 2, horizontal: 24),
+      contentPadding: const EdgeInsets.symmetric(vertical: 2, horizontal: 12),
     ),
     visualDensity: VisualDensity.comfortable, // desktop: a touch roomier
   );

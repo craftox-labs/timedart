@@ -5,6 +5,7 @@ import 'package:time_tracker/widgets/timer_controls.dart';
 import 'package:time_tracker/widgets/entry_list.dart';
 import 'package:time_tracker/widgets/content_app_bar.dart';
 import 'package:time_tracker/widgets/content_body.dart';
+import 'package:time_tracker/format.dart';
 import 'package:time_tracker/screens/jobs.dart';
 
 class TimeScreen extends StatefulWidget {
@@ -102,17 +103,55 @@ class _TimeScreenState extends State<TimeScreen> {
         child: Column(
           children: [
             SizedBox(
-              height: 400,
+              height: 440,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Seconds tracked:'),
-                  Text(
-                    '$_counter',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontSize: counterSize,
-                      fontWeight: FontWeight.w300,
-                      color: Theme.of(context).colorScheme.primary,
+                  StreamBuilder<List<Job>>(
+                    stream: _jobsStream,
+                    builder: (context, snap) {
+                      final jobs = snap.data ?? [];
+                      final value = jobs.any((j) => j.id == _jobId)
+                          ? _jobId
+                          : null; // keep the guard
+                      return InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Job',
+                        ), // ← inherits inputDecorationTheme
+                        isEmpty:
+                            value == null, // lets the label float correctly
+                        child: DropdownButtonHideUnderline(
+                          // hide the dropdown's own underline
+                          child: DropdownButton<int>(
+                            value: value,
+                            isDense: true,
+                            isExpanded: true,
+                            items: [
+                              for (final j in jobs)
+                                DropdownMenuItem(
+                                  value: j.id,
+                                  child: Text(j.title),
+                                ),
+                            ],
+                            onChanged: (id) => setState(() => _jobId = id),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Time tracked:'),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      Duration(seconds: _counter).hms,
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(
+                            fontSize: counterSize,
+                            fontWeight: FontWeight.w300,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -123,7 +162,7 @@ class _TimeScreenState extends State<TimeScreen> {
                     onPrimary: _running ? _pause : _startOrResume,
                     onFinish: _hasSession ? _finish : null,
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 24),
                   TextField(
                     controller: _taskController,
                     decoration: const InputDecoration(
@@ -135,25 +174,6 @@ class _TimeScreenState extends State<TimeScreen> {
                   ),
                 ],
               ),
-            ),
-            StreamBuilder<List<Job>>(
-              stream: _jobsStream,
-              builder: (context, snap) {
-                final jobs = snap.data ?? [];
-                final value = jobs.any((j) => j.id == _jobId)
-                    ? _jobId
-                    : null; // ← guard
-                return DropdownButton<int>(
-                  value: value,
-                  isExpanded: true,
-                  hint: const Text('Job'),
-                  items: [
-                    for (final j in jobs)
-                      DropdownMenuItem(value: j.id, child: Text(j.title)),
-                  ],
-                  onChanged: (id) => setState(() => _jobId = id),
-                );
-              },
             ),
             const SizedBox(height: 12),
             Expanded(
