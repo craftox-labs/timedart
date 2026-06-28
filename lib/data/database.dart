@@ -49,13 +49,13 @@ class AppDatabase extends _$AppDatabase {
           getApplicationSupportDirectory, // ~/.local/share, not ~/Documents
     ),
   );
-  // Seed one client + job so every entry has a valid jobId before the picker exists (Session 6).
+
   Future<int> ensureDefaultJob() async {
-    final existing = await (select(jobs)..limit(1)).getSingleOrNull();
+    final existing = await (select(
+      jobs,
+    )..where((j) => j.code.equals('GENERAL'))).getSingleOrNull();
     if (existing != null) return existing.id;
-    final clientId = await into(
-      clients,
-    ).insert(ClientsCompanion.insert(name: 'Personal'));
+    final clientId = await _defaultClientId();
     return into(jobs).insert(
       JobsCompanion.insert(
         clientId: clientId,
@@ -80,6 +80,33 @@ class AppDatabase extends _$AppDatabase {
       seconds: seconds,
     ),
   );
+
+  Future<int> _defaultClientId() async {
+    final c = await (select(clients)..limit(1)).getSingleOrNull();
+    return c?.id ??
+        await into(clients).insert(ClientsCompanion.insert(name: 'Personal'));
+  }
+
+  Stream<List<Job>> watchJobs() =>
+      (select(jobs)..orderBy([(j) => OrderingTerm.asc(j.title)])).watch();
+
+  Future<int> addJob({
+    required String code,
+    required String title,
+    double? rate,
+  }) async {
+    final clientId = await _defaultClientId();
+    return into(jobs).insert(
+      JobsCompanion.insert(
+        clientId: clientId,
+        code: code,
+        title: title,
+        rate: rate == null
+            ? const Value.absent()
+            : Value(rate), // nullable column → Value wrapper
+      ),
+    );
+  }
 
   Stream<List<TimeEntry>> watchEntries() => (select(
     timeEntries,

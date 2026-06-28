@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/widgets/timer_controls.dart';
 import 'package:time_tracker/widgets/entry_list.dart';
-import 'package:time_tracker/tokens.dart';
+import 'package:time_tracker/widgets/content_app_bar.dart';
+import 'package:time_tracker/widgets/content_body.dart';
+import 'package:time_tracker/screens/jobs.dart';
 
 class TimeScreen extends StatefulWidget {
   const TimeScreen({super.key, required this.title, required this.db});
@@ -22,6 +24,7 @@ class _TimeScreenState extends State<TimeScreen> {
   int? _jobId; // ← seeded default job
   final _taskController = TextEditingController();
   late final Stream<List<TimeEntry>> _entriesStream = widget.db.watchEntries();
+  late final Stream<List<Job>> _jobsStream = widget.db.watchJobs();
 
   @override
   void initState() {
@@ -83,59 +86,84 @@ class _TimeScreenState extends State<TimeScreen> {
     final counterSize = (width * 0.12).clamp(90.0, 140.0);
 
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: kRowInset),
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 400,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Seconds tracked:'),
-                      Text(
-                        '$_counter',
-                        style: Theme.of(context).textTheme.headlineLarge
-                            ?.copyWith(
-                              fontSize: counterSize,
-                              fontWeight: FontWeight.w300,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-                      TimerControls(
-                        running: _running,
-                        hasSession: _hasSession,
-                        counter: _counter,
-                        onPrimary: _running ? _pause : _startOrResume,
-                        onFinish: _hasSession ? _finish : null,
-                      ),
-                      const SizedBox(height: 40),
-                      TextField(
-                        controller: _taskController,
-                        decoration: const InputDecoration(
-                          hintText: 'What are you working on?',
-                          labelText: 'Task',
-                        ),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _running ? null : _startOrResume(),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: StreamBuilder<List<TimeEntry>>(
-                    stream: _entriesStream,
-                    builder: (context, snapshot) =>
-                        EntryList(entries: snapshot.data ?? []),
-                  ),
-                ),
-              ],
+      appBar: ContentAppBar(
+        title: 'Time Tracker',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.work),
+            tooltip: 'Jobs',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => JobsScreen(db: widget.db)),
             ),
           ),
+        ],
+      ),
+      body: ContentBody(
+        child: Column(
+          children: [
+            SizedBox(
+              height: 400,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Seconds tracked:'),
+                  Text(
+                    '$_counter',
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontSize: counterSize,
+                      fontWeight: FontWeight.w300,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TimerControls(
+                    running: _running,
+                    hasSession: _hasSession,
+                    counter: _counter,
+                    onPrimary: _running ? _pause : _startOrResume,
+                    onFinish: _hasSession ? _finish : null,
+                  ),
+                  const SizedBox(height: 40),
+                  TextField(
+                    controller: _taskController,
+                    decoration: const InputDecoration(
+                      hintText: 'What are you working on?',
+                      labelText: 'Task',
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _running ? null : _startOrResume(),
+                  ),
+                ],
+              ),
+            ),
+            StreamBuilder<List<Job>>(
+              stream: _jobsStream,
+              builder: (context, snap) {
+                final jobs = snap.data ?? [];
+                final value = jobs.any((j) => j.id == _jobId)
+                    ? _jobId
+                    : null; // ← guard
+                return DropdownButton<int>(
+                  value: value,
+                  isExpanded: true,
+                  hint: const Text('Job'),
+                  items: [
+                    for (final j in jobs)
+                      DropdownMenuItem(value: j.id, child: Text(j.title)),
+                  ],
+                  onChanged: (id) => setState(() => _jobId = id),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: StreamBuilder<List<TimeEntry>>(
+                stream: _entriesStream,
+                builder: (context, snapshot) =>
+                    EntryList(entries: snapshot.data ?? []),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -18,8 +18,8 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     // ── App bar ──
     appBarTheme: AppBarTheme(
-      backgroundColor: scheme.primary,
-      foregroundColor: scheme.onPrimary,
+      backgroundColor: scheme.surfaceBright,
+      foregroundColor: scheme.primary,
       centerTitle: true,
       elevation: 2,
     ),
