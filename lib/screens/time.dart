@@ -21,6 +21,7 @@ class _TimeScreenState extends State<TimeScreen> {
   DateTime? _sessionStart; // ← when the current session began
   int? _jobId; // ← seeded default job
   final _taskController = TextEditingController();
+  late final Stream<List<TimeEntry>> _entriesStream = widget.db.watchEntries();
 
   @override
   void initState() {
@@ -127,7 +128,7 @@ class _TimeScreenState extends State<TimeScreen> {
                 ),
                 Expanded(
                   child: StreamBuilder<List<TimeEntry>>(
-                    stream: widget.db.watchEntries(),
+                    stream: _entriesStream,
                     builder: (context, snapshot) =>
                         EntryList(entries: snapshot.data ?? []),
                   ),
