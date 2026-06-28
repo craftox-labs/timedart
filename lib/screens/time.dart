@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:time_tracker/models/time_entry.dart';
+import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/widgets/timer_controls.dart';
 import 'package:time_tracker/widgets/entry_list.dart';
 import 'package:time_tracker/tokens.dart';
 
 class TimeScreen extends StatefulWidget {
-  const TimeScreen({super.key, required this.title});
-
+  const TimeScreen({super.key, required this.title, required this.db});
   final String title;
+  final AppDatabase db;
 
   @override
   State<TimeScreen> createState() => _TimeScreenState();
@@ -18,8 +18,16 @@ class _TimeScreenState extends State<TimeScreen> {
   int _counter = 0;
   bool _running = false;
   Timer? _timer;
-  final List<TimeEntry> _entries = [];
+  DateTime? _sessionStart; // ← when the current session began
+  int? _jobId; // ← seeded default job
   final _taskController = TextEditingController();
+  late final Stream<List<TimeEntry>> _entriesStream = widget.db.watchEntries();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.db.ensureDefaultJob().then((id) => setState(() => _jobId = id));
+  }
 
   @override
   void dispose() {
@@ -33,6 +41,7 @@ class _TimeScreenState extends State<TimeScreen> {
 
   void _startOrResume() {
     if (_running) return;
+    _sessionStart ??= DateTime.now(); // ← stamp the start once
     setState(() {
       _running = true;
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -49,20 +58,22 @@ class _TimeScreenState extends State<TimeScreen> {
 
   void _finish() {
     _timer?.cancel();
-    final text = _taskController.text.trim(); // read BEFORE resetting
+    final text = _taskController.text.trim();
+    if (_counter > 0 && _jobId != null) {
+      widget.db.addEntry(
+        // ← write to the DB, not a list
+        jobId: _jobId!,
+        task: text.isEmpty ? 'Untitled session' : text,
+        startedAt: _sessionStart ?? DateTime.now(),
+        endedAt: DateTime.now(),
+        seconds: _counter,
+      );
+    }
     setState(() {
-      if (_counter > 0) {
-        _entries.add(
-          TimeEntry(
-            task: text.isEmpty ? 'Untitled session' : text,
-            elapsed: Duration(seconds: _counter),
-            endedAt: DateTime.now(),
-          ),
-        );
-      }
       _counter = 0;
       _running = false;
     });
+    _sessionStart = null;
     _taskController.clear();
   }
 
@@ -115,7 +126,13 @@ class _TimeScreenState extends State<TimeScreen> {
                     ],
                   ),
                 ),
-                Expanded(child: EntryList(entries: _entries)),
+                Expanded(
+                  child: StreamBuilder<List<TimeEntry>>(
+                    stream: _entriesStream,
+                    builder: (context, snapshot) =>
+                        EntryList(entries: snapshot.data ?? []),
+                  ),
+                ),
               ],
             ),
           ),
