@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/models/time_entry.dart'; // it uses TimeEntry → must import
+import 'package:time_tracker/data/database.dart';
 
 class EntryList extends StatelessWidget {
   final List<TimeEntry> entries;
@@ -13,7 +13,10 @@ class EntryList extends StatelessWidget {
       separatorBuilder: (context, i) => const Divider(),
       itemBuilder: (context, i) {
         final e = entries[i];
-        return ListTile(title: Text(e.task), trailing: Text(_fmt(e.elapsed)));
+        return ListTile(
+          title: Text(e.task),
+          trailing: Text(_fmt(Duration(seconds: e.seconds))),
+        );
       },
     );
   }
