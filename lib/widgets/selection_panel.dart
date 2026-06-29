@@ -23,6 +23,8 @@ class _SelectionPanelState extends State<SelectionPanel> {
   late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
   late final Stream<List<Job>> _jobsStream = widget.db.watchJobs();
 
+  final Map<int, bool> _expandedStates = {};
+
   void _openClients() => Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => ClientsScreen(db: widget.db)));
@@ -32,6 +34,8 @@ class _SelectionPanelState extends State<SelectionPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return StreamBuilder<List<Client>>(
       stream: _clientsStream,
       builder: (context, clientSnap) {
@@ -45,45 +49,127 @@ class _SelectionPanelState extends State<SelectionPanel> {
               jobsByClient.putIfAbsent(j.clientId, () => []).add(j);
             }
             return ListView(
+              padding: const EdgeInsets.symmetric(vertical: AppTokens.space4xs),
               children: [
                 for (final c in clients)
-                  ExpansionTile(
-                    key: PageStorageKey(
-                      c.id,
-                    ), // keep expand state across rebuilds
-                    controlAffinity:
-                        ListTileControlAffinity.leading, // chevron left
-                    title: Text(c.name),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Edit clients',
-                      onPressed: _openClients,
-                    ),
-                    children: [
-                      for (final j in jobsByClient[c.id] ?? const <Job>[])
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: kRowInset,
-                          ),
-                          title: Text(j.code),
-                          subtitle: Text(j.title),
-                          selected: j.id == widget.selectedJobId,
-                          onTap: () => widget.onSelect?.call(j.id),
-                        ),
-                      ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: kRowInset,
-                        ),
-                        leading: const Icon(Icons.add),
-                        title: const Text('Add job'),
-                        onTap: _openJobs,
+                  Theme(
+                    data: theme.copyWith(
+                      dividerColor: AppTokens.colorBrandPrimary,
+                      splashColor: Colors.transparent,
+                      // Locally inject fallback theme configs to force zero-padding bounds
+                      expansionTileTheme: const ExpansionTileThemeData(
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: EdgeInsets.zero,
                       ),
-                    ],
+                    ),
+                    child: ExpansionTile(
+                      key: PageStorageKey(c.id),
+                      expansionAnimationStyle: AnimationStyle.noAnimation,
+                      tilePadding: const EdgeInsets.symmetric(
+                        horizontal: AppTokens.spaceMd,
+                        vertical: 0,
+                      ),
+                      dense: true,
+                      showTrailingIcon: false,
+                      onExpansionChanged: (isExpanded) {
+                        setState(() {
+                          _expandedStates[c.id] = isExpanded;
+                        });
+                      },
+                      title: ListTile(
+                        dense: true,
+                        visualDensity: const VisualDensity(vertical: -4),
+                        contentPadding: EdgeInsets.zero,
+                        horizontalTitleGap: AppTokens.space2xs,
+                        leading: Icon(
+                          (_expandedStates[c.id] ?? false)
+                              ? Icons.expand_more
+                              : Icons.chevron_right,
+                          size: AppTokens.iconSm,
+                          color: (_expandedStates[c.id] ?? false)
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(
+                          c.name,
+                          style: TextStyle(
+                            fontSize: AppTokens.fontSizeSm,
+                            fontWeight: FontWeight.w300,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit_note),
+                          iconSize: AppTokens.iconSm,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Edit clients',
+                          onPressed: _openClients,
+                        ),
+                      ),
+                      children: [
+                        for (final j in jobsByClient[c.id] ?? const <Job>[])
+                          ListTile(
+                            dense: true,
+                            visualDensity: const VisualDensity(vertical: -4),
+                            contentPadding: const EdgeInsets.only(
+                              left: AppTokens.spaceLg,
+                              right: AppTokens.spaceMd,
+                            ),
+                            title: Text(
+                              j.code,
+                              style: const TextStyle(
+                                fontSize: AppTokens.fontSizeSm,
+                              ),
+                            ),
+                            subtitle: Text(
+                              j.title,
+                              style: TextStyle(
+                                fontSize: AppTokens.fontSizeSm - 2.0,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            selected: j.id == widget.selectedJobId,
+                            onTap: () => widget.onSelect?.call(j.id),
+                          ),
+
+                        ListTile(
+                          dense: true,
+                          visualDensity: const VisualDensity(vertical: -4),
+                          contentPadding: const EdgeInsets.only(
+                            left: AppTokens.spaceMd,
+                            right: AppTokens.spaceMd,
+                          ),
+                          leading: const Icon(
+                            Icons.add,
+                            size: AppTokens.iconXs,
+                          ),
+                          horizontalTitleGap: AppTokens.space2xs,
+                          title: const Text(
+                            'Add job',
+                            style: TextStyle(fontSize: AppTokens.fontSizeSm),
+                          ),
+                          onTap: _openJobs,
+                        ),
+                        const SizedBox(height: AppTokens.spaceXs),
+                      ],
+                    ),
                   ),
-                const Divider(),
+                const SizedBox(height: AppTokens.space2xs),
                 ListTile(
-                  leading: const Icon(Icons.add),
-                  title: const Text('Add client'),
+                  dense: true,
+                  visualDensity: const VisualDensity(vertical: -4),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.spaceMd,
+                    vertical: 0,
+                  ),
+                  leading: const Icon(Icons.add, size: AppTokens.iconSm),
+                  horizontalTitleGap: AppTokens.spaceXs,
+                  title: const Text(
+                    'Add client',
+                    style: TextStyle(fontSize: AppTokens.fontSizeSm),
+                  ),
                   onTap: _openClients,
                 ),
               ],

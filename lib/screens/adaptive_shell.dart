@@ -32,7 +32,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
     return LayoutBuilder(
       builder: (context, c) {
-        if (c.maxWidth >= kWideBreakpoint) {
+        if (c.maxWidth >= AppTokens.breakpointMd) {
           return Scaffold(
             body: Row(
               children: [

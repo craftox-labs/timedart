@@ -5,6 +5,7 @@ import 'package:time_tracker/widgets/timer_controls.dart';
 import 'package:time_tracker/widgets/entry_list.dart';
 import 'package:time_tracker/widgets/content_body.dart';
 import 'package:time_tracker/format.dart';
+import 'package:time_tracker/tokens.dart';
 
 class TimerView extends StatefulWidget {
   const TimerView({super.key, required this.db, required this.jobId});
@@ -127,7 +128,7 @@ class _TimerViewState extends State<TimerView> {
                     );
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTokens.spaceXl),
                 const Text('Time tracked:'),
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -141,7 +142,7 @@ class _TimerViewState extends State<TimerView> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTokens.spaceXl),
                 TimerControls(
                   running: _running,
                   hasSession: _hasSession,
@@ -149,7 +150,7 @@ class _TimerViewState extends State<TimerView> {
                   onPrimary: _running ? _pause : _startOrResume,
                   onFinish: _hasSession ? _finish : null,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTokens.spaceXl),
                 TextField(
                   controller: _taskController,
                   decoration: const InputDecoration(
