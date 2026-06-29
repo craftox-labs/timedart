@@ -8,9 +8,9 @@ class ContentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+      constraints: const BoxConstraints(maxWidth: AppTokens.maxContentWidth),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: kRowInset),
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceLg),
         child: child,
       ),
     ),

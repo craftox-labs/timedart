@@ -24,9 +24,11 @@ class ContentAppBar extends StatelessWidget implements PreferredSizeWidget {
       automaticallyImplyLeading: false,
       title: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: kContentMaxWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.maxContentWidth,
+          ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: kRowInset),
+            padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceLg),
             child: Row(
               children: [
                 if (showBack)

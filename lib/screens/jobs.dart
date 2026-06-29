@@ -44,7 +44,7 @@ class _JobsScreenState extends State<JobsScreen> {
                       decoration: const InputDecoration(labelText: 'Code'),
                     ),
                   ),
-                  const SizedBox(width: kSizedBoxSm),
+                  const SizedBox(width: AppTokens.spaceSm),
                   Expanded(
                     flex: 2,
                     child: TextField(
@@ -52,7 +52,7 @@ class _JobsScreenState extends State<JobsScreen> {
                       decoration: const InputDecoration(labelText: 'Title'),
                     ),
                   ),
-                  const SizedBox(width: kSizedBoxSm),
+                  const SizedBox(width: AppTokens.spaceSm),
                   FilledButton(
                     onPressed: () async {
                       if (_code.text.trim().isEmpty ||

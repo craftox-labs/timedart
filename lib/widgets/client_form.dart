@@ -43,12 +43,12 @@ class _ClientFormState extends State<ClientForm> {
           controller: _name,
           decoration: const InputDecoration(labelText: 'Name'),
         ),
-        const SizedBox(height: kSizedBoxSm),
+        const SizedBox(height: AppTokens.spaceSm),
         TextField(
           controller: _email,
           decoration: const InputDecoration(labelText: 'Email'),
         ),
-        const SizedBox(height: kSizedBoxSm),
+        const SizedBox(height: AppTokens.spaceSm),
         Row(
           children: [
             Expanded(
@@ -58,7 +58,7 @@ class _ClientFormState extends State<ClientForm> {
                 decoration: const InputDecoration(labelText: 'Default Rate'),
               ),
             ),
-            const SizedBox(width: kSizedBoxSm),
+            const SizedBox(width: AppTokens.spaceSm),
             FilledButton(onPressed: _add, child: const Text('Add')),
           ],
         ),
