@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/theme.dart';
-import 'package:time_tracker/screens/time.dart';
+import 'package:time_tracker/screens/adaptive_shell.dart';
 import 'package:time_tracker/data/database.dart';
 
 void main() {
@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Time Tracker',
       theme: buildAppTheme(Brightness.dark),
-      home: TimeScreen(title: 'Time Tracker', db: db),
+      home: AdaptiveShell(db: db),
     );
   }
 }

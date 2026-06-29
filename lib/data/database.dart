@@ -132,6 +132,9 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Stream<Job?> watchJob(int id) =>
+      (select(jobs)..where((j) => j.id.equals(id))).watchSingleOrNull();
+
   Future<int> addClient({
     required String name,
     String? email,
