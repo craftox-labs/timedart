@@ -6,6 +6,7 @@ import 'package:time_tracker/widgets/entry_list.dart';
 import 'package:time_tracker/widgets/content_app_bar.dart';
 import 'package:time_tracker/widgets/content_body.dart';
 import 'package:time_tracker/format.dart';
+import 'package:time_tracker/screens/clients.dart';
 import 'package:time_tracker/screens/jobs.dart';
 
 class TimeScreen extends StatefulWidget {
@@ -90,6 +91,13 @@ class _TimeScreenState extends State<TimeScreen> {
       appBar: ContentAppBar(
         title: 'Time Tracker',
         actions: [
+          IconButton(
+            icon: const Icon(Icons.people),
+            tooltip: 'Clients',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ClientsScreen(db: widget.db)),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.work),
             tooltip: 'Jobs',

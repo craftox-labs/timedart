@@ -34,6 +34,12 @@ class TimeEntries extends Table {
       integer()(); // TRACKED time (excludes pauses) — see below
 }
 
+class JobWithRate {
+  final Job job;
+  final double? effectiveRate;
+  JobWithRate(this.job, this.effectiveRate);
+}
+
 @DriftDatabase(tables: [Clients, Jobs, TimeEntries])
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
@@ -87,28 +93,56 @@ class AppDatabase extends _$AppDatabase {
         await into(clients).insert(ClientsCompanion.insert(name: 'Personal'));
   }
 
-  Stream<List<Job>> watchJobs() =>
-      (select(jobs)..orderBy([(j) => OrderingTerm.asc(j.title)])).watch();
-
   Future<int> addJob({
+    required int clientId,
     required String code,
     required String title,
     double? rate,
-  }) async {
-    final clientId = await _defaultClientId();
-    return into(jobs).insert(
-      JobsCompanion.insert(
-        clientId: clientId,
-        code: code,
-        title: title,
-        rate: rate == null
-            ? const Value.absent()
-            : Value(rate), // nullable column → Value wrapper
-      ),
-    );
-  }
+  }) => into(jobs).insert(
+    JobsCompanion.insert(
+      clientId: clientId,
+      code: code,
+      title: title,
+      rate: rate == null ? const Value.absent() : Value(rate),
+    ),
+  );
+
+  Stream<List<Job>> watchJobs() =>
+      (select(jobs)..orderBy([(j) => OrderingTerm.asc(j.title)])).watch();
 
   Stream<List<TimeEntry>> watchEntries() => (select(
     timeEntries,
   )..orderBy([(t) => OrderingTerm.desc(t.endedAt)])).watch();
+
+  Stream<List<Client>> watchClients() =>
+      (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
+
+  Stream<List<JobWithRate>> watchJobsWithRate() {
+    final q = select(jobs).join([
+      innerJoin(clients, clients.id.equalsExp(jobs.clientId)),
+    ])..orderBy([OrderingTerm.asc(jobs.title)]);
+    return q.watch().map(
+      (rows) => [
+        for (final r in rows)
+          JobWithRate(
+            r.readTable(jobs),
+            r.readTable(jobs).rate ?? r.readTable(clients).defaultRate,
+          ),
+      ],
+    );
+  }
+
+  Future<int> addClient({
+    required String name,
+    String? email,
+    double? defaultRate,
+  }) => into(clients).insert(
+    ClientsCompanion.insert(
+      name: name,
+      email: email == null ? const Value.absent() : Value(email),
+      defaultRate: defaultRate == null
+          ? const Value.absent()
+          : Value(defaultRate),
+    ),
+  );
 }

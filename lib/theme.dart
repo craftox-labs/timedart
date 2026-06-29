@@ -7,6 +7,9 @@ ThemeData buildAppTheme(Brightness brightness) {
     primary: Colors.lightGreenAccent,
     onPrimary: Colors.black,
   );
+  final buttonShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(8),
+  );
 
   return ThemeData(
     colorScheme: scheme,
@@ -40,6 +43,21 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontSize: 15,
         color: scheme.onSurfaceVariant, // subtler than the title
         fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    ),
+    // --- Buttons ---
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(shape: buttonShape),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        side: WidgetStateProperty.resolveWith((states) {
+          final color = states.contains(WidgetState.disabled)
+              ? scheme.onSurface.withValues(alpha: 0.12) // faded when disabled
+              : scheme.primary; // primary otherwise
+          return BorderSide(color: color, width: 1.5);
+        }),
+        shape: WidgetStatePropertyAll(buttonShape),
       ),
     ),
     // ── Floating action button ──
