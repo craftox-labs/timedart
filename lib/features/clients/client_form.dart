@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/tokens.dart';
+import 'package:time_tracker/constants/tokens.dart';
 
 class ClientForm extends StatefulWidget {
   const ClientForm({super.key, required this.db});

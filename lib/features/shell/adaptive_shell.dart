@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/tokens.dart';
-import 'package:time_tracker/widgets/selection_panel.dart';
-import 'package:time_tracker/widgets/timer_view.dart';
+import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/features/shell/side_panel.dart';
+import 'package:time_tracker/features/tracker/timer_view.dart';
 
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key, required this.db});
@@ -40,7 +40,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 const VerticalDivider(width: 1),
                 SizedBox(
                   width: 240,
-                  child: SelectionPanel(
+                  child: SidePanel(
                     db: widget.db,
                     selectedJobId: _selectedJobId,
                     onSelect: _selectJob, // no pop — panel is persistent
@@ -53,7 +53,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         return Scaffold(
           appBar: AppBar(title: const Text('Time Tracker')),
           endDrawer: Drawer(
-            child: SelectionPanel(
+            child: SidePanel(
               db: widget.db,
               selectedJobId: _selectedJobId,
               onSelect: (id) {

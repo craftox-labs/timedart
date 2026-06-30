@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/theme.dart';
-import 'package:time_tracker/screens/adaptive_shell.dart';
+import 'package:time_tracker/constants/theme.dart';
+import 'package:time_tracker/features/shell/adaptive_shell.dart';
 import 'package:time_tracker/data/database.dart';
 
 void main() {

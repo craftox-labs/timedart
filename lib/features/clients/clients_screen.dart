@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/widgets/content_app_bar.dart';
 import 'package:time_tracker/widgets/content_body.dart';
-import 'package:time_tracker/widgets/client_form.dart';
-import 'package:time_tracker/widgets/client_list.dart';
+import 'package:time_tracker/features/clients/client_form.dart';
+import 'package:time_tracker/features/clients/client_list.dart';
 
 class ClientsScreen extends StatefulWidget {
   const ClientsScreen({super.key, required this.db});
