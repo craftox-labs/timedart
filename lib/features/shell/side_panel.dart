@@ -10,10 +10,12 @@ class SidePanel extends StatefulWidget {
     required this.db,
     this.selectedJobId,
     this.onSelect,
+    required this.onEditJob,
   });
   final AppDatabase db;
   final int? selectedJobId;
   final void Function(int)? onSelect;
+  final void Function(Job) onEditJob;
 
   @override
   State<SidePanel> createState() => _SidePanelState();
@@ -48,6 +50,7 @@ class _SidePanelState extends State<SidePanel> {
               onSelectJob: widget.onSelect,
               onEditClients: _openClients,
               onAddJob: _openJobs,
+              onEditJob: widget.onEditJob,
             );
           },
         );
@@ -64,6 +67,7 @@ class _SidePanelListView extends StatelessWidget {
   final void Function(int)? onSelectJob;
   final VoidCallback onEditClients;
   final VoidCallback onAddJob;
+  final void Function(Job) onEditJob;
 
   const _SidePanelListView({
     required this.clients,
@@ -72,6 +76,7 @@ class _SidePanelListView extends StatelessWidget {
     required this.onSelectJob,
     required this.onEditClients,
     required this.onAddJob,
+    required this.onEditJob,
   });
 
   @override
@@ -92,6 +97,7 @@ class _SidePanelListView extends StatelessWidget {
             onSelectJob: onSelectJob,
             onEditClients: onEditClients,
             onAddJob: onAddJob,
+            onEditJob: onEditJob,
           ),
         const SizedBox(height: AppTokens.space2xs),
         AddClientButton(onTap: onEditClients),
@@ -119,7 +125,7 @@ class AddClientButton extends StatelessWidget {
       horizontalTitleGap: AppTokens.spaceXs,
       title: const Text(
         'Add client',
-        style: TextStyle(fontSize: AppTokens.fontSizeSm),
+        style: TextStyle(fontSize: AppTokens.fontSizeXs),
       ),
       onTap: onTap,
     );
@@ -134,6 +140,7 @@ class ClientGroupTile extends StatefulWidget {
   final void Function(int)? onSelectJob;
   final VoidCallback onEditClients;
   final VoidCallback onAddJob;
+  final void Function(Job) onEditJob;
 
   const ClientGroupTile({
     super.key,
@@ -143,6 +150,7 @@ class ClientGroupTile extends StatefulWidget {
     required this.onSelectJob,
     required this.onEditClients,
     required this.onAddJob,
+    required this.onEditJob,
   });
 
   @override
@@ -215,6 +223,7 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
               job: j,
               isSelected: j.id == widget.selectedJobId,
               onTap: () => widget.onSelectJob?.call(j.id),
+              onEdit: () => widget.onEditJob(j),
             ),
           ListTile(
             dense: true,
@@ -227,7 +236,7 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
             horizontalTitleGap: AppTokens.space2xs,
             title: const Text(
               'Add job',
-              style: TextStyle(fontSize: AppTokens.fontSizeSm),
+              style: TextStyle(fontSize: AppTokens.fontSizeXs),
             ),
             onTap: widget.onAddJob,
           ),
@@ -243,12 +252,14 @@ class JobRowItem extends StatelessWidget {
   final Job job;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
 
   const JobRowItem({
     super.key,
     required this.job,
     required this.isSelected,
     required this.onTap,
+    required this.onEdit,
   });
 
   @override
@@ -263,6 +274,15 @@ class JobRowItem extends StatelessWidget {
       title: Text(
         '${job.code} - ${job.title}',
         style: const TextStyle(fontSize: AppTokens.fontSizeXs),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.edit_note),
+        iconSize: AppTokens.iconSm,
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        tooltip: 'Edit job',
+        onPressed: onEdit,
       ),
       selected: isSelected,
       onTap: onTap,

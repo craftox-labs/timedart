@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/tracker/timer_controls.dart';
-import 'package:time_tracker/widgets/content_body.dart';
 import 'package:time_tracker/constants/format.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/tracker/time_entry_list.dart';
@@ -96,56 +95,54 @@ class _TimerViewState extends State<TimerView> {
       140.0,
     );
 
-    return ContentBody(
-      child: Column(
-        children: [
-          SizedBox(
-            height: 440,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 1. Extracted Job Stream Element
-                JobHeader(jobStream: _jobStream),
-                const SizedBox(height: AppTokens.spaceXl),
-                const Text('Time tracked:'),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    Duration(seconds: _counter).hms,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontSize: counterSize,
-                      fontWeight: FontWeight.w300,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+    return Column(
+      children: [
+        SizedBox(
+          height: 440,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 1. Extracted Job Stream Element
+              JobHeader(jobStream: _jobStream),
+              const SizedBox(height: AppTokens.spaceXl),
+              const Text('Time tracked:'),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  Duration(seconds: _counter).hms,
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    fontSize: counterSize,
+                    fontWeight: FontWeight.w300,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: AppTokens.spaceXl),
-                TimerControls(
-                  running: _running,
-                  hasSession: _hasSession,
-                  counter: _counter,
-                  onPrimary: _running ? _pause : _startOrResume,
-                  onFinish: _hasSession ? _finish : null,
+              ),
+              const SizedBox(height: AppTokens.spaceXl),
+              TimerControls(
+                running: _running,
+                hasSession: _hasSession,
+                counter: _counter,
+                onPrimary: _running ? _pause : _startOrResume,
+                onFinish: _hasSession ? _finish : null,
+              ),
+              const SizedBox(height: AppTokens.spaceXl),
+              TextField(
+                controller: _taskController,
+                decoration: const InputDecoration(
+                  hintText: 'What are you working on?',
+                  labelText: 'Task',
                 ),
-                const SizedBox(height: AppTokens.spaceXl),
-                TextField(
-                  controller: _taskController,
-                  decoration: const InputDecoration(
-                    hintText: 'What are you working on?',
-                    labelText: 'Task',
-                  ),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _running ? null : _startOrResume(),
-                ),
-              ],
-            ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _running ? null : _startOrResume(),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          // 2. Extracted Historical Stream List
-          Expanded(child: EntryHistoryList(entriesStream: _entriesStream)),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        // 2. Extracted Historical Stream List
+        Expanded(child: EntryHistoryList(entriesStream: _entriesStream)),
+      ],
     );
   }
 }

@@ -3,6 +3,8 @@ import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
+import 'package:time_tracker/features/jobs/job_form.dart';
+import 'package:time_tracker/widgets/content_body.dart';
 
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key, required this.db});
@@ -13,8 +15,11 @@ class AdaptiveShell extends StatefulWidget {
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
   int? _selectedJobId; // the shared state, lifted up here
+  Job? _editingJob;
 
   void _selectJob(int id) => setState(() => _selectedJobId = id);
+  void _editJob(Job job) => setState(() => _editingJob = job);
+  void _closeEditor() => setState(() => _editingJob = null);
 
   @override
   void initState() {
@@ -28,7 +33,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   @override
   Widget build(BuildContext context) {
-    final content = TimerView(db: widget.db, jobId: _selectedJobId);
+    final detail = _editingJob != null
+        ? JobForm(db: widget.db, initial: _editingJob, onDone: _closeEditor)
+        : TimerView(db: widget.db, jobId: _selectedJobId);
+    final content = ContentBody(child: detail);
 
     return LayoutBuilder(
       builder: (context, c) {
@@ -44,6 +52,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                     db: widget.db,
                     selectedJobId: _selectedJobId,
                     onSelect: _selectJob, // no pop — panel is persistent
+                    onEditJob: _editJob,
                   ),
                 ),
               ],
@@ -60,6 +69,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 _selectJob(id);
                 Navigator.pop(context); // close the drawer — only here
               },
+              onEditJob: _editJob,
             ),
           ),
           body: content,

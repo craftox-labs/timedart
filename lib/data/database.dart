@@ -107,6 +107,18 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
+  Future<void> updateJob({
+    required int id,
+    required String code,
+    required String title,
+    double? rate,
+  }) => (update(jobs)..where((j) => j.id.equals(id))).write(
+    JobsCompanion(code: Value(code), title: Value(title), rate: Value(rate)),
+  );
+
+  Future<void> deleteJob(int id) =>
+      (delete(jobs)..where((j) => j.id.equals(id))).go();
+
   Stream<List<Job>> watchJobs() =>
       (select(jobs)..orderBy([(j) => OrderingTerm.asc(j.title)])).watch();
 
@@ -148,4 +160,20 @@ class AppDatabase extends _$AppDatabase {
           : Value(defaultRate),
     ),
   );
+
+  Future<void> updateClient({
+    required int id,
+    required String name,
+    String? email,
+    double? defaultRate,
+  }) => (update(clients)..where((c) => c.id.equals(id))).write(
+    ClientsCompanion(
+      name: Value(name),
+      email: Value(email),
+      defaultRate: Value(defaultRate),
+    ),
+  );
+
+  Future<void> deleteClient(int id) =>
+      (delete(clients)..where((c) => c.id.equals(id))).go();
 }
