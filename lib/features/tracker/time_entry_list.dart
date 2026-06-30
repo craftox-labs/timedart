@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/format.dart';
+import 'package:time_tracker/constants/format.dart';
 
-class EntryList extends StatelessWidget {
+class TimeEntryList extends StatelessWidget {
   final List<TimeEntry> entries;
 
-  const EntryList({super.key, required this.entries});
+  const TimeEntryList({super.key, required this.entries});
 
   @override
   Widget build(BuildContext context) {

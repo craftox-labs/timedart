@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/widgets/content_app_bar.dart';
 import 'package:time_tracker/widgets/content_body.dart';
-import 'package:time_tracker/tokens.dart';
+import 'package:time_tracker/constants/tokens.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key, required this.db});

@@ -27,7 +27,8 @@ abstract class AppTokens {
   // ── 4. Typography ──
   static const String fontFamily = 'JetBrainsMono';
   static const double fontHeightDefault = 1.4;
-  static const double fontSizeSm = 15.0;
+  static const double fontSizeXs = 13.0;
+  static const double fontSizeSm = 14.0;
   static const double fontSizeMd = 16.0;
 
   // ── 5. Color Palette ──

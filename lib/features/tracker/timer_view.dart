@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/widgets/timer_controls.dart';
-import 'package:time_tracker/widgets/entry_list.dart';
+import 'package:time_tracker/features/tracker/timer_controls.dart';
 import 'package:time_tracker/widgets/content_body.dart';
-import 'package:time_tracker/format.dart';
-import 'package:time_tracker/tokens.dart';
+import 'package:time_tracker/constants/format.dart';
+import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/features/tracker/time_entry_list.dart';
 
 class TimerView extends StatefulWidget {
   const TimerView({super.key, required this.db, required this.jobId});
@@ -20,23 +20,41 @@ class _TimerViewState extends State<TimerView> {
   int _counter = 0;
   bool _running = false;
   Timer? _timer;
-  DateTime? _sessionStart; // ← when the current session began
+  DateTime? _sessionStart;
   final _taskController = TextEditingController();
   late final Stream<List<TimeEntry>> _entriesStream = widget.db.watchEntries();
+  Stream<Job?>? _jobStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateJobStream();
+  }
+
+  @override
+  void didUpdateWidget(TimerView old) {
+    super.didUpdateWidget(old);
+    if (old.jobId != widget.jobId) _updateJobStream();
+  }
 
   @override
   void dispose() {
     _taskController.dispose();
-    _timer?.cancel(); // kill the timer before the State dies
-    super.dispose(); // ALWAYS call super.dispose() last
+    _timer?.cancel();
+    super.dispose();
   }
 
-  bool get _hasSession =>
-      _running || _counter > 0; // an uncommitted session exists
+  bool get _hasSession => _running || _counter > 0;
+
+  void _updateJobStream() {
+    _jobStream = widget.jobId == null
+        ? null
+        : widget.db.watchJob(widget.jobId!);
+  }
 
   void _startOrResume() {
     if (_running) return;
-    _sessionStart ??= DateTime.now(); // ← stamp the start once
+    _sessionStart ??= DateTime.now();
     setState(() {
       _running = true;
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -48,7 +66,7 @@ class _TimerViewState extends State<TimerView> {
 
   void _pause() {
     _timer?.cancel();
-    setState(() => _running = false); // counter kept — that
+    setState(() => _running = false);
   }
 
   void _finish() {
@@ -56,7 +74,6 @@ class _TimerViewState extends State<TimerView> {
     final text = _taskController.text.trim();
     if (_counter > 0 && widget.jobId != null) {
       widget.db.addEntry(
-        // ← write to the DB, not a list
         jobId: widget.jobId!,
         task: text.isEmpty ? 'Untitled session' : text,
         startedAt: _sessionStart ?? DateTime.now(),
@@ -70,26 +87,6 @@ class _TimerViewState extends State<TimerView> {
     });
     _sessionStart = null;
     _taskController.clear();
-  }
-
-  Stream<Job?>? _jobStream;
-
-  @override
-  void initState() {
-    super.initState();
-    _updateJobStream();
-  }
-
-  @override
-  void didUpdateWidget(TimerView old) {
-    super.didUpdateWidget(old);
-    if (old.jobId != widget.jobId) _updateJobStream(); // selection changed
-  }
-
-  void _updateJobStream() {
-    _jobStream = widget.jobId == null
-        ? null
-        : widget.db.watchJob(widget.jobId!);
   }
 
   @override
@@ -107,27 +104,8 @@ class _TimerViewState extends State<TimerView> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                StreamBuilder<Job?>(
-                  stream: _jobStream,
-                  builder: (context, snap) {
-                    final job = snap.data;
-                    if (job == null) {
-                      return const SizedBox.shrink(); // nothing selected yet
-                    }
-                    return Column(
-                      children: [
-                        Text(
-                          job.code,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        Text(
-                          job.title,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                // 1. Extracted Job Stream Element
+                JobHeader(jobStream: _jobStream),
                 const SizedBox(height: AppTokens.spaceXl),
                 const Text('Time tracked:'),
                 FittedBox(
@@ -164,15 +142,52 @@ class _TimerViewState extends State<TimerView> {
             ),
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: StreamBuilder<List<TimeEntry>>(
-              stream: _entriesStream,
-              builder: (context, snapshot) =>
-                  EntryList(entries: snapshot.data ?? []),
-            ),
-          ),
+          // 2. Extracted Historical Stream List
+          Expanded(child: EntryHistoryList(entriesStream: _entriesStream)),
         ],
       ),
+    );
+  }
+}
+
+// --- Component 1: Job Meta Header ---
+class JobHeader extends StatelessWidget {
+  final Stream<Job?>? jobStream;
+
+  const JobHeader({super.key, required this.jobStream});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Job?>(
+      stream: jobStream,
+      builder: (context, snap) {
+        final job = snap.data;
+        if (job == null) return const SizedBox.shrink();
+
+        return Column(
+          children: [
+            Text(job.code, style: Theme.of(context).textTheme.bodySmall),
+            Text(job.title, style: Theme.of(context).textTheme.titleLarge),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// --- Component 2: Isolated Entries List ---
+class EntryHistoryList extends StatelessWidget {
+  final Stream<List<TimeEntry>> entriesStream;
+
+  const EntryHistoryList({super.key, required this.entriesStream});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<TimeEntry>>(
+      stream: entriesStream,
+      builder: (context, snapshot) {
+        return TimeEntryList(entries: snapshot.data ?? []);
+      },
     );
   }
 }

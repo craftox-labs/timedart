@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/tokens.dart';
+import 'package:time_tracker/constants/tokens.dart';
 
 ThemeData buildAppTheme(Brightness brightness) {
   final scheme = ColorScheme.fromSeed(
@@ -15,7 +15,8 @@ ThemeData buildAppTheme(Brightness brightness) {
 
   return ThemeData(
     useMaterial3: true,
-    fontFamily: AppTokens.fontFamily, // one source of truth — cascades to all text
+    fontFamily:
+        AppTokens.fontFamily, // one source of truth — cascades to all text
     colorScheme: scheme,
 
     // ── Type scale: tweak roles once, applies everywhere ──

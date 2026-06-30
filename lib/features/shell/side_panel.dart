@@ -1,0 +1,271 @@
+import 'package:flutter/material.dart';
+import 'package:time_tracker/data/database.dart';
+import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/features/clients/clients_screen.dart';
+import 'package:time_tracker/features/jobs/jobs_screen.dart';
+
+class SidePanel extends StatefulWidget {
+  const SidePanel({
+    super.key,
+    required this.db,
+    this.selectedJobId,
+    this.onSelect,
+  });
+  final AppDatabase db;
+  final int? selectedJobId;
+  final void Function(int)? onSelect;
+
+  @override
+  State<SidePanel> createState() => _SidePanelState();
+}
+
+class _SidePanelState extends State<SidePanel> {
+  late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
+  late final Stream<List<Job>> _jobsStream = widget.db.watchJobs();
+
+  void _openClients() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => ClientsScreen(db: widget.db)));
+
+  void _openJobs() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => JobsScreen(db: widget.db)));
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Client>>(
+      stream: _clientsStream,
+      builder: (context, clientSnap) {
+        final clients = clientSnap.data ?? [];
+        return StreamBuilder<List<Job>>(
+          stream: _jobsStream,
+          builder: (context, jobSnap) {
+            final jobs = jobSnap.data ?? [];
+            return _SidePanelListView(
+              clients: clients,
+              jobs: jobs,
+              selectedJobId: widget.selectedJobId,
+              onSelectJob: widget.onSelect,
+              onEditClients: _openClients,
+              onAddJob: _openJobs,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// --- Extracted Layout & List Logic ---
+class _SidePanelListView extends StatelessWidget {
+  final List<Client> clients;
+  final List<Job> jobs;
+  final int? selectedJobId;
+  final void Function(int)? onSelectJob;
+  final VoidCallback onEditClients;
+  final VoidCallback onAddJob;
+
+  const _SidePanelListView({
+    required this.clients,
+    required this.jobs,
+    required this.selectedJobId,
+    required this.onSelectJob,
+    required this.onEditClients,
+    required this.onAddJob,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final jobsByClient = <int, List<Job>>{};
+    for (final j in jobs) {
+      jobsByClient.putIfAbsent(j.clientId, () => []).add(j);
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: AppTokens.space4xs),
+      children: [
+        for (final c in clients)
+          ClientGroupTile(
+            client: c,
+            clientJobs: jobsByClient[c.id] ?? const <Job>[],
+            selectedJobId: selectedJobId,
+            onSelectJob: onSelectJob,
+            onEditClients: onEditClients,
+            onAddJob: onAddJob,
+          ),
+        const SizedBox(height: AppTokens.space2xs),
+        AddClientButton(onTap: onEditClients),
+      ],
+    );
+  }
+}
+
+// --- Extracted Add Client Button ---
+class AddClientButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const AddClientButton({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -4),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.spaceMd,
+        vertical: 0,
+      ),
+      leading: const Icon(Icons.add, size: AppTokens.iconSm),
+      horizontalTitleGap: AppTokens.spaceXs,
+      title: const Text(
+        'Add client',
+        style: TextStyle(fontSize: AppTokens.fontSizeSm),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+// --- Extracted Parent Widget ---
+class ClientGroupTile extends StatefulWidget {
+  final Client client;
+  final List<Job> clientJobs;
+  final int? selectedJobId;
+  final void Function(int)? onSelectJob;
+  final VoidCallback onEditClients;
+  final VoidCallback onAddJob;
+
+  const ClientGroupTile({
+    super.key,
+    required this.client,
+    required this.clientJobs,
+    required this.selectedJobId,
+    required this.onSelectJob,
+    required this.onEditClients,
+    required this.onAddJob,
+  });
+
+  @override
+  State<ClientGroupTile> createState() => _ClientGroupTileState();
+}
+
+class _ClientGroupTileState extends State<ClientGroupTile> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Theme(
+      data: theme.copyWith(
+        dividerColor: AppTokens.colorBrandPrimary,
+        splashColor: Colors.transparent,
+        expansionTileTheme: const ExpansionTileThemeData(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+        ),
+      ),
+      child: ExpansionTile(
+        key: PageStorageKey(widget.client.id),
+        expansionAnimationStyle: AnimationStyle.noAnimation,
+        tilePadding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.spaceMd,
+          vertical: 0,
+        ),
+        dense: true,
+        showTrailingIcon: false,
+        onExpansionChanged: (isExpanded) {
+          setState(() {
+            _isExpanded = isExpanded;
+          });
+        },
+        title: ListTile(
+          dense: true,
+          visualDensity: const VisualDensity(vertical: -4),
+          contentPadding: EdgeInsets.zero,
+          horizontalTitleGap: AppTokens.space2xs,
+          leading: Icon(
+            _isExpanded ? Icons.expand_more : Icons.chevron_right,
+            size: AppTokens.iconSm,
+            color: _isExpanded
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+          title: Text(
+            widget.client.name,
+            style: TextStyle(
+              fontSize: AppTokens.fontSizeSm,
+              fontWeight: FontWeight.w300,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.edit_note),
+            iconSize: AppTokens.iconSm,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Edit clients',
+            onPressed: widget.onEditClients,
+          ),
+        ),
+        children: [
+          for (final j in widget.clientJobs)
+            JobRowItem(
+              job: j,
+              isSelected: j.id == widget.selectedJobId,
+              onTap: () => widget.onSelectJob?.call(j.id),
+            ),
+          ListTile(
+            dense: true,
+            visualDensity: const VisualDensity(vertical: -4),
+            contentPadding: const EdgeInsets.only(
+              left: AppTokens.spaceMd,
+              right: AppTokens.spaceMd,
+            ),
+            leading: const Icon(Icons.add, size: AppTokens.iconXs),
+            horizontalTitleGap: AppTokens.space2xs,
+            title: const Text(
+              'Add job',
+              style: TextStyle(fontSize: AppTokens.fontSizeSm),
+            ),
+            onTap: widget.onAddJob,
+          ),
+          const SizedBox(height: AppTokens.spaceXs),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Extracted Child Widget ---
+class JobRowItem extends StatelessWidget {
+  final Job job;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const JobRowItem({
+    super.key,
+    required this.job,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -4),
+      contentPadding: const EdgeInsets.only(
+        left: AppTokens.spaceLg,
+        right: AppTokens.spaceMd,
+      ),
+      title: Text(
+        '${job.code} - ${job.title}',
+        style: const TextStyle(fontSize: AppTokens.fontSizeXs),
+      ),
+      selected: isSelected,
+      onTap: onTap,
+    );
+  }
+}

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/tokens.dart';
+import 'package:time_tracker/constants/tokens.dart';
 
 class ContentBody extends StatelessWidget {
   final Widget child;
