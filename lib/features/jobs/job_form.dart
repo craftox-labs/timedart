@@ -7,10 +7,12 @@ class JobForm extends StatefulWidget {
     super.key,
     required this.db,
     this.initial,
+    this.initialClientId,
     required this.onDone,
   });
   final AppDatabase db;
   final Job? initial; // null = create, set = edit
+  final int? initialClientId; // preselect the client when adding under one
   final VoidCallback onDone;
   @override
   State<JobForm> createState() => _JobFormState();
@@ -20,10 +22,12 @@ class _JobFormState extends State<JobForm> {
   late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
   late final _code = TextEditingController(text: widget.initial?.code ?? '');
   late final _title = TextEditingController(text: widget.initial?.title ?? '');
-  late int? _clientId = widget.initial?.clientId; // pre-select in edit mode
+  late int? _clientId =
+      widget.initial?.clientId ?? widget.initialClientId; // preselect
   late final _rate = TextEditingController(
     text: widget.initial?.rate?.toString() ?? '',
   );
+  String? _rateError;
 
   @override
   void dispose() {
@@ -41,25 +45,46 @@ class _JobFormState extends State<JobForm> {
         _clientId == null) {
       return;
     }
-    final rate = _rate.text.trim().isEmpty
-        ? null
-        : double.tryParse(_rate.text.trim());
-    if (_isEdit) {
-      await widget.db.updateJob(
-        id: widget.initial!.id,
-        code: _code.text.trim(),
-        title: _title.text.trim(),
-        rate: rate,
-      );
-    } else {
-      await widget.db.addJob(
-        clientId: _clientId!,
-        code: _code.text.trim(),
-        title: _title.text.trim(),
-        rate: rate,
-      );
+    // Rate is optional, but a non-empty value must be a valid number —
+    // don't silently drop "5o" to null.
+    final rateText = _rate.text.trim();
+    double? rate;
+    if (rateText.isNotEmpty) {
+      rate = double.tryParse(rateText);
+      if (rate == null) {
+        setState(() => _rateError = 'Enter a number, or leave blank');
+        return;
+      }
     }
-    if (mounted) widget.onDone(); // close the edit screen
+    setState(() => _rateError = null);
+
+    try {
+      if (_isEdit) {
+        await widget.db.updateJob(
+          id: widget.initial!.id,
+          clientId: _clientId!, // allow reassigning the client
+          code: _code.text.trim(),
+          title: _title.text.trim(),
+          rate: rate,
+        );
+      } else {
+        await widget.db.addJob(
+          clientId: _clientId!,
+          code: _code.text.trim(),
+          title: _title.text.trim(),
+          rate: rate,
+        );
+      }
+    } catch (e) {
+      // e.g. the unique job-code constraint
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save job: $e')),
+        );
+      }
+      return;
+    }
+    if (mounted) widget.onDone();
   }
 
   Future<void> _confirmDelete() async {
@@ -81,7 +106,19 @@ class _JobFormState extends State<JobForm> {
       ),
     );
     if (ok == true) {
-      await widget.db.deleteJob(widget.initial!.id);
+      try {
+        await widget.db.deleteJob(widget.initial!.id);
+      } catch (e) {
+        // FK restrict: the job has time entries recorded against it.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot delete a job that has time entries.'),
+            ),
+          );
+        }
+        return;
+      }
       if (mounted) widget.onDone();
     }
   }
@@ -119,21 +156,20 @@ class _JobFormState extends State<JobForm> {
           decoration: const InputDecoration(labelText: 'Title'),
         ),
         const SizedBox(height: AppTokens.spaceXl),
+        TextField(
+          controller: _rate,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(labelText: 'Rate', errorText: _rateError),
+        ),
+        const SizedBox(height: AppTokens.spaceXl),
         Row(
           children: [
-            Expanded(
-              child: TextField(
-                controller: _rate,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Default Rate'),
-              ),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
             if (_isEdit)
               TextButton(
                 onPressed: _confirmDelete,
                 child: const Text('Delete'),
               ),
+            const Spacer(),
             OutlinedButton(
               onPressed: widget.onDone,
               child: const Text('Cancel'),

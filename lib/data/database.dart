@@ -48,6 +48,16 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
+  // drift doesn't enforce foreign keys unless we turn the pragma on per
+  // connection. With it on, deleting a job that has time entries (or a client
+  // that has jobs) fails loudly instead of silently orphaning rows.
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
+
   static QueryExecutor _open() => driftDatabase(
     name: 'time_tracker',
     native: const DriftNativeOptions(
@@ -109,11 +119,17 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> updateJob({
     required int id,
+    required int clientId,
     required String code,
     required String title,
     double? rate,
   }) => (update(jobs)..where((j) => j.id.equals(id))).write(
-    JobsCompanion(code: Value(code), title: Value(title), rate: Value(rate)),
+    JobsCompanion(
+      clientId: Value(clientId),
+      code: Value(code),
+      title: Value(title),
+      rate: Value(rate),
+    ),
   );
 
   Future<void> deleteJob(int id) =>

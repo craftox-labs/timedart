@@ -4,7 +4,7 @@ class TimerControls extends StatelessWidget {
   final bool running;
   final bool hasSession;
   final int counter;
-  final VoidCallback onPrimary; // start / pause / resume
+  final VoidCallback? onPrimary; // start / pause / resume — null disables it
   final VoidCallback? onFinish; // nullable → disables the button when null
 
   const TimerControls({

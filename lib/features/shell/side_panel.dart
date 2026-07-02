@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/features/clients/clients_screen.dart';
-import 'package:time_tracker/features/jobs/jobs_screen.dart';
 
 class SidePanel extends StatefulWidget {
   const SidePanel({
@@ -11,11 +9,17 @@ class SidePanel extends StatefulWidget {
     this.selectedJobId,
     this.onSelect,
     required this.onEditJob,
+    required this.onAddJob,
+    required this.onEditClient,
+    required this.onAddClient,
   });
   final AppDatabase db;
   final int? selectedJobId;
-  final void Function(int)? onSelect;
+  final void Function(int)? onSelect; // select a job for the timer
   final void Function(Job) onEditJob;
+  final void Function(int clientId) onAddJob; // add a job under this client
+  final void Function(Client) onEditClient;
+  final VoidCallback onAddClient;
 
   @override
   State<SidePanel> createState() => _SidePanelState();
@@ -24,14 +28,6 @@ class SidePanel extends StatefulWidget {
 class _SidePanelState extends State<SidePanel> {
   late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
   late final Stream<List<Job>> _jobsStream = widget.db.watchJobs();
-
-  void _openClients() => Navigator.of(
-    context,
-  ).push(MaterialPageRoute(builder: (_) => ClientsScreen(db: widget.db)));
-
-  void _openJobs() => Navigator.of(
-    context,
-  ).push(MaterialPageRoute(builder: (_) => JobsScreen(db: widget.db)));
 
   @override
   Widget build(BuildContext context) {
@@ -48,9 +44,10 @@ class _SidePanelState extends State<SidePanel> {
               jobs: jobs,
               selectedJobId: widget.selectedJobId,
               onSelectJob: widget.onSelect,
-              onEditClients: _openClients,
-              onAddJob: _openJobs,
               onEditJob: widget.onEditJob,
+              onAddJob: widget.onAddJob,
+              onEditClient: widget.onEditClient,
+              onAddClient: widget.onAddClient,
             );
           },
         );
@@ -65,18 +62,20 @@ class _SidePanelListView extends StatelessWidget {
   final List<Job> jobs;
   final int? selectedJobId;
   final void Function(int)? onSelectJob;
-  final VoidCallback onEditClients;
-  final VoidCallback onAddJob;
   final void Function(Job) onEditJob;
+  final void Function(int clientId) onAddJob;
+  final void Function(Client) onEditClient;
+  final VoidCallback onAddClient;
 
   const _SidePanelListView({
     required this.clients,
     required this.jobs,
     required this.selectedJobId,
     required this.onSelectJob,
-    required this.onEditClients,
-    required this.onAddJob,
     required this.onEditJob,
+    required this.onAddJob,
+    required this.onEditClient,
+    required this.onAddClient,
   });
 
   @override
@@ -95,12 +94,12 @@ class _SidePanelListView extends StatelessWidget {
             clientJobs: jobsByClient[c.id] ?? const <Job>[],
             selectedJobId: selectedJobId,
             onSelectJob: onSelectJob,
-            onEditClients: onEditClients,
-            onAddJob: onAddJob,
             onEditJob: onEditJob,
+            onAddJob: onAddJob,
+            onEditClient: onEditClient,
           ),
         const SizedBox(height: AppTokens.space2xs),
-        AddClientButton(onTap: onEditClients),
+        AddClientButton(onTap: onAddClient),
       ],
     );
   }
@@ -138,9 +137,9 @@ class ClientGroupTile extends StatefulWidget {
   final List<Job> clientJobs;
   final int? selectedJobId;
   final void Function(int)? onSelectJob;
-  final VoidCallback onEditClients;
-  final VoidCallback onAddJob;
   final void Function(Job) onEditJob;
+  final void Function(int clientId) onAddJob;
+  final void Function(Client) onEditClient;
 
   const ClientGroupTile({
     super.key,
@@ -148,9 +147,9 @@ class ClientGroupTile extends StatefulWidget {
     required this.clientJobs,
     required this.selectedJobId,
     required this.onSelectJob,
-    required this.onEditClients,
-    required this.onAddJob,
     required this.onEditJob,
+    required this.onAddJob,
+    required this.onEditClient,
   });
 
   @override
@@ -213,8 +212,8 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Edit clients',
-            onPressed: widget.onEditClients,
+            tooltip: 'Edit client',
+            onPressed: () => widget.onEditClient(widget.client),
           ),
         ),
         children: [
@@ -238,7 +237,7 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
               'Add job',
               style: TextStyle(fontSize: AppTokens.fontSizeXs),
             ),
-            onTap: widget.onAddJob,
+            onTap: () => widget.onAddJob(widget.client.id),
           ),
           const SizedBox(height: AppTokens.spaceXs),
         ],

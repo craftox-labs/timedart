@@ -1,10 +1,33 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
 import 'package:time_tracker/features/jobs/job_form.dart';
+import 'package:time_tracker/features/clients/client_form.dart';
 import 'package:time_tracker/widgets/content_body.dart';
+
+// What the detail pane is currently showing. One value instead of a pile of
+// nullable flags, so the content is a single exhaustive switch.
+sealed class _Detail {
+  const _Detail();
+}
+
+class _Tracker extends _Detail {
+  const _Tracker();
+}
+
+class _EditJob extends _Detail {
+  final Job? job; // null = adding
+  final int? clientId; // preselected client when adding under one
+  const _EditJob({this.job, this.clientId});
+}
+
+class _EditClient extends _Detail {
+  final Client? client; // null = adding
+  const _EditClient({this.client});
+}
 
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key, required this.db});
@@ -14,12 +37,20 @@ class AdaptiveShell extends StatefulWidget {
 }
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
-  int? _selectedJobId; // the shared state, lifted up here
-  Job? _editingJob;
+  int? _selectedJobId; // the job the timer records against
+  _Detail _detail = const _Tracker();
+  StreamSubscription<List<Job>>? _jobsSub;
 
-  void _selectJob(int id) => setState(() => _selectedJobId = id);
-  void _editJob(Job job) => setState(() => _editingJob = job);
-  void _closeEditor() => setState(() => _editingJob = null);
+  void _showTracker() => setState(() => _detail = const _Tracker());
+  void _selectJob(int id) => setState(() {
+    _selectedJobId = id;
+    _detail = const _Tracker(); // picking a job returns you to the timer
+  });
+  void _editJob(Job job) => setState(() => _detail = _EditJob(job: job));
+  void _addJob(int clientId) =>
+      setState(() => _detail = _EditJob(clientId: clientId));
+  void _editClient(Client c) => setState(() => _detail = _EditClient(client: c));
+  void _addClient() => setState(() => _detail = const _EditClient());
 
   @override
   void initState() {
@@ -29,14 +60,75 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         setState(() => _selectedJobId ??= id); // default only if unset
       }
     });
+
+    // Keep selection and any open job editor honest when jobs change:
+    // if the selected/edited job is deleted, fall back gracefully.
+    _jobsSub = widget.db.watchJobs().listen((jobs) {
+      if (!mounted) return;
+      final ids = jobs.map((j) => j.id).toSet();
+      var selected = _selectedJobId;
+      var detail = _detail;
+
+      if (selected != null && !ids.contains(selected)) {
+        selected = jobs.isNotEmpty ? jobs.first.id : null;
+      }
+      if (detail is _EditJob &&
+          detail.job != null &&
+          !ids.contains(detail.job!.id)) {
+        detail = const _Tracker();
+      }
+      if (selected != _selectedJobId || !identical(detail, _detail)) {
+        setState(() {
+          _selectedJobId = selected;
+          _detail = detail;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _jobsSub?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final detail = _editingJob != null
-        ? JobForm(db: widget.db, initial: _editingJob, onDone: _closeEditor)
-        : TimerView(db: widget.db, jobId: _selectedJobId);
-    final content = ContentBody(child: detail);
+    final Widget detailView = switch (_detail) {
+      _Tracker() => TimerView(db: widget.db, jobId: _selectedJobId),
+      _EditJob(:final job, :final clientId) => JobForm(
+        db: widget.db,
+        initial: job,
+        initialClientId: clientId,
+        onDone: _showTracker,
+      ),
+      _EditClient(:final client) => ClientForm(
+        db: widget.db,
+        initial: client,
+        onDone: _showTracker,
+      ),
+    };
+    final content = ContentBody(child: detailView);
+
+    // In the narrow layout the panel lives in a drawer, so every action must
+    // close the drawer first to reveal the content pane it just changed.
+    // `before` runs that pop; in the wide layout it's null (panel is persistent).
+    SidePanel panel({VoidCallback? before}) {
+      void run(VoidCallback action) {
+        before?.call();
+        action();
+      }
+
+      return SidePanel(
+        db: widget.db,
+        selectedJobId: _selectedJobId,
+        onSelect: (id) => run(() => _selectJob(id)),
+        onEditJob: (j) => run(() => _editJob(j)),
+        onAddJob: (cid) => run(() => _addJob(cid)),
+        onEditClient: (c) => run(() => _editClient(c)),
+        onAddClient: () => run(_addClient),
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, c) {
@@ -46,15 +138,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               children: [
                 Expanded(child: content),
                 const VerticalDivider(width: 1),
-                SizedBox(
-                  width: 240,
-                  child: SidePanel(
-                    db: widget.db,
-                    selectedJobId: _selectedJobId,
-                    onSelect: _selectJob, // no pop — panel is persistent
-                    onEditJob: _editJob,
-                  ),
-                ),
+                SizedBox(width: 240, child: panel()),
               ],
             ),
           );
@@ -62,15 +146,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         return Scaffold(
           appBar: AppBar(title: const Text('Time Tracker')),
           endDrawer: Drawer(
-            child: SidePanel(
-              db: widget.db,
-              selectedJobId: _selectedJobId,
-              onSelect: (id) {
-                _selectJob(id);
-                Navigator.pop(context); // close the drawer — only here
-              },
-              onEditJob: _editJob,
-            ),
+            child: panel(before: () => Navigator.pop(context)),
           ),
           body: content,
         );

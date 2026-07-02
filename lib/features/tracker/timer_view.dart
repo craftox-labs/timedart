@@ -20,6 +20,7 @@ class _TimerViewState extends State<TimerView> {
   bool _running = false;
   Timer? _timer;
   DateTime? _sessionStart;
+  int? _sessionJobId; // the job this session belongs to, fixed at start
   final _taskController = TextEditingController();
   late final Stream<List<TimeEntry>> _entriesStream = widget.db.watchEntries();
   Stream<Job?>? _jobStream;
@@ -54,6 +55,9 @@ class _TimerViewState extends State<TimerView> {
   void _startOrResume() {
     if (_running) return;
     _sessionStart ??= DateTime.now();
+    // Bind the session to the job selected at start, so switching (or losing)
+    // the selection mid-session can't misattribute or silently discard it.
+    _sessionJobId ??= widget.jobId;
     setState(() {
       _running = true;
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -68,23 +72,46 @@ class _TimerViewState extends State<TimerView> {
     setState(() => _running = false);
   }
 
-  void _finish() {
+  Future<void> _finish() async {
     _timer?.cancel();
+    setState(() => _running = false);
+
+    final jobId = _sessionJobId; // the job at session start, not live selection
+    // Nothing to record (empty session, or somehow no job) — just reset.
+    if (_counter == 0 || jobId == null) {
+      _resetSession();
+      return;
+    }
+
     final text = _taskController.text.trim();
-    if (_counter > 0 && widget.jobId != null) {
-      widget.db.addEntry(
-        jobId: widget.jobId!,
+    try {
+      // Await the write so a failure is caught rather than silently lost.
+      await widget.db.addEntry(
+        jobId: jobId,
         task: text.isEmpty ? 'Untitled session' : text,
         startedAt: _sessionStart ?? DateTime.now(),
         endedAt: DateTime.now(),
         seconds: _counter,
       );
+      _resetSession();
+    } catch (e) {
+      // Keep the session intact so the user can retry instead of losing time.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save entry: $e')),
+        );
+      }
     }
+  }
+
+  void _resetSession() {
+    if (!mounted) return;
     setState(() {
       _counter = 0;
       _running = false;
     });
     _sessionStart = null;
+    _sessionJobId = null;
     _taskController.clear();
   }
 
@@ -123,9 +150,20 @@ class _TimerViewState extends State<TimerView> {
                 running: _running,
                 hasSession: _hasSession,
                 counter: _counter,
-                onPrimary: _running ? _pause : _startOrResume,
+                // No job selected → disable start so time can't be tracked
+                // against nothing (and later silently discarded).
+                onPrimary: widget.jobId == null
+                    ? null
+                    : (_running ? _pause : _startOrResume),
                 onFinish: _hasSession ? _finish : null,
               ),
+              if (widget.jobId == null) ...[
+                const SizedBox(height: AppTokens.spaceSm),
+                Text(
+                  'Select a job to start tracking',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: AppTokens.spaceXl),
               TextField(
                 controller: _taskController,
