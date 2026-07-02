@@ -15,7 +15,9 @@ class JobForm extends StatefulWidget {
   final AppDatabase db;
   final Job? initial; // null = create, set = edit
   final int? initialClientId; // preselect the client when adding under one
-  final VoidCallback onDone;
+  // Called when the form closes. Passes the new job's id when one was just
+  // created (so the caller can select it), or null on edit/delete/cancel.
+  final void Function(int? createdJobId) onDone;
   @override
   State<JobForm> createState() => _JobFormState();
 }
@@ -55,6 +57,7 @@ class _JobFormState extends State<JobForm> {
     setState(() => _rateError = null);
     final rate = parsed.value;
 
+    int? createdJobId;
     try {
       if (_isEdit) {
         await widget.db.updateJob(
@@ -65,7 +68,7 @@ class _JobFormState extends State<JobForm> {
           rate: rate,
         );
       } else {
-        await widget.db.addJob(
+        createdJobId = await widget.db.addJob(
           clientId: _clientId!,
           code: _code.text.trim(),
           title: _title.text.trim(),
@@ -81,7 +84,7 @@ class _JobFormState extends State<JobForm> {
       }
       return;
     }
-    if (mounted) widget.onDone();
+    if (mounted) widget.onDone(createdJobId);
   }
 
   Future<void> _confirmDelete() async {
@@ -104,7 +107,7 @@ class _JobFormState extends State<JobForm> {
       }
       return;
     }
-    if (mounted) widget.onDone();
+    if (mounted) widget.onDone(null);
   }
 
   @override
@@ -178,7 +181,7 @@ class _JobFormState extends State<JobForm> {
                     ),
                   const Spacer(),
                   OutlinedButton(
-                    onPressed: widget.onDone,
+                    onPressed: () => widget.onDone(null),
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: AppTokens.spaceSm),

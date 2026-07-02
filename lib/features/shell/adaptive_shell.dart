@@ -107,7 +107,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         db: widget.db,
         initial: job,
         initialClientId: clientId,
-        onDone: _showTracker,
+        // A freshly-created job becomes the selection so the timer switches
+        // to it; edit/delete/cancel just return to the tracker.
+        onDone: (createdJobId) =>
+            createdJobId == null ? _showTracker() : _selectJob(createdJobId),
       ),
       _EditClient(:final client) => ClientForm(
         db: widget.db,
