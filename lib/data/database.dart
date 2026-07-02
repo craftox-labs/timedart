@@ -34,14 +34,20 @@ class TimeEntries extends Table {
       integer()(); // TRACKED time (excludes pauses) — see below
 }
 
-class JobWithRate {
-  final Job job;
-  final double? effectiveRate;
-  JobWithRate(this.job, this.effectiveRate);
+/// One itemised line of a [JobInvoice]: an entry with its hours and amount.
+/// `amount` is null when the invoice has no effective rate (un-billable).
+class InvoiceLine {
+  final TimeEntry entry;
+  final double hours;
+  final double? amount;
+  InvoiceLine({required this.entry, required this.hours, required this.amount});
 }
 
 /// An invoice for a single job over a period: the job, its client, the
 /// effective rate (`null` = un-billable), and the itemised time entries.
+///
+/// Owns all invoice arithmetic — hours, per-line amounts, totals — so the
+/// preview and the PDF read numbers rather than recomputing them.
 class JobInvoice {
   final Job job;
   final Client client;
@@ -53,6 +59,17 @@ class JobInvoice {
     required this.rate,
     required this.entries,
   });
+
+  /// The itemised lines: hours and (rate-permitting) amount per entry.
+  List<InvoiceLine> get lines => [
+    for (final e in entries)
+      InvoiceLine(
+        entry: e,
+        hours: e.seconds / 3600,
+        amount: rate == null ? null : (e.seconds / 3600) * rate!,
+      ),
+  ];
+
   int get totalSeconds => entries.fold(0, (sum, e) => sum + e.seconds);
   double get totalHours => totalSeconds / 3600;
   double? get total => rate == null ? null : totalHours * rate!;
@@ -156,10 +173,6 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Job>> watchJobs() =>
       (select(jobs)..orderBy([(j) => OrderingTerm.asc(j.title)])).watch();
 
-  Stream<List<TimeEntry>> watchEntries() => (select(
-    timeEntries,
-  )..orderBy([(t) => OrderingTerm.desc(t.endedAt)])).watch();
-
   Stream<List<TimeEntry>> watchEntriesForJob(int jobId) =>
       (select(timeEntries)
             ..where((t) => t.jobId.equals(jobId))
@@ -168,21 +181,6 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<Client>> watchClients() =>
       (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
-
-  Stream<List<JobWithRate>> watchJobsWithRate() {
-    final q = select(jobs).join([
-      innerJoin(clients, clients.id.equalsExp(jobs.clientId)),
-    ])..orderBy([OrderingTerm.asc(jobs.title)]);
-    return q.watch().map(
-      (rows) => [
-        for (final r in rows)
-          JobWithRate(
-            r.readTable(jobs),
-            r.readTable(jobs).rate ?? r.readTable(clients).defaultRate,
-          ),
-      ],
-    );
-  }
 
   Stream<Job?> watchJob(int id) =>
       (select(jobs)..where((j) => j.id.equals(id))).watchSingleOrNull();

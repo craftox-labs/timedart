@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/constants/format.dart';
 import 'package:time_tracker/features/invoices/invoice_pdf.dart';
 
 /// Read-only invoice builder for one job: pick a date range, preview the
@@ -97,7 +98,6 @@ class _InvoiceViewState extends State<InvoiceView> {
   }
 
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
-  String _fmtHours(int seconds) => (seconds / 3600).toStringAsFixed(2);
 
   @override
   Widget build(BuildContext context) {
@@ -156,14 +156,14 @@ class _InvoiceViewState extends State<InvoiceView> {
                     Expanded(
                       child: ListView(
                         children: [
-                          for (final e in inv.entries)
+                          for (final line in inv.lines)
                             ListTile(
                               dense: true,
-                              title: Text(e.task),
-                              subtitle: Text(_fmtDate(e.startedAt)),
+                              title: Text(line.entry.task),
+                              subtitle: Text(_fmtDate(line.entry.startedAt)),
                               trailing: Text(
-                                '${_fmtHours(e.seconds)} h'
-                                '${inv.rate == null ? '' : ' · \$${((e.seconds / 3600) * inv.rate!).toStringAsFixed(2)}'}',
+                                '${formatHours(line.hours)} h'
+                                '${line.amount == null ? '' : ' · ${formatMoney(line.amount!)}'}',
                               ),
                             ),
                         ],
@@ -179,13 +179,11 @@ class _InvoiceViewState extends State<InvoiceView> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Total (${_fmtHours(inv.totalSeconds)} h)',
+                            'Total (${formatHours(inv.totalHours)} h)',
                             style: theme.textTheme.titleMedium,
                           ),
                           Text(
-                            inv.total == null
-                                ? '—'
-                                : '\$${inv.total!.toStringAsFixed(2)}',
+                            inv.total == null ? '—' : formatMoney(inv.total!),
                             style: theme.textTheme.titleMedium,
                           ),
                         ],

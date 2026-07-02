@@ -6,3 +6,8 @@ extension DurationFormat on Duration {
     return '$h:$m:$s';
   }
 }
+
+// Invoice number formatting, shared by the on-screen preview and the PDF so
+// rounding can't drift between them.
+String formatMoney(double amount) => '\$${amount.toStringAsFixed(2)}';
+String formatHours(double hours) => hours.toStringAsFixed(2);

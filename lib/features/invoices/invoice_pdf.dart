@@ -2,9 +2,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:time_tracker/data/database.dart';
-
-String _money(double v) => '\$${v.toStringAsFixed(2)}';
-String _hours(int seconds) => (seconds / 3600).toStringAsFixed(2);
+import 'package:time_tracker/constants/format.dart';
 
 const _months = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -42,7 +40,9 @@ Future<Uint8List> buildInvoicePdf({
             '${inv.client.email != null ? ' · ${inv.client.email}' : ''}',
           ),
           pw.Text('Period: ${_date(from)} – ${_date(to)}'),
-          pw.Text(rate == null ? 'Rate: not set' : 'Rate: ${_money(rate)}/hr'),
+          pw.Text(
+            rate == null ? 'Rate: not set' : 'Rate: ${formatMoney(rate)}/hr',
+          ),
           pw.SizedBox(height: 24),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -54,12 +54,12 @@ Future<Uint8List> buildInvoicePdf({
             },
             headers: ['Date', 'Task', 'Hours', 'Amount'],
             data: [
-              for (final e in inv.entries)
+              for (final line in inv.lines)
                 [
-                  _date(e.startedAt),
-                  e.task,
-                  _hours(e.seconds),
-                  rate == null ? '—' : _money((e.seconds / 3600) * rate),
+                  _date(line.entry.startedAt),
+                  line.entry.task,
+                  formatHours(line.hours),
+                  line.amount == null ? '—' : formatMoney(line.amount!),
                 ],
             ],
           ),
@@ -68,8 +68,8 @@ Future<Uint8List> buildInvoicePdf({
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
               inv.total == null
-                  ? 'Total hours: ${_hours(inv.totalSeconds)} (no rate set)'
-                  : 'Total: ${_money(inv.total!)}',
+                  ? 'Total hours: ${formatHours(inv.totalHours)} (no rate set)'
+                  : 'Total: ${formatMoney(inv.total!)}',
               style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
             ),
           ),
