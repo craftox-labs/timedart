@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/tracker/timer_controls.dart';
+import 'package:time_tracker/features/tracker/timer_session.dart';
 import 'package:time_tracker/constants/format.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/tracker/time_entry_list.dart';
@@ -16,11 +17,8 @@ class TimerView extends StatefulWidget {
 }
 
 class _TimerViewState extends State<TimerView> {
-  int _counter = 0;
-  bool _running = false;
+  final _session = TimerSession();
   Timer? _timer;
-  DateTime? _sessionStart;
-  int? _sessionJobId; // the job this session belongs to, fixed at start
   final _taskController = TextEditingController();
   Stream<List<TimeEntry>>? _entriesStream; // entries for the selected job
   Stream<Job?>? _jobStream;
@@ -44,8 +42,6 @@ class _TimerViewState extends State<TimerView> {
     super.dispose();
   }
 
-  bool get _hasSession => _running || _counter > 0;
-
   void _updateJobStream() {
     final id = widget.jobId;
     _jobStream = id == null ? null : widget.db.watchJob(id);
@@ -53,32 +49,28 @@ class _TimerViewState extends State<TimerView> {
   }
 
   void _startOrResume() {
-    if (_running) return;
-    _sessionStart ??= DateTime.now();
-    // Bind the session to the job selected at start, so switching (or losing)
-    // the selection mid-session can't misattribute or silently discard it.
-    _sessionJobId ??= widget.jobId;
+    if (_session.isRunning) return;
     setState(() {
-      _running = true;
+      _session.start(widget.jobId, now: DateTime.now());
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
-        setState(() => _counter++);
+        setState(_session.tick);
       });
     });
   }
 
   void _pause() {
     _timer?.cancel();
-    setState(() => _running = false);
+    setState(_session.pause);
   }
 
   Future<void> _finish() async {
     _timer?.cancel();
-    setState(() => _running = false);
+    final result = _session.finish(now: DateTime.now());
+    setState(() {}); // reflect the stopped state
 
-    final jobId = _sessionJobId; // the job at session start, not live selection
-    // Nothing to record (empty session, or somehow no job) — just reset.
-    if (_counter == 0 || jobId == null) {
+    // Nothing to record (empty session, or no job was ever bound).
+    if (result == null) {
       _resetSession();
       return;
     }
@@ -87,11 +79,11 @@ class _TimerViewState extends State<TimerView> {
     try {
       // Await the write so a failure is caught rather than silently lost.
       await widget.db.addEntry(
-        jobId: jobId,
+        jobId: result.jobId,
         task: text.isEmpty ? 'Untitled session' : text,
-        startedAt: _sessionStart ?? DateTime.now(),
-        endedAt: DateTime.now(),
-        seconds: _counter,
+        startedAt: result.startedAt,
+        endedAt: result.endedAt,
+        seconds: result.seconds,
       );
       _resetSession();
     } catch (e) {
@@ -106,12 +98,7 @@ class _TimerViewState extends State<TimerView> {
 
   void _resetSession() {
     if (!mounted) return;
-    setState(() {
-      _counter = 0;
-      _running = false;
-    });
-    _sessionStart = null;
-    _sessionJobId = null;
+    setState(_session.reset);
     _taskController.clear();
   }
 
@@ -140,7 +127,7 @@ class _TimerViewState extends State<TimerView> {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  Duration(seconds: _counter).hms,
+                  Duration(seconds: _session.elapsed).hms,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontSize: counterSize,
                     fontWeight: FontWeight.w300,
@@ -151,15 +138,15 @@ class _TimerViewState extends State<TimerView> {
               ),
               const SizedBox(height: AppTokens.spaceXl),
               TimerControls(
-                running: _running,
-                hasSession: _hasSession,
-                counter: _counter,
+                running: _session.isRunning,
+                hasSession: _session.hasSession,
+                counter: _session.elapsed,
                 // No job selected → disable start so time can't be tracked
                 // against nothing (and later silently discarded).
                 onPrimary: widget.jobId == null
                     ? null
-                    : (_running ? _pause : _startOrResume),
-                onFinish: _hasSession ? _finish : null,
+                    : (_session.isRunning ? _pause : _startOrResume),
+                onFinish: _session.hasSession ? _finish : null,
               ),
               if (widget.jobId == null) ...[
                 const SizedBox(height: AppTokens.spaceSm),
@@ -176,7 +163,7 @@ class _TimerViewState extends State<TimerView> {
                   labelText: 'Task',
                 ),
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _running ? null : _startOrResume(),
+                onSubmitted: (_) => _session.isRunning ? null : _startOrResume(),
               ),
             ],
           ),
