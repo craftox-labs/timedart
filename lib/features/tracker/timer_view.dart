@@ -22,7 +22,7 @@ class _TimerViewState extends State<TimerView> {
   DateTime? _sessionStart;
   int? _sessionJobId; // the job this session belongs to, fixed at start
   final _taskController = TextEditingController();
-  late final Stream<List<TimeEntry>> _entriesStream = widget.db.watchEntries();
+  Stream<List<TimeEntry>>? _entriesStream; // entries for the selected job
   Stream<Job?>? _jobStream;
 
   @override
@@ -47,9 +47,9 @@ class _TimerViewState extends State<TimerView> {
   bool get _hasSession => _running || _counter > 0;
 
   void _updateJobStream() {
-    _jobStream = widget.jobId == null
-        ? null
-        : widget.db.watchJob(widget.jobId!);
+    final id = widget.jobId;
+    _jobStream = id == null ? null : widget.db.watchJob(id);
+    _entriesStream = id == null ? null : widget.db.watchEntriesForJob(id);
   }
 
   void _startOrResume() {
@@ -212,7 +212,7 @@ class JobHeader extends StatelessWidget {
 
 // --- Component 2: Isolated Entries List ---
 class EntryHistoryList extends StatelessWidget {
-  final Stream<List<TimeEntry>> entriesStream;
+  final Stream<List<TimeEntry>>? entriesStream; // null when no job selected
 
   const EntryHistoryList({super.key, required this.entriesStream});
 
