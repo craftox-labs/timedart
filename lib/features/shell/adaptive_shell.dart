@@ -6,6 +6,7 @@ import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
 import 'package:time_tracker/features/jobs/job_form.dart';
 import 'package:time_tracker/features/clients/client_form.dart';
+import 'package:time_tracker/features/invoices/invoice_view.dart';
 import 'package:time_tracker/widgets/content_body.dart';
 
 // What the detail pane is currently showing. One value instead of a pile of
@@ -27,6 +28,11 @@ class _EditJob extends _Detail {
 class _EditClient extends _Detail {
   final Client? client; // null = adding
   const _EditClient({this.client});
+}
+
+class _Invoice extends _Detail {
+  final Job job;
+  const _Invoice(this.job);
 }
 
 class AdaptiveShell extends StatefulWidget {
@@ -51,6 +57,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       setState(() => _detail = _EditJob(clientId: clientId));
   void _editClient(Client c) => setState(() => _detail = _EditClient(client: c));
   void _addClient() => setState(() => _detail = const _EditClient());
+  void _invoiceJob(Job job) => setState(() => _detail = _Invoice(job));
 
   @override
   void initState() {
@@ -107,6 +114,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         initial: client,
         onDone: _showTracker,
       ),
+      _Invoice(:final job) => InvoiceView(
+        db: widget.db,
+        job: job,
+        onDone: _showTracker,
+      ),
     };
     final content = ContentBody(child: detailView);
 
@@ -127,6 +139,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         onAddJob: (cid) => run(() => _addJob(cid)),
         onEditClient: (c) => run(() => _editClient(c)),
         onAddClient: () => run(_addClient),
+        onInvoiceJob: (j) => run(() => _invoiceJob(j)),
       );
     }
 

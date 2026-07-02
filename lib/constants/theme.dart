@@ -114,6 +114,23 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
 
+    // ── Snack bars ── floating, panel-coloured, primary hairline (matches
+    // the app-bar/divider aesthetic) instead of the default dark pill.
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: scheme.surface,
+      contentTextStyle: TextStyle(
+        color: scheme.onSurface,
+        fontSize: AppTokens.fontSizeSm,
+      ),
+      actionTextColor: scheme.primary,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        side: BorderSide(color: scheme.primary, width: AppTokens.strokeThin),
+      ),
+    ),
+
     visualDensity: VisualDensity.comfortable, // desktop: a touch roomier
   );
 }

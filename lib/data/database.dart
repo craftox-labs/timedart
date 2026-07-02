@@ -40,6 +40,24 @@ class JobWithRate {
   JobWithRate(this.job, this.effectiveRate);
 }
 
+/// An invoice for a single job over a period: the job, its client, the
+/// effective rate (`null` = un-billable), and the itemised time entries.
+class JobInvoice {
+  final Job job;
+  final Client client;
+  final double? rate; // effective: job.rate ?? client.defaultRate
+  final List<TimeEntry> entries;
+  JobInvoice({
+    required this.job,
+    required this.client,
+    required this.rate,
+    required this.entries,
+  });
+  int get totalSeconds => entries.fold(0, (sum, e) => sum + e.seconds);
+  double get totalHours => totalSeconds / 3600;
+  double? get total => rate == null ? null : totalHours * rate!;
+}
+
 @DriftDatabase(tables: [Clients, Jobs, TimeEntries])
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
@@ -198,4 +216,34 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteClient(int id) =>
       (delete(clients)..where((c) => c.id.equals(id))).go();
+
+  /// Build an on-demand invoice for a single job over [from]..[to] (inclusive):
+  /// the job, its client, effective rate, and the itemised entries. Read-only —
+  /// stores nothing.
+  Future<JobInvoice> jobInvoice({
+    required int jobId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final job = await (select(jobs)..where((j) => j.id.equals(jobId))).getSingle();
+    final client = await (select(
+      clients,
+    )..where((c) => c.id.equals(job.clientId))).getSingle();
+    final entries =
+        await (select(timeEntries)
+              ..where(
+                (t) =>
+                    t.jobId.equals(jobId) &
+                    t.startedAt.isBiggerOrEqualValue(from) &
+                    t.startedAt.isSmallerOrEqualValue(to),
+              )
+              ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
+            .get();
+    return JobInvoice(
+      job: job,
+      client: client,
+      rate: job.rate ?? client.defaultRate,
+      entries: entries,
+    );
+  }
 }
