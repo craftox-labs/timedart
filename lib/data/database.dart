@@ -142,6 +142,12 @@ class AppDatabase extends _$AppDatabase {
     timeEntries,
   )..orderBy([(t) => OrderingTerm.desc(t.endedAt)])).watch();
 
+  Stream<List<TimeEntry>> watchEntriesForJob(int jobId) =>
+      (select(timeEntries)
+            ..where((t) => t.jobId.equals(jobId))
+            ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
+          .watch();
+
   Stream<List<Client>> watchClients() =>
       (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
 
