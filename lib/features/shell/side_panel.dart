@@ -12,6 +12,7 @@ class SidePanel extends StatefulWidget {
     required this.onAddJob,
     required this.onEditClient,
     required this.onAddClient,
+    required this.onInvoiceClient,
   });
   final AppDatabase db;
   final int? selectedJobId;
@@ -20,6 +21,7 @@ class SidePanel extends StatefulWidget {
   final void Function(int clientId) onAddJob; // add a job under this client
   final void Function(Client) onEditClient;
   final VoidCallback onAddClient;
+  final void Function(Client) onInvoiceClient;
 
   @override
   State<SidePanel> createState() => _SidePanelState();
@@ -48,6 +50,7 @@ class _SidePanelState extends State<SidePanel> {
               onAddJob: widget.onAddJob,
               onEditClient: widget.onEditClient,
               onAddClient: widget.onAddClient,
+              onInvoiceClient: widget.onInvoiceClient,
             );
           },
         );
@@ -66,6 +69,7 @@ class _SidePanelListView extends StatelessWidget {
   final void Function(int clientId) onAddJob;
   final void Function(Client) onEditClient;
   final VoidCallback onAddClient;
+  final void Function(Client) onInvoiceClient;
 
   const _SidePanelListView({
     required this.clients,
@@ -76,6 +80,7 @@ class _SidePanelListView extends StatelessWidget {
     required this.onAddJob,
     required this.onEditClient,
     required this.onAddClient,
+    required this.onInvoiceClient,
   });
 
   @override
@@ -97,6 +102,7 @@ class _SidePanelListView extends StatelessWidget {
             onEditJob: onEditJob,
             onAddJob: onAddJob,
             onEditClient: onEditClient,
+            onInvoiceClient: onInvoiceClient,
           ),
         const SizedBox(height: AppTokens.space2xs),
         AddClientButton(onTap: onAddClient),
@@ -140,6 +146,7 @@ class ClientGroupTile extends StatefulWidget {
   final void Function(Job) onEditJob;
   final void Function(int clientId) onAddJob;
   final void Function(Client) onEditClient;
+  final void Function(Client) onInvoiceClient;
 
   const ClientGroupTile({
     super.key,
@@ -150,6 +157,7 @@ class ClientGroupTile extends StatefulWidget {
     required this.onEditJob,
     required this.onAddJob,
     required this.onEditClient,
+    required this.onInvoiceClient,
   });
 
   @override
@@ -206,14 +214,29 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
               color: theme.colorScheme.onSurface,
             ),
           ),
-          trailing: IconButton(
-            icon: const Icon(Icons.edit_note),
-            iconSize: AppTokens.iconSm,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Edit client',
-            onPressed: () => widget.onEditClient(widget.client),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.receipt_long),
+                iconSize: AppTokens.iconSm,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Invoice client',
+                onPressed: () => widget.onInvoiceClient(widget.client),
+              ),
+              const SizedBox(width: AppTokens.space3xs),
+              IconButton(
+                icon: const Icon(Icons.edit_note),
+                iconSize: AppTokens.iconSm,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Edit client',
+                onPressed: () => widget.onEditClient(widget.client),
+              ),
+            ],
           ),
         ),
         children: [

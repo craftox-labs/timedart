@@ -40,6 +40,24 @@ class JobWithRate {
   JobWithRate(this.job, this.effectiveRate);
 }
 
+/// One aggregated line of an invoice: a job's total tracked time over a period,
+/// at its effective rate. `rate == null` means the job is un-billable (no rate
+/// set on the job or its client).
+class InvoiceLine {
+  final String jobCode;
+  final String jobTitle;
+  final int seconds;
+  final double? rate;
+  InvoiceLine({
+    required this.jobCode,
+    required this.jobTitle,
+    required this.seconds,
+    required this.rate,
+  });
+  double get hours => seconds / 3600;
+  double? get amount => rate == null ? null : hours * rate!;
+}
+
 @DriftDatabase(tables: [Clients, Jobs, TimeEntries])
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
@@ -192,4 +210,49 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteClient(int id) =>
       (delete(clients)..where((c) => c.id.equals(id))).go();
+
+  /// Aggregate a client's tracked time between [from] and [to] (inclusive),
+  /// grouped by job, at each job's effective rate. Read-only — the invoice
+  /// feature is generated on demand from this, storing nothing.
+  Future<List<InvoiceLine>> invoiceLines({
+    required int clientId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final rows =
+        await (select(timeEntries).join([
+          innerJoin(jobs, jobs.id.equalsExp(timeEntries.jobId)),
+          innerJoin(clients, clients.id.equalsExp(jobs.clientId)),
+        ])..where(
+          jobs.clientId.equals(clientId) &
+              timeEntries.startedAt.isBiggerOrEqualValue(from) &
+              timeEntries.startedAt.isSmallerOrEqualValue(to),
+        )).get();
+
+    // Sum seconds per job (keeping each job's effective rate).
+    final byJob = <int, ({Job job, double? rate, int seconds})>{};
+    for (final r in rows) {
+      final job = r.readTable(jobs);
+      final client = r.readTable(clients);
+      final entry = r.readTable(timeEntries);
+      final prev = byJob[job.id];
+      byJob[job.id] = (
+        job: job,
+        rate: job.rate ?? client.defaultRate,
+        seconds: (prev?.seconds ?? 0) + entry.seconds,
+      );
+    }
+
+    final lines = [
+      for (final a in byJob.values)
+        InvoiceLine(
+          jobCode: a.job.code,
+          jobTitle: a.job.title,
+          seconds: a.seconds,
+          rate: a.rate,
+        ),
+    ];
+    lines.sort((x, y) => x.jobCode.compareTo(y.jobCode));
+    return lines;
+  }
 }
