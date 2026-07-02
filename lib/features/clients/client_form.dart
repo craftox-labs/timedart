@@ -114,46 +114,62 @@ class _ClientFormState extends State<ClientForm> {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
+    padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
     child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          controller: _name,
-          decoration: const InputDecoration(labelText: 'Name'),
+        Text(
+          _isEdit ? 'Edit client' : 'New client',
+          style: Theme.of(context).textTheme.titleLarge,
         ),
-        const SizedBox(height: AppTokens.spaceSm),
-        TextField(
-          controller: _email,
-          decoration: const InputDecoration(labelText: 'Email'),
-        ),
-        const SizedBox(height: AppTokens.spaceXl),
-        TextField(
-          controller: _rate,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'Default Rate',
-            errorText: _rateError,
-          ),
-        ),
-        const SizedBox(height: AppTokens.spaceXl),
-        Row(
-          children: [
-            if (_isEdit)
-              TextButton(
-                onPressed: _confirmDelete,
-                child: const Text('Delete'),
+        const SizedBox(height: AppTokens.spaceMd),
+        // Title stays pinned at the top; the fields + actions center in the
+        // remaining vertical space.
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Name'),
               ),
-            const Spacer(),
-            OutlinedButton(
-              onPressed: widget.onDone,
-              child: const Text('Cancel'),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
-            FilledButton(
-              onPressed: _submit,
-              child: Text(_isEdit ? 'Save' : 'Add'),
-            ),
-          ],
+              const SizedBox(height: AppTokens.spaceSm),
+              TextField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email'),
+              ),
+              const SizedBox(height: AppTokens.spaceXl),
+              TextField(
+                controller: _rate,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Default Rate',
+                  errorText: _rateError,
+                ),
+              ),
+              const SizedBox(height: AppTokens.spaceXl),
+              Row(
+                children: [
+                  if (_isEdit)
+                    TextButton(
+                      onPressed: _confirmDelete,
+                      child: const Text('Delete'),
+                    ),
+                  const Spacer(),
+                  OutlinedButton(
+                    onPressed: widget.onDone,
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: AppTokens.spaceSm),
+                  FilledButton(
+                    onPressed: _submit,
+                    child: Text(_isEdit ? 'Save' : 'Add'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     ),

@@ -9,6 +9,14 @@ class TimeEntryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return Center(
+        child: Text(
+          'No time recorded for this job yet.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
     return ListView.separated(
       itemCount: entries.length,
       separatorBuilder: (context, i) => const Divider(),

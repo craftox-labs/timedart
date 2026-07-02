@@ -150,7 +150,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             body: Row(
               children: [
                 Expanded(child: content),
-                const VerticalDivider(width: 1),
+                const VerticalDivider(width: AppTokens.strokeThin),
                 SizedBox(width: 240, child: panel()),
               ],
             ),

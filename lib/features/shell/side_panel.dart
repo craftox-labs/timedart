@@ -93,6 +93,17 @@ class _SidePanelListView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: AppTokens.space4xs),
       children: [
+        if (clients.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppTokens.spaceMd,
+              vertical: AppTokens.spaceXs,
+            ),
+            child: Text(
+              'No clients yet — add one below.',
+              style: TextStyle(fontSize: AppTokens.fontSizeXs),
+            ),
+          ),
         for (final c in clients)
           ClientGroupTile(
             client: c,

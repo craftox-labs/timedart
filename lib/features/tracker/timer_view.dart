@@ -117,11 +117,15 @@ class _TimerViewState extends State<TimerView> {
 
   @override
   Widget build(BuildContext context) {
-    final counterSize = (MediaQuery.sizeOf(context).width * 0.12).clamp(
-      90.0,
-      140.0,
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      // Size the counter to the content area (not the whole window), so it
+      // isn't oversized next to the side panel.
+      final counterSize = (constraints.maxWidth * 0.16).clamp(72.0, 128.0);
+      return _body(context, counterSize);
+    });
+  }
 
+  Widget _body(BuildContext context, double counterSize) {
     return Column(
       children: [
         SizedBox(
@@ -177,7 +181,7 @@ class _TimerViewState extends State<TimerView> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppTokens.spaceSm),
         // 2. Extracted Historical Stream List
         Expanded(child: EntryHistoryList(entriesStream: _entriesStream)),
       ],
