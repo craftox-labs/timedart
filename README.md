@@ -51,10 +51,12 @@ moves over the flattened list of clients and the jobs of expanded clients:
 | `gg` / `G` | jump to the first / last row |
 | `n` / `N` | next / previous job row (handy while searching) |
 | `/` | focus the search field (`Esc` returns to the cursor) |
-| `Tab`, `Ctrl+←/→` | toggle focus between the side panel and the tracker pane |
-| `Ctrl-h` / `Ctrl-l` | focus the panel / tracker directly |
-| `Ctrl-w` then `h` / `l` | vim window-motion equivalent |
+| `Tab` | toggle focus between the tracker pane and the side panel |
+| `Ctrl-h` / `Ctrl-←` | focus the tracker (left pane) |
+| `Ctrl-l` / `Ctrl-→` | focus the side panel (right pane) |
+| `Ctrl-w` then `h` / `l` | vim window-motion: left → tracker, right → panel |
 
+Focus direction follows on-screen position: the tracker is on the left, the side panel on the right.
 The focused row shows a subtle outline, distinct from the highlighted *selected* job.
 
 ## Project structure

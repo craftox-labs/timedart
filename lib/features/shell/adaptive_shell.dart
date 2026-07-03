@@ -63,6 +63,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   // Pane-switching lives at the shell: Tab, Ctrl+←/→, Ctrl-h/l, and the vim
   // Ctrl-w h/l chord. Row navigation is the panel's own concern.
+  // Layout is tracker (left) | sidebar (right), so direction follows position:
+  // left (h/←) → tracker, right (l/→) → panel.
   KeyEventResult _onShellKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -82,22 +84,22 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     if (_pendingCtrlW) {
       _pendingCtrlW = false;
       if (left) {
-        _focusPanel();
+        _focusTracker();
         return KeyEventResult.handled;
       }
       if (right) {
-        _focusTracker();
+        _focusPanel();
         return KeyEventResult.handled;
       }
       // any other key just cancels the chord, falls through
     }
 
     if (ctrl && left) {
-      _focusPanel();
+      _focusTracker();
       return KeyEventResult.handled;
     }
     if (ctrl && right) {
-      _focusTracker();
+      _focusPanel();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.tab) {

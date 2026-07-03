@@ -239,7 +239,8 @@ class _SidePanelState extends State<SidePanel> {
     // Handled here rather than left to bubble, because the bare l/h row-nav
     // keys below would otherwise shadow both the Ctrl-combo and the Ctrl-w
     // chord's second key. Only the panel→tracker direction lives here; the
-    // shell owns tracker→panel.
+    // shell owns tracker→panel. The panel sits on the RIGHT, so leaving for the
+    // tracker means moving left (Ctrl-h / Ctrl-← / Ctrl-w h).
     if (event is KeyDownEvent) {
       if (ctrl && key == LogicalKeyboardKey.keyW) {
         _pendingChord = true;
@@ -247,18 +248,18 @@ class _SidePanelState extends State<SidePanel> {
       }
       if (_pendingChord) {
         _pendingChord = false;
-        if (right) {
+        if (left) {
           widget.onExitToTracker?.call();
           return KeyEventResult.handled;
         }
-        if (left) return KeyEventResult.handled; // Ctrl-w h → panel; already here
+        if (right) return KeyEventResult.handled; // Ctrl-w l → panel; already here
         // any other key: abandon the chord, fall through to normal handling
       } else {
-        if (ctrl && right) {
+        if (ctrl && left) {
           widget.onExitToTracker?.call();
           return KeyEventResult.handled;
         }
-        if (ctrl && left) return KeyEventResult.handled; // Ctrl-h → already here
+        if (ctrl && right) return KeyEventResult.handled; // Ctrl-l → already here
       }
     }
     // Any other Ctrl-combo isn't a row-nav key — let it bubble (Tab and the
