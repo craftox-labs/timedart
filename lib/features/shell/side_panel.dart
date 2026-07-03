@@ -322,7 +322,7 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
             widget.client.name,
             style: TextStyle(
               fontSize: AppTokens.fontSizeSm,
-              fontWeight: FontWeight.w300,
+              fontWeight: FontWeight.w400,
               color: theme.colorScheme.onSurface,
             ),
           ),
@@ -331,7 +331,7 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
             children: [
               IconButton(
                 icon: const Icon(Icons.edit_note),
-                iconSize: AppTokens.iconSm,
+                iconSize: AppTokens.iconMd,
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -341,7 +341,7 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
               const SizedBox(width: AppTokens.space3xs),
               IconButton(
                 icon: const Icon(Icons.add),
-                iconSize: AppTokens.iconSm,
+                iconSize: AppTokens.iconMd,
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -389,20 +389,27 @@ class JobRowItem extends StatelessWidget {
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
       selected: isSelected,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppTokens.spaceLg,
-        vertical: AppTokens.spaceXs,
+      // Left indent under the client; right inset matches the client header
+      // (spaceMd) so the action icons line up in a column.
+      contentPadding: const EdgeInsets.fromLTRB(
+        AppTokens.spaceLg,
+        AppTokens.spaceXs,
+        AppTokens.spaceMd,
+        AppTokens.spaceXs,
       ),
       title: Text(
         '${job.code} - ${job.title}',
-        style: const TextStyle(fontSize: AppTokens.fontSizeXs),
+        style: const TextStyle(
+          fontSize: AppTokens.fontSizeXs,
+          fontWeight: FontWeight.w300,
+        ),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             icon: const Icon(Icons.receipt_long),
-            iconSize: AppTokens.iconSm,
+            iconSize: AppTokens.iconMd,
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

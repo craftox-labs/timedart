@@ -122,7 +122,6 @@ class _TimerViewState extends State<TimerView> {
             // 1. Extracted Job Stream Element
             JobHeader(jobStream: _jobStream),
             const SizedBox(height: AppTokens.spaceXl),
-            const Text('Time tracked:'),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
