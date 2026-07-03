@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
@@ -46,6 +47,65 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   int? _selectedJobId; // the job the timer records against
   _Detail _detail = const _Tracker();
   StreamSubscription<List<Job>>? _jobsSub;
+
+  // Keyboard-nav focus (wide layout only). The panel's row cursor lives here so
+  // the shell can move focus *into* the panel; the tracker pane is a scope we
+  // hand focus to (its own widgets take over from there — content-pane keymap
+  // is a follow-up, see issue).
+  final FocusNode _panelCursor = FocusNode(debugLabel: 'panelCursor');
+  final FocusScopeNode _trackerScope = FocusScopeNode(debugLabel: 'trackerScope');
+  bool _pendingCtrlW = false; // saw Ctrl-w, awaiting an h/l
+
+  void _focusPanel() => _panelCursor.requestFocus();
+  void _focusTracker() => _trackerScope.requestFocus();
+  void _togglePane() =>
+      _panelCursor.hasFocus ? _focusTracker() : _focusPanel();
+
+  // Pane-switching lives at the shell: Tab, Ctrl+←/→, Ctrl-h/l, and the vim
+  // Ctrl-w h/l chord. Row navigation is the panel's own concern.
+  KeyEventResult _onShellKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    final ctrl = HardwareKeyboard.instance.isControlPressed;
+    final left =
+        key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft;
+    final right =
+        key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
+
+    // Ctrl-w begins a window-motion chord.
+    if (ctrl && key == LogicalKeyboardKey.keyW) {
+      _pendingCtrlW = true;
+      return KeyEventResult.handled;
+    }
+    if (_pendingCtrlW) {
+      _pendingCtrlW = false;
+      if (left) {
+        _focusPanel();
+        return KeyEventResult.handled;
+      }
+      if (right) {
+        _focusTracker();
+        return KeyEventResult.handled;
+      }
+      // any other key just cancels the chord, falls through
+    }
+
+    if (ctrl && left) {
+      _focusPanel();
+      return KeyEventResult.handled;
+    }
+    if (ctrl && right) {
+      _focusTracker();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.tab) {
+      _togglePane();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   void _showTracker() => setState(() => _detail = const _Tracker());
   void _selectJob(int id) => setState(() {
@@ -97,6 +157,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void dispose() {
     _jobsSub?.cancel();
+    _panelCursor.dispose();
+    _trackerScope.dispose();
     super.dispose();
   }
 
@@ -133,7 +195,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     // In the narrow layout the panel lives in a drawer, so every action must
     // close the drawer first to reveal the content pane it just changed.
     // `before` runs that pop; in the wide layout it's null (panel is persistent).
-    SidePanel panel({VoidCallback? before}) {
+    SidePanel panel({VoidCallback? before, bool keyboardNav = false}) {
       void run(VoidCallback action) {
         before?.call();
         action();
@@ -147,6 +209,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         onAddJob: (cid) => run(() => _addJob(cid)),
         onEditClient: (c) => run(() => _editClient(c)),
         onAddClient: () => run(_addClient),
+        // Keyboard nav is wired only where the panel is persistent (wide).
+        cursorFocusNode: keyboardNav ? _panelCursor : null,
+        onExitToTracker: keyboardNav ? _focusTracker : null,
+        autofocus: keyboardNav,
       );
     }
 
@@ -154,17 +220,24 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       builder: (context, c) {
         if (c.maxWidth >= AppTokens.breakpointMd) {
           return Scaffold(
-            body: Row(
-              children: [
-                Expanded(child: content),
+            // Observes bubbled key events for pane-switching without stealing
+            // primary focus from the pane widgets themselves.
+            body: Focus(
+              onKeyEvent: _onShellKey,
+              canRequestFocus: false,
+              skipTraversal: true,
+              child: Row(
+                children: [
+                  Expanded(child: FocusScope(node: _trackerScope, child: content)),
 
-                const VerticalDivider(
-                  width: AppTokens.strokeThick,
-                  color: AppTokens.colorBorder,
-                ),
+                  const VerticalDivider(
+                    width: AppTokens.strokeThick,
+                    color: AppTokens.colorBorder,
+                  ),
 
-                SizedBox(width: 320, child: panel()),
-              ],
+                  SizedBox(width: 320, child: panel(keyboardNav: true)),
+                ],
+              ),
             ),
           );
         }
