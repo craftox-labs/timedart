@@ -5,8 +5,14 @@ import 'package:time_tracker/constants/format.dart';
 class TimeEntryList extends StatelessWidget {
   final List<TimeEntry> entries;
   final double? rate; // effective job/client rate ($/h); null when unset
+  final void Function(TimeEntry)? onEditEntry; // tap a row to edit
 
-  const TimeEntryList({super.key, required this.entries, this.rate});
+  const TimeEntryList({
+    super.key,
+    required this.entries,
+    this.rate,
+    this.onEditEntry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +40,7 @@ class TimeEntryList extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
           trailing: Text(Duration(seconds: e.seconds).hms),
+          onTap: onEditEntry == null ? null : () => onEditEntry!(e),
         );
       },
     );

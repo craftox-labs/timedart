@@ -6,6 +6,7 @@ import 'package:time_tracker/features/tracker/timer_session.dart';
 import 'package:time_tracker/constants/format.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/tracker/time_entry_list.dart';
+import 'package:time_tracker/features/tracker/entry_form.dart';
 
 class TimerView extends StatefulWidget {
   const TimerView({
@@ -108,6 +109,13 @@ class _TimerViewState extends State<TimerView> {
     _taskController.clear();
   }
 
+  // Open the add/edit-entry editor (adaptive modal/sheet). entry == null adds.
+  void _openEntryEditor(TimeEntry? entry) {
+    final jobId = widget.jobId;
+    if (jobId == null) return;
+    showEntryEditor(context, db: widget.db, jobId: jobId, entry: entry);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -173,13 +181,18 @@ class _TimerViewState extends State<TimerView> {
         const SizedBox(height: AppTokens.space2xl),
         // 2. Entries section: header (with the per-job Invoice action) + list
         if (widget.jobId != null) ...[
-          _EntriesHeader(jobStream: _jobStream, onInvoice: widget.onInvoice),
+          _EntriesHeader(
+            jobStream: _jobStream,
+            onInvoice: widget.onInvoice,
+            onAddEntry: () => _openEntryEditor(null),
+          ),
           const Divider(),
         ],
         Expanded(
           child: EntryHistoryList(
             entriesStream: _entriesStream,
             jobStream: _jobStream,
+            onEditEntry: _openEntryEditor,
           ),
         ),
       ],
@@ -231,8 +244,13 @@ class JobHeader extends StatelessWidget {
 class _EntriesHeader extends StatelessWidget {
   final Stream<(Job, Client)?>? jobStream;
   final void Function(Job) onInvoice;
+  final VoidCallback onAddEntry;
 
-  const _EntriesHeader({required this.jobStream, required this.onInvoice});
+  const _EntriesHeader({
+    required this.jobStream,
+    required this.onInvoice,
+    required this.onAddEntry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -247,6 +265,15 @@ class _EntriesHeader extends StatelessWidget {
             children: [
               Text('Entries', style: theme.textTheme.titleMedium),
               const Spacer(),
+              IconButton(
+                onPressed: onAddEntry,
+                icon: const Icon(Icons.add, size: AppTokens.iconSm),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Add entry',
+              ),
+              const SizedBox(width: AppTokens.spaceMd),
               TextButton.icon(
                 // Disabled until the job has loaded.
                 onPressed: job == null ? null : () => onInvoice(job),
@@ -271,11 +298,13 @@ class _EntriesHeader extends StatelessWidget {
 class EntryHistoryList extends StatelessWidget {
   final Stream<List<TimeEntry>>? entriesStream; // null when no job selected
   final Stream<(Job, Client)?>? jobStream; // for the effective rate
+  final void Function(TimeEntry) onEditEntry;
 
   const EntryHistoryList({
     super.key,
     required this.entriesStream,
     required this.jobStream,
+    required this.onEditEntry,
   });
 
   @override
@@ -289,7 +318,11 @@ class EntryHistoryList extends StatelessWidget {
         return StreamBuilder<List<TimeEntry>>(
           stream: entriesStream,
           builder: (context, snapshot) {
-            return TimeEntryList(entries: snapshot.data ?? [], rate: rate);
+            return TimeEntryList(
+              entries: snapshot.data ?? [],
+              rate: rate,
+              onEditEntry: onEditEntry,
+            );
           },
         );
       },
