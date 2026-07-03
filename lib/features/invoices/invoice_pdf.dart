@@ -5,8 +5,18 @@ import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/format.dart';
 
 const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 String _date(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 

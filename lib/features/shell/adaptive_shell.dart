@@ -55,7 +55,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _editJob(Job job) => setState(() => _detail = _EditJob(job: job));
   void _addJob(int clientId) =>
       setState(() => _detail = _EditJob(clientId: clientId));
-  void _editClient(Client c) => setState(() => _detail = _EditClient(client: c));
+  void _editClient(Client c) =>
+      setState(() => _detail = _EditClient(client: c));
   void _addClient() => setState(() => _detail = const _EditClient());
   void _invoiceJob(Job job) => setState(() => _detail = _Invoice(job));
 
@@ -153,17 +154,21 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             body: Row(
               children: [
                 Expanded(child: content),
-                const VerticalDivider(width: AppTokens.strokeThin),
-                SizedBox(width: 240, child: panel()),
+
+                VerticalDivider(
+                  width: AppTokens.strokeThick,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                ),
+
+                SizedBox(width: 320, child: panel()),
               ],
             ),
           );
         }
         return Scaffold(
           appBar: AppBar(title: const Text('Time Tracker')),
-          endDrawer: Drawer(
-            child: panel(before: () => Navigator.pop(context)),
-          ),
+          endDrawer: Drawer(child: panel(before: () => Navigator.pop(context))),
+
           body: content,
         );
       },

@@ -173,6 +173,16 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Job>> watchJobs() =>
       (select(jobs)..orderBy([(j) => OrderingTerm.asc(j.title)])).watch();
 
+  Stream<(Job, Client)?> watchJobWithClient(int id) {
+    final q = select(jobs).join([
+      innerJoin(clients, clients.id.equalsExp(jobs.clientId)),
+    ])..where(jobs.id.equals(id));
+    return q.watchSingleOrNull().map(
+      (row) =>
+          row == null ? null : (row.readTable(jobs), row.readTable(clients)),
+    );
+  }
+
   Stream<List<TimeEntry>> watchEntriesForJob(int jobId) =>
       (select(timeEntries)
             ..where((t) => t.jobId.equals(jobId))
@@ -223,7 +233,9 @@ class AppDatabase extends _$AppDatabase {
     required DateTime from,
     required DateTime to,
   }) async {
-    final job = await (select(jobs)..where((j) => j.id.equals(jobId))).getSingle();
+    final job = await (select(
+      jobs,
+    )..where((j) => j.id.equals(jobId))).getSingle();
     final client = await (select(
       clients,
     )..where((c) => c.id.equals(job.clientId))).getSingle();

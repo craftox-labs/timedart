@@ -133,10 +133,7 @@ class AddClientButton extends StatelessWidget {
     return ListTile(
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppTokens.spaceMd,
-        vertical: 0,
-      ),
+      contentPadding: const EdgeInsets.all(AppTokens.spaceMd),
       leading: const Icon(Icons.add, size: AppTokens.iconSm),
       horizontalTitleGap: AppTokens.spaceXs,
       title: const Text(
@@ -184,7 +181,7 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
 
     return Theme(
       data: theme.copyWith(
-        dividerColor: AppTokens.colorBrandPrimary,
+        dividerColor: theme.colorScheme.surfaceContainerHighest,
         splashColor: Colors.transparent,
         expansionTileTheme: const ExpansionTileThemeData(
           tilePadding: EdgeInsets.zero,
@@ -247,9 +244,9 @@ class _ClientGroupTileState extends State<ClientGroupTile> {
           ListTile(
             dense: true,
             visualDensity: const VisualDensity(vertical: -4),
-            contentPadding: const EdgeInsets.only(
-              left: AppTokens.spaceMd,
-              right: AppTokens.spaceMd,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.spaceMd,
+              vertical: AppTokens.spaceXs,
             ),
             leading: const Icon(Icons.add, size: AppTokens.iconXs),
             horizontalTitleGap: AppTokens.space2xs,
@@ -288,9 +285,10 @@ class JobRowItem extends StatelessWidget {
     return ListTile(
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
-      contentPadding: const EdgeInsets.only(
-        left: AppTokens.spaceLg,
-        right: AppTokens.spaceMd,
+      selected: isSelected,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.spaceLg,
+        vertical: AppTokens.spaceXs,
       ),
       title: Text(
         '${job.code} - ${job.title}',
@@ -311,7 +309,7 @@ class JobRowItem extends StatelessWidget {
           const SizedBox(width: AppTokens.space3xs),
           IconButton(
             icon: const Icon(Icons.edit_note),
-            iconSize: AppTokens.iconSm,
+            iconSize: AppTokens.iconMd,
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -320,7 +318,6 @@ class JobRowItem extends StatelessWidget {
           ),
         ],
       ),
-      selected: isSelected,
       onTap: onTap,
     );
   }

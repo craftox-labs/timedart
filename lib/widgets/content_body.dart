@@ -10,7 +10,7 @@ class ContentBody extends StatelessWidget {
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AppTokens.maxContentWidth),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceLg),
+        padding: const EdgeInsets.all(AppTokens.spaceLg),
         child: child,
       ),
     ),

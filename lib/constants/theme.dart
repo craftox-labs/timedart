@@ -22,6 +22,11 @@ ThemeData buildAppTheme(Brightness brightness) {
     // ── Type scale: tweak roles once, applies everywhere ──
     textTheme: const TextTheme(
       headlineLarge: TextStyle(fontWeight: FontWeight.w300),
+      titleLarge: TextStyle(
+        color: AppTokens.colorBrandPrimary,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1,
+      ),
       titleMedium: TextStyle(fontWeight: FontWeight.w600),
       bodyMedium: TextStyle(height: AppTokens.fontHeightDefault),
     ),
@@ -58,6 +63,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         color: scheme.onSurfaceVariant, // subtler than the title
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
+      selectedTileColor: scheme.surfaceContainerHighest,
     ),
 
     // --- Buttons ---
@@ -68,7 +74,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       style: ButtonStyle(
         side: WidgetStateProperty.resolveWith((states) {
           final color = states.contains(WidgetState.disabled)
-              ? scheme.onSurface.withValues(alpha: 0.12) // faded when disabled
+              ? scheme.onSurface.withValues(alpha: 0.50) // faded when disabled
               : scheme.primary; // primary otherwise
           return BorderSide(color: color, width: AppTokens.strokeThick);
         }),

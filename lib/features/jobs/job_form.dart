@@ -78,9 +78,9 @@ class _JobFormState extends State<JobForm> {
     } catch (e) {
       // e.g. the unique job-code constraint
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save job: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not save job: $e')));
       }
       return;
     }
