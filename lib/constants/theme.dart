@@ -91,6 +91,10 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
 
+    // ── Dialogs ── same corner radius as buttons/inputs (radiusSm), not M3's
+    // large default. Covers the entry editor and confirm dialogs alike.
+    dialogTheme: DialogThemeData(shape: buttonShape),
+
     // ── Floating action button ──
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: scheme.primary,

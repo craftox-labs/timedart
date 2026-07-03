@@ -132,6 +132,24 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
+  Future<void> updateEntry({
+    required int id,
+    required String task,
+    required DateTime startedAt,
+    required DateTime endedAt,
+    required int seconds,
+  }) => (update(timeEntries)..where((t) => t.id.equals(id))).write(
+    TimeEntriesCompanion(
+      task: Value(task),
+      startedAt: Value(startedAt),
+      endedAt: Value(endedAt),
+      seconds: Value(seconds),
+    ),
+  );
+
+  Future<void> deleteEntry(int id) =>
+      (delete(timeEntries)..where((t) => t.id.equals(id))).go();
+
   Future<int> _defaultClientId() async {
     final c = await (select(clients)..limit(1)).getSingleOrNull();
     return c?.id ??
