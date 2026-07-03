@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
@@ -150,7 +151,10 @@ class _EntryFormState extends State<EntryForm> {
     });
     if (_taskError != null || _durationError != null) return;
 
-    final seconds = (h! * 60 + m!) * 60;
+    // The form edits whole minutes only; keep the original sub-minute seconds
+    // when editing so renaming a timer entry doesn't truncate its duration.
+    final remainder = _isEdit ? widget.entry!.seconds % 60 : 0;
+    final seconds = (h! * 60 + m!) * 60 + remainder;
     final endedAt = _start.add(Duration(seconds: seconds));
     try {
       if (_isEdit) {
@@ -210,6 +214,7 @@ class _EntryFormState extends State<EntryForm> {
     controller: c,
     focusNode: f,
     keyboardType: TextInputType.number,
+    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
     decoration: InputDecoration(
       hintText: '0',
       suffixText: suffix,
