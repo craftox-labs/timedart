@@ -201,6 +201,26 @@ class _EntryFormState extends State<EntryForm> {
     if (mounted) widget.onClose();
   }
 
+  // A borderless number field for the Duration box (hours or minutes).
+  Widget _durationField(
+    TextEditingController c,
+    FocusNode f,
+    String suffix,
+  ) => TextField(
+    controller: c,
+    focusNode: f,
+    keyboardType: TextInputType.number,
+    decoration: InputDecoration(
+      hintText: '0',
+      suffixText: suffix,
+      isDense: true,
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      contentPadding: EdgeInsets.zero,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final loc = MaterialLocalizations.of(context);
@@ -236,41 +256,26 @@ class _EntryFormState extends State<EntryForm> {
             ),
           ),
           const SizedBox(height: AppTokens.spaceXl),
+          // One bordered "Duration" box; the h/m fields inside are borderless
+          // (a thin divider separates them) so there's a single frame, not two.
           InputDecorator(
             decoration: InputDecoration(
               labelText: 'Duration',
               errorText: _durationError,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppTokens.spaceMd,
+                vertical: AppTokens.spaceXs,
+              ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _hours,
-                    focusNode: _hoursFocus,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      hintText: '0',
-                      suffixText: 'h',
-                      isDense: true,
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppTokens.spaceMd),
-                Expanded(
-                  child: TextField(
-                    controller: _minutes,
-                    focusNode: _minutesFocus,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      hintText: '0',
-                      suffixText: 'm',
-                      isDense: true,
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-              ],
+            child: SizedBox(
+              height: AppTokens.iconLg,
+              child: Row(
+                children: [
+                  Expanded(child: _durationField(_hours, _hoursFocus, 'h')),
+                  const VerticalDivider(width: AppTokens.spaceLg),
+                  Expanded(child: _durationField(_minutes, _minutesFocus, 'm')),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: AppTokens.spaceXl),
