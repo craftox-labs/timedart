@@ -97,12 +97,19 @@ class _SearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // Square left corners so the field sits flush to the panel border;
+    // rounded on the right only.
+    const fieldRadius = BorderRadius.horizontal(
+      right: Radius.circular(AppTokens.radiusSm),
+    );
     return Padding(
-      // Right inset matches the client/job rows so the Add-client + lands in
-      // the same column as the edit buttons below.
+      // Left flush to the border; right inset matches the rows so the
+      // Add-client + lands in the edit-button column. Top matches the content
+      // pane's spaceLg inset so both panes start at the same height.
       padding: const EdgeInsets.fromLTRB(
-        AppTokens.spaceSm,
-        AppTokens.spaceXs,
+        0,
+        AppTokens.spaceLg,
         AppTokens.spaceMd,
         AppTokens.spaceXs,
       ),
@@ -117,16 +124,38 @@ class _SearchHeader extends StatelessWidget {
               decoration: InputDecoration(
                 isDense: true,
                 hintText: 'Search',
-                prefixIcon: const Icon(Icons.search, size: AppTokens.iconSm),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
+                // Filled, no stroke: the fill gives the flush-left /
+                // rounded-right shape, so there's no left border to leave a
+                // hair against the panel edge.
+                filled: true,
+                fillColor: scheme.surfaceContainerHighest,
+                // Icon aligned with the client chevron (~spaceMd from edge).
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(
+                    left: AppTokens.spaceMd,
+                    right: AppTokens.spaceXs,
+                  ),
+                  child: Icon(Icons.search, size: AppTokens.iconSm),
+                ),
+                prefixIconConstraints: const BoxConstraints(minHeight: 36),
+                // Same cap as the prefix so the field height doesn't jump when
+                // the clear button appears on input.
+                suffixIconConstraints: const BoxConstraints(minHeight: 36),
+                enabledBorder: const OutlineInputBorder(
+                  borderRadius: fieldRadius,
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderRadius: fieldRadius,
+                  borderSide: BorderSide.none,
                 ),
                 suffixIcon: onClear == null
                     ? null
                     : IconButton(
                         icon: const Icon(Icons.close, size: AppTokens.iconSm),
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         tooltip: 'Clear search',
                         onPressed: onClear,
                       ),
