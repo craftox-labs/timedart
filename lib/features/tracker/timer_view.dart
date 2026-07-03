@@ -140,7 +140,7 @@ class _TimerViewState extends State<TimerView> {
                 ),
               ),
             ),
-            const SizedBox(height: AppTokens.spaceMd), // match header→counter
+            const SizedBox(height: AppTokens.spaceMd),
             TimerControls(
               running: _session.isRunning,
               hasSession: _session.hasSession,
@@ -237,7 +237,7 @@ class _EntriesHeader extends StatelessWidget {
       builder: (context, snap) {
         final job = snap.data?.$1;
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: AppTokens.spaceSm),
           child: Row(
             children: [
               Text('Entries', style: theme.textTheme.titleMedium),
