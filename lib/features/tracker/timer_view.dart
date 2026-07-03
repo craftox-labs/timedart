@@ -8,9 +8,15 @@ import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/tracker/time_entry_list.dart';
 
 class TimerView extends StatefulWidget {
-  const TimerView({super.key, required this.db, required this.jobId});
+  const TimerView({
+    super.key,
+    required this.db,
+    required this.jobId,
+    required this.onInvoice,
+  });
   final AppDatabase db;
   final int? jobId;
+  final void Function(Job) onInvoice; // open the invoice view for this job
 
   @override
   State<TimerView> createState() => _TimerViewState();
@@ -165,7 +171,11 @@ class _TimerViewState extends State<TimerView> {
           ],
         ),
         const SizedBox(height: AppTokens.spaceSm),
-        // 2. Extracted Historical Stream List
+        // 2. Entries section: header (with the per-job Invoice action) + list
+        if (widget.jobId != null) ...[
+          _EntriesHeader(jobStream: _jobStream, onInvoice: widget.onInvoice),
+          const Divider(),
+        ],
         Expanded(child: EntryHistoryList(entriesStream: _entriesStream)),
       ],
     );
@@ -204,6 +214,37 @@ class JobHeader extends StatelessWidget {
                 fontWeight: FontWeight.w300,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// --- Entries section header: label + per-job Invoice action ---
+class _EntriesHeader extends StatelessWidget {
+  final Stream<(Job, Client)?>? jobStream;
+  final void Function(Job) onInvoice;
+
+  const _EntriesHeader({required this.jobStream, required this.onInvoice});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return StreamBuilder<(Job, Client)?>(
+      stream: jobStream,
+      builder: (context, snap) {
+        final job = snap.data?.$1;
+        return Row(
+          children: [
+            Text('Entries', style: theme.textTheme.titleMedium),
+            const Spacer(),
+            TextButton.icon(
+              // Disabled until the job has loaded.
+              onPressed: job == null ? null : () => onInvoice(job),
+              icon: const Icon(Icons.receipt_long, size: AppTokens.iconSm),
+              label: const Text('Invoice'),
             ),
           ],
         );

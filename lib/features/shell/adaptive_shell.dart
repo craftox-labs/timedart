@@ -103,7 +103,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   Widget build(BuildContext context) {
     final Widget detailView = switch (_detail) {
-      _Tracker() => TimerView(db: widget.db, jobId: _selectedJobId),
+      _Tracker() => TimerView(
+        db: widget.db,
+        jobId: _selectedJobId,
+        onInvoice: _invoiceJob,
+      ),
       _EditJob(:final job, :final clientId) => JobForm(
         db: widget.db,
         initial: job,
@@ -143,7 +147,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         onAddJob: (cid) => run(() => _addJob(cid)),
         onEditClient: (c) => run(() => _editClient(c)),
         onAddClient: () => run(_addClient),
-        onInvoiceJob: (j) => run(() => _invoiceJob(j)),
       );
     }
 
