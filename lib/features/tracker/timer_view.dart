@@ -176,7 +176,12 @@ class _TimerViewState extends State<TimerView> {
           _EntriesHeader(jobStream: _jobStream, onInvoice: widget.onInvoice),
           const Divider(),
         ],
-        Expanded(child: EntryHistoryList(entriesStream: _entriesStream)),
+        Expanded(
+          child: EntryHistoryList(
+            entriesStream: _entriesStream,
+            jobStream: _jobStream,
+          ),
+        ),
       ],
     );
   }
@@ -265,15 +270,28 @@ class _EntriesHeader extends StatelessWidget {
 // --- Component 2: Isolated Entries List ---
 class EntryHistoryList extends StatelessWidget {
   final Stream<List<TimeEntry>>? entriesStream; // null when no job selected
+  final Stream<(Job, Client)?>? jobStream; // for the effective rate
 
-  const EntryHistoryList({super.key, required this.entriesStream});
+  const EntryHistoryList({
+    super.key,
+    required this.entriesStream,
+    required this.jobStream,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<TimeEntry>>(
-      stream: entriesStream,
-      builder: (context, snapshot) {
-        return TimeEntryList(entries: snapshot.data ?? []);
+    return StreamBuilder<(Job, Client)?>(
+      stream: jobStream,
+      builder: (context, jobSnap) {
+        final data = jobSnap.data;
+        // Effective rate: the job's own rate, else the client default.
+        final rate = data == null ? null : (data.$1.rate ?? data.$2.defaultRate);
+        return StreamBuilder<List<TimeEntry>>(
+          stream: entriesStream,
+          builder: (context, snapshot) {
+            return TimeEntryList(entries: snapshot.data ?? [], rate: rate);
+          },
+        );
       },
     );
   }
