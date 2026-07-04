@@ -40,8 +40,8 @@ const List<_Group> _keymap = [
     _Shortcut(['?'], 'This help'),
   ]),
   _Group('Side panel', [
-    _Shortcut(['a'], 'Add client'),
-    _Shortcut(['A'], 'Add job'),
+    _Shortcut(['a'], 'Add job'),
+    _Shortcut(['A'], 'Add client'),
     _Shortcut(['n', 'N'], 'Next / previous job'),
   ]),
   _Group('Tracker', [

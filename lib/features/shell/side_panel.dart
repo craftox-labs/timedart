@@ -355,12 +355,12 @@ class _SidePanelState extends State<SidePanel> {
       _editCurrent();
       return KeyEventResult.handled;
     }
-    // a = add client (parent), A = add job under the focused row's client.
+    // a = add job under the focused row's client; A = add client.
     if (key == LogicalKeyboardKey.keyA) {
       if (shift) {
-        _addJobCurrent();
-      } else {
         widget.onAddClient();
+      } else {
+        _addJobCurrent();
       }
       return KeyEventResult.handled;
     }
@@ -611,7 +611,7 @@ class _SearchHeader extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Add client (a)',
+            tooltip: 'Add client (A)',
             onPressed: onAddClient,
           ),
         ],
@@ -690,7 +690,7 @@ class _ClientHeaderTile extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Add job (A)',
+            tooltip: 'Add job (a)',
             onPressed: onAddJob,
           ),
           const SizedBox(width: AppTokens.spaceSm),
