@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/features/shell/page_header.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
 import 'package:time_tracker/features/jobs/job_form.dart';
@@ -277,7 +279,20 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               skipTraversal: true,
               child: Row(
                 children: [
-                  Expanded(child: FocusScope(node: _trackerScope, child: content)),
+                  // Logo bar sits atop the content pane, level with the panel's
+                  // search field; the detail view fills the rest below it.
+                  Expanded(
+                    child: FocusScope(
+                      node: _trackerScope,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const PageHeader(),
+                          Expanded(child: content),
+                        ],
+                      ),
+                    ),
+                  ),
 
                   const VerticalDivider(
                     width: AppTokens.strokeThick,
@@ -291,25 +306,43 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           );
         }
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Time Tracker'),
-            // Explicit menu button (replacing the auto one) padded to sit at
-            // the same right inset as the content below.
-            actions: [
-              Builder(
-                builder: (context) => Padding(
-                  padding: const EdgeInsets.only(right: AppTokens.spaceLg),
-                  child: IconButton(
-                    icon: const Icon(Icons.menu),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                    tooltip: 'Menu',
-                    onPressed: () => Scaffold.of(context).openEndDrawer(),
+          // Same logo-bar style as the wide layout, but full-width with no
+          // rounding; a gap above matches the search field's gap in the drawer.
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(AppTokens.spaceLg + 44),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppTokens.spaceLg),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 36),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.spaceMd,
+                    vertical: AppTokens.spaceXs,
+                  ),
+                  child: Row(
+                    children: [
+                      SvgPicture.asset(
+                        'assets/logo/timedart_logo_horizontal.svg',
+                        height: 18,
+                      ),
+                      const Spacer(),
+                      Builder(
+                        builder: (context) => IconButton(
+                          icon: const Icon(Icons.menu),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(context).openEndDrawer(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
           endDrawer: Drawer(child: panel(before: () => Navigator.pop(context))),
           body: content,

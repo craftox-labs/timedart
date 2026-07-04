@@ -501,7 +501,7 @@ class _SearchHeader extends StatelessWidget {
         0,
         AppTokens.spaceLg,
         AppTokens.spaceMd,
-        AppTokens.spaceXs,
+        AppTokens.spaceLg,
       ),
       child: Row(
         children: [

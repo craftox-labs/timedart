@@ -101,7 +101,9 @@ class TaskList extends StatelessWidget {
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
       selected: row.taskId == selectedTaskId, // armed/tracking → green pill
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceMd),
+      // A hair of horizontal content inset so text/actions aren't flush to the
+      // edge; the selected fill still spans the full tile width.
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.space3xs),
       horizontalTitleGap: AppTokens.space2xs,
       // Tapping the row arms the task for the timer; the chevron toggles expand.
       onTap: () => onSelectTask(row.taskId),
@@ -185,7 +187,7 @@ class TaskList extends StatelessWidget {
       // A transparent leading spacer the width of the task chevron + the same
       // gap and padding, so the entry text lines up exactly under the task
       // title; the time column still aligns on the right.
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceMd),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.space3xs),
       horizontalTitleGap: AppTokens.space2xs,
       leading: const SizedBox(width: AppTokens.iconSm),
       onTap: () => onEditEntry(e),

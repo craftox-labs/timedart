@@ -486,7 +486,10 @@ class _TimerViewState extends State<TimerView> {
           builder: (context, constraints) {
             // Size the counter to the content area (not the whole window), so
             // it isn't oversized next to the side panel.
-            final counterSize = (constraints.maxWidth * 0.16).clamp(72.0, 128.0);
+            final counterSize = (constraints.maxWidth * 0.16).clamp(
+              72.0,
+              128.0,
+            );
             return _body(context, counterSize);
           },
         );
@@ -526,9 +529,22 @@ class _TimerViewState extends State<TimerView> {
         style: theme.textTheme.bodySmall,
       );
     }
-    return Text(
-      '${_c.hasSession ? 'Tracking' : 'Ready'} · ${task.title}',
-      style: theme.textTheme.bodySmall?.copyWith(
+    final label = _c.hasSession ? 'Tracking' : 'Ready';
+    return Text.rich(
+      TextSpan(
+        children: [
+          // Bold label + colon, then the task name at normal weight.
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          TextSpan(
+            text: task.title,
+            style: const TextStyle(fontWeight: FontWeight.w400),
+          ),
+        ],
+      ),
+      style: theme.textTheme.bodyMedium?.copyWith(
         color: theme.colorScheme.primary,
       ),
     );
@@ -541,7 +557,6 @@ class _TimerViewState extends State<TimerView> {
           children: [
             // 1. Extracted Job Stream Element
             JobHeader(jobStream: _jobStream),
-            const SizedBox(height: AppTokens.spaceSm),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
@@ -554,7 +569,7 @@ class _TimerViewState extends State<TimerView> {
                 ),
               ),
             ),
-            const SizedBox(height: AppTokens.spaceMd),
+            const SizedBox(height: AppTokens.spaceSm),
             TimerControls(
               running: _c.isRunning,
               hasSession: _c.hasSession,
@@ -568,7 +583,7 @@ class _TimerViewState extends State<TimerView> {
             ),
             const SizedBox(height: AppTokens.spaceLg),
             _armedLabel(context),
-            const SizedBox(height: AppTokens.spaceMd),
+            const SizedBox(height: AppTokens.spaceLg),
             // Optional note for this session; becomes the entry's description on
             // finish. Esc returns to the row cursor; Enter starts if armed.
             CallbackShortcuts(
