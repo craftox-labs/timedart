@@ -374,8 +374,12 @@ class _TimerViewState extends State<TimerView> {
                   labelText: 'Task',
                 ),
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) =>
-                    _session.isRunning ? null : _startOrResume(),
+                // Return starts (if idle) and hands focus back to the entry
+                // cursor, so Space immediately pauses/resumes from there.
+                onSubmitted: (_) {
+                  if (!_session.isRunning) _startOrResume();
+                  _blurToCursor();
+                },
               ),
             ),
           ],
