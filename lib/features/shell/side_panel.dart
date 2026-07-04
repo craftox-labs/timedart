@@ -78,6 +78,19 @@ class _SidePanelState extends State<SidePanel> {
     super.initState();
     // Repaint the focus indicator as the cursor gains/loses primary focus.
     _cursorNode.addListener(_onFocusChanged);
+    // Select-all whenever the search field gains focus, so typing replaces a
+    // stale query. Lives on the node (not just the local `/` path) so the
+    // shell's global `/` gets the same behaviour.
+    _searchFocus.addListener(_onSearchFocusChanged);
+  }
+
+  void _onSearchFocusChanged() {
+    if (_searchFocus.hasFocus) {
+      _searchController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _searchController.text.length,
+      );
+    }
   }
 
   void _onFocusChanged() {
@@ -91,6 +104,7 @@ class _SidePanelState extends State<SidePanel> {
   @override
   void dispose() {
     _cursorNode.removeListener(_onFocusChanged);
+    _searchFocus.removeListener(_onSearchFocusChanged);
     _internalFocus?.dispose();
     _internalSearch?.dispose();
     _searchController.dispose();
@@ -192,13 +206,9 @@ class _SidePanelState extends State<SidePanel> {
     });
   }
 
-  void _focusSearch() {
-    _searchFocus.requestFocus();
-    _searchController.selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: _searchController.text.length,
-    );
-  }
+  // Select-all happens in _onSearchFocusChanged (fires for this and the shell's
+  // global `/` alike).
+  void _focusSearch() => _searchFocus.requestFocus();
 
   void _ensureVisible() {
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -75,8 +75,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return ctx != null &&
         ctx.findAncestorWidgetOfExactType<EditableText>() != null;
   }
-  void _togglePane() =>
-      _panelCursor.hasFocus ? _focusTracker() : _focusPanel();
+  // "In the panel" means either its row cursor or its search field has focus —
+  // otherwise Tab out of a focused search would wrongly jump to the tracker.
+  void _togglePane() => (_panelCursor.hasFocus || _panelSearch.hasFocus)
+      ? _focusTracker()
+      : _focusPanel();
 
   // Pane-switching lives at the shell: Tab, Ctrl+←/→, Ctrl-h/l, and the vim
   // Ctrl-w h/l chord. Row navigation is the panel's own concern.

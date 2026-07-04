@@ -150,8 +150,10 @@ class _TimerViewState extends State<TimerView> {
     super.dispose();
   }
 
-  // Repaint the focus ring when the cursor gains/loses focus.
+  // Repaint the focus ring when the cursor gains/loses focus. A focus excursion
+  // (into the task field, out to another pane) also abandons a half-typed gg.
   void _onFocusChanged() {
+    _pendingG = false;
     if (mounted) setState(() {});
   }
 
@@ -259,7 +261,12 @@ class _TimerViewState extends State<TimerView> {
   }
 
   void _focusTask() => _taskFocus.requestFocus();
-  void _blurToCursor() => _cursorNode?.requestFocus();
+  void _blurToCursor() {
+    final node = _cursorNode;
+    // Wide layout: return to the entry cursor. Narrow (no cursor) just drops
+    // focus so Esc still dismisses the field.
+    node != null ? node.requestFocus() : _taskFocus.unfocus();
+  }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
@@ -436,7 +443,9 @@ class _TimerViewState extends State<TimerView> {
                 // Return starts (if idle) and hands focus back to the entry
                 // cursor, so Space immediately pauses/resumes from there.
                 onSubmitted: (_) {
-                  if (!_c.isRunning) _startOrResume();
+                  // Guard jobId like _primaryAction: starting with no job bound
+                  // would produce a session finish() silently discards.
+                  if (widget.jobId != null && !_c.isRunning) _startOrResume();
                   _blurToCursor();
                 },
               ),
