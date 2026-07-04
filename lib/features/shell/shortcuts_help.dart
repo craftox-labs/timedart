@@ -21,42 +21,55 @@ class _Group {
 }
 
 const List<_Group> _keymap = [
+  // Movement, open/collapse, edit and Enter behave the same in both the side
+  // panel and the tracker, so they live here once instead of per pane.
+  _Group('Navigation (both panes)', [
+    _Shortcut(['J', 'K', '↓', '↑'], 'Move'),
+    _Shortcut(['g', 'g', 'G'], 'Top / bottom'),
+    _Shortcut(['L', '→'], 'Open / expand'),
+    _Shortcut(['H', '←'], 'Collapse / parent'),
+    _Shortcut(['Enter'], 'Select / activate'),
+    _Shortcut(['e'], 'Edit focused item'),
+    _Shortcut(['Esc'], 'Back to list'),
+  ]),
   _Group('Panes', [
     _Shortcut(['Tab'], 'Switch pane'),
     _Shortcut(['Ctrl+←', 'Ctrl+→'], 'Focus tracker / panel'),
-    _Shortcut(['Ctrl+H', 'Ctrl+L'], 'Focus tracker / panel'),
-    _Shortcut(['Ctrl+W', 'H', 'L'], 'Switch pane (vim window motion)'),
-    _Shortcut(['/'], 'Focus search'),
+    _Shortcut(['Ctrl+W', 'H', 'L'], 'Switch pane (vim)'),
+    _Shortcut(['/'], 'Search'),
     _Shortcut(['?'], 'This help'),
   ]),
   _Group('Side panel', [
-    _Shortcut(['J', 'K', '↓', '↑'], 'Move'),
-    _Shortcut(['g', 'g', 'G'], 'Top / bottom'),
-    _Shortcut(['L', '→'], 'Expand or step in'),
-    _Shortcut(['H', '←'], 'Collapse or parent'),
-    _Shortcut(['Enter'], 'Select / open job'),
     _Shortcut(['n', 'N'], 'Next / previous job'),
-    _Shortcut(['e'], 'Edit client / job'),
-    _Shortcut(['Esc'], 'Search → back to list'),
   ]),
   _Group('Tracker', [
-    _Shortcut(['J', 'K', '↓', '↑'], 'Move'),
-    _Shortcut(['g', 'g', 'G'], 'Top / bottom'),
-    _Shortcut(['L', '→'], 'Expand or step in'),
-    _Shortcut(['H', '←'], 'Collapse or parent'),
-    _Shortcut(['Enter'], 'Arm task / edit entry'),
-    _Shortcut(['e'], 'Edit task / entry'),
+    _Shortcut(['Space'], 'Start / pause / resume'),
+    _Shortcut(['f'], 'Finish session'),
     _Shortcut(['a'], 'Add task'),
     _Shortcut(['i'], 'Focus description'),
-    _Shortcut(['f'], 'Finish session'),
-    _Shortcut(['Space'], 'Start / pause / resume (from any pane)'),
-    _Shortcut(['Esc'], 'Description → back to list'),
   ]),
   _Group('Editors', [
     _Shortcut(['Enter'], 'Save'),
     _Shortcut(['Esc'], 'Cancel / close'),
   ]),
 ];
+
+// Split the groups into two columns of roughly equal height (rows + a title
+// allowance), keeping their order — so tweaking the keymap can't unbalance it.
+List<List<_Group>> _balanceColumns(List<_Group> groups) {
+  int weight(_Group g) => g.shortcuts.length + 2; // rows + title + spacing
+  final total = groups.fold(0, (sum, g) => sum + weight(g));
+  var best = 1, bestDiff = 1 << 30, acc = 0;
+  for (var i = 0; i < groups.length - 1; i++) {
+    acc += weight(groups[i]);
+    final diff = (acc - (total - acc)).abs();
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = i + 1;
+    }
+  }
+  return [groups.sublist(0, best), groups.sublist(best)];
+}
 
 /// Open the keyboard-shortcuts help. Dismissed with Esc or a click away.
 Future<void> showShortcutsHelp(BuildContext context) => showDialog<void>(
@@ -71,17 +84,17 @@ class _ShortcutsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // Wide: two columns so the whole map fits without scrolling. Narrow: a
-    // single scrolling column. Groups split 2 / 2 (Panes + Side panel |
-    // Tracker + Editors) — close to balanced by row count.
+    // single scrolling column. The split is balanced by row count.
     final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
     final Widget body;
     if (wide) {
+      final columns = _balanceColumns(_keymap);
       body = Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: _column(theme, _keymap.sublist(0, 2))),
+          Expanded(child: _column(theme, columns[0])),
           const SizedBox(width: AppTokens.space2xl + AppTokens.spaceMd),
-          Expanded(child: _column(theme, _keymap.sublist(2))),
+          Expanded(child: _column(theme, columns[1])),
         ],
       );
     } else {
