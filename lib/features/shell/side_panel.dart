@@ -164,6 +164,17 @@ class _SidePanelState extends State<SidePanel> {
     }
   }
 
+  // e : edit the focused row (client or job) — mirrors the tracker's `e`.
+  void _editCurrent() {
+    if (_cursor >= _rows.length) return;
+    final row = _rows[_cursor];
+    if (row is ClientRow) {
+      widget.onEditClient(row.client);
+    } else if (row is JobRow) {
+      widget.onEditJob(row.job);
+    }
+  }
+
   void _expandOrOpen() {
     if (_cursor >= _rows.length) return;
     final row = _rows[_cursor];
@@ -328,6 +339,10 @@ class _SidePanelState extends State<SidePanel> {
     }
     if (key == LogicalKeyboardKey.keyN) {
       _jumpMatch(shift ? -1 : 1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyE) {
+      _editCurrent();
       return KeyEventResult.handled;
     }
     // Tab is left for the shell (tracker↔panel toggle) — don't consume.

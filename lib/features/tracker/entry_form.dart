@@ -246,6 +246,7 @@ class _EntryFormState extends State<EntryForm> {
           focusNode: f,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onSubmitted: (_) => _submit(),
           decoration: const InputDecoration(
             hintText: '0',
             isDense: true,
@@ -302,6 +303,7 @@ class _EntryFormState extends State<EntryForm> {
           const SizedBox(height: AppTokens.spaceXl),
           TextField(
             controller: _description,
+            onSubmitted: (_) => _submit(),
             decoration: const InputDecoration(
               labelText: 'Description (optional)',
               hintText: 'e.g. fixed the login bug',
