@@ -9,12 +9,64 @@ import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/tracker/time_entry_list.dart';
 import 'package:time_tracker/features/tracker/entry_form.dart';
 
-/// Lets the shell fire the timer's primary action (start/pause/resume) while
-/// the tracker is in view, so Space can toggle it globally — from whichever
-/// pane holds focus. The mounted TimerView populates [primary]; it's null when
-/// no tracker is on screen.
-class TimerController {
+/// Owns the running timer so it survives content-pane switches. Editing a
+/// client/job or invoicing unmounts the tracker view, but the session and its
+/// per-second ticker live here on the shell — so navigating away no longer
+/// discards a running session. The view renders from this and listens for
+/// repaints.
+class TimerController extends ChangeNotifier {
+  final _session = TimerSession();
+  Timer? _ticker;
+  // In-progress task title; kept here so a running session holds its label even
+  // while the tracker is off-screen.
+  final task = TextEditingController();
+
+  // Set by the mounted TimerView so a global Space can fire the primary action
+  // (with its focus-nudge). Null when no tracker is on screen.
   VoidCallback? primary;
+
+  int get elapsed => _session.elapsed;
+  bool get isRunning => _session.isRunning;
+  bool get hasSession => _session.hasSession;
+
+  void startOrResume(int? jobId) {
+    if (_session.isRunning) return;
+    _session.start(jobId, now: DateTime.now());
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      _session.tick();
+      notifyListeners();
+    });
+    notifyListeners();
+  }
+
+  void pause() {
+    _ticker?.cancel();
+    _session.pause();
+    notifyListeners();
+  }
+
+  /// Stop and return what to persist (or null when there's nothing). Does not
+  /// clear, so a failed write can be retried against an intact session.
+  FinishedSession? stop() {
+    _ticker?.cancel();
+    final result = _session.finish(now: DateTime.now());
+    notifyListeners();
+    return result;
+  }
+
+  void reset() {
+    _session.reset();
+    task.clear();
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    task.dispose();
+    super.dispose();
+  }
 }
 
 class TimerView extends StatefulWidget {
@@ -40,9 +92,11 @@ class TimerView extends StatefulWidget {
 }
 
 class _TimerViewState extends State<TimerView> {
-  final _session = TimerSession();
-  Timer? _timer;
-  final _taskController = TextEditingController();
+  // The session lives in the controller so it survives pane switches. When no
+  // controller is supplied (standalone use) an internal one stands in.
+  TimerController? _internalController;
+  TimerController get _c =>
+      widget.controller ?? (_internalController ??= TimerController());
   final _taskFocus = FocusNode(debugLabel: 'taskField');
   Stream<List<TimeEntry>>? _entriesStream; // entries for the selected job
   Stream<(Job, Client)?>? _jobStream;
@@ -65,7 +119,8 @@ class _TimerViewState extends State<TimerView> {
     super.initState();
     _updateJobStream();
     _cursorNode?.addListener(_onFocusChanged);
-    widget.controller?.primary = _primaryAction;
+    _c.addListener(_onTimerChanged);
+    _c.primary = _primaryAction;
   }
 
   @override
@@ -77,27 +132,35 @@ class _TimerViewState extends State<TimerView> {
       _cursorNode?.addListener(_onFocusChanged);
     }
     if (old.controller != widget.controller) {
-      if (old.controller?.primary == _primaryAction) old.controller?.primary = null;
-      widget.controller?.primary = _primaryAction;
+      final prev = old.controller ?? _internalController;
+      prev?.removeListener(_onTimerChanged);
+      if (prev?.primary == _primaryAction) prev?.primary = null;
+      _c.addListener(_onTimerChanged);
+      _c.primary = _primaryAction;
     }
   }
 
   @override
   void dispose() {
-    _taskController.dispose();
     _taskFocus.dispose();
     _entriesSub?.cancel();
     _scroll.dispose();
     _cursorNode?.removeListener(_onFocusChanged);
-    if (widget.controller?.primary == _primaryAction) {
-      widget.controller?.primary = null;
-    }
-    _timer?.cancel();
+    _c.removeListener(_onTimerChanged);
+    if (_c.primary == _primaryAction) _c.primary = null;
+    // Only the internal fallback is ours to dispose; a shell-owned controller
+    // outlives this view (that's the whole point).
+    _internalController?.dispose();
     super.dispose();
   }
 
   // Repaint the focus ring when the cursor gains/loses focus.
   void _onFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  // The controller drives per-second repaints and start/pause/finish state.
+  void _onTimerChanged() {
     if (mounted) setState(() {});
   }
 
@@ -122,34 +185,20 @@ class _TimerViewState extends State<TimerView> {
     });
   }
 
-  void _startOrResume() {
-    if (_session.isRunning) return;
-    setState(() {
-      _session.start(widget.jobId, now: DateTime.now());
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (!mounted) return;
-        setState(_session.tick);
-      });
-    });
-  }
+  void _startOrResume() => _c.startOrResume(widget.jobId);
 
-  void _pause() {
-    _timer?.cancel();
-    setState(_session.pause);
-  }
+  void _pause() => _c.pause();
 
   Future<void> _finish() async {
-    _timer?.cancel();
-    final result = _session.finish(now: DateTime.now());
-    setState(() {}); // reflect the stopped state
+    final result = _c.stop();
 
     // Nothing to record (empty session, or no job was ever bound).
     if (result == null) {
-      _resetSession();
+      _c.reset();
       return;
     }
 
-    final text = _taskController.text.trim();
+    final text = _c.task.text.trim();
     try {
       // Await the write so a failure is caught rather than silently lost.
       await widget.db.addEntry(
@@ -159,7 +208,7 @@ class _TimerViewState extends State<TimerView> {
         endedAt: result.endedAt,
         seconds: result.seconds,
       );
-      _resetSession();
+      _c.reset();
     } catch (e) {
       // Keep the session intact so the user can retry instead of losing time.
       if (mounted) {
@@ -168,12 +217,6 @@ class _TimerViewState extends State<TimerView> {
         ).showSnackBar(SnackBar(content: Text('Could not save entry: $e')));
       }
     }
-  }
-
-  void _resetSession() {
-    if (!mounted) return;
-    setState(_session.reset);
-    _taskController.clear();
   }
 
   // Open the add/edit-entry editor (adaptive modal/sheet). entry == null adds.
@@ -189,11 +232,11 @@ class _TimerViewState extends State<TimerView> {
   // (The Start button itself is intentionally not gated — Space only.)
   void _primaryAction() {
     if (widget.jobId == null) return;
-    if (_session.isRunning) {
+    if (_c.isRunning) {
       _pause();
       return;
     }
-    if (!_session.hasSession && _taskController.text.trim().isEmpty) {
+    if (!_c.hasSession && _c.task.text.trim().isEmpty) {
       _focusTask(); // nudge into the field instead of starting untitled
       return;
     }
@@ -280,7 +323,7 @@ class _TimerViewState extends State<TimerView> {
     // Space is handled globally at the shell (works from any pane while the
     // tracker is in view), so it isn't bound here — it bubbles up.
     if (key == LogicalKeyboardKey.keyF) {
-      if (_session.hasSession) _finish();
+      if (_c.hasSession) _finish();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.keyI) {
@@ -350,7 +393,7 @@ class _TimerViewState extends State<TimerView> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                Duration(seconds: _session.elapsed).hms,
+                Duration(seconds: _c.elapsed).hms,
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   fontSize: counterSize,
                   fontWeight: FontWeight.w300,
@@ -361,15 +404,15 @@ class _TimerViewState extends State<TimerView> {
             ),
             const SizedBox(height: AppTokens.spaceMd),
             TimerControls(
-              running: _session.isRunning,
-              hasSession: _session.hasSession,
-              counter: _session.elapsed,
+              running: _c.isRunning,
+              hasSession: _c.hasSession,
+              counter: _c.elapsed,
               // No job selected → disable start so time can't be tracked
               // against nothing (and later silently discarded).
               onPrimary: widget.jobId == null
                   ? null
-                  : (_session.isRunning ? _pause : _startOrResume),
-              onFinish: _session.hasSession ? _finish : null,
+                  : (_c.isRunning ? _pause : _startOrResume),
+              onFinish: _c.hasSession ? _finish : null,
             ),
             const SizedBox(height: AppTokens.space2xl), // match input→history
             if (widget.jobId == null) ...[
@@ -384,7 +427,7 @@ class _TimerViewState extends State<TimerView> {
                 const SingleActivator(LogicalKeyboardKey.escape): _blurToCursor,
               },
               child: TextField(
-                controller: _taskController,
+                controller: _c.task,
                 focusNode: _taskFocus,
                 decoration: const InputDecoration(
                   hintText: 'What are you working on?',
@@ -394,7 +437,7 @@ class _TimerViewState extends State<TimerView> {
                 // Return starts (if idle) and hands focus back to the entry
                 // cursor, so Space immediately pauses/resumes from there.
                 onSubmitted: (_) {
-                  if (!_session.isRunning) _startOrResume();
+                  if (!_c.isRunning) _startOrResume();
                   _blurToCursor();
                 },
               ),

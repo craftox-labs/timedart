@@ -199,6 +199,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     _trackerScope.dispose();
     _trackerCursor.dispose();
     _panelSearch.dispose();
+    _timer.dispose();
     super.dispose();
   }
 
