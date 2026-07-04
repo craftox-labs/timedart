@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/features/shell/page_header.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
 import 'package:time_tracker/features/jobs/job_form.dart';
@@ -268,6 +270,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return LayoutBuilder(
       builder: (context, c) {
         if (c.maxWidth >= AppTokens.breakpointMd) {
+          const panelWidth = 320.0;
           return Scaffold(
             // Observes bubbled key events for pane-switching without stealing
             // primary focus from the pane widgets themselves.
@@ -275,16 +278,38 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               onKeyEvent: _onShellKey,
               canRequestFocus: false,
               skipTraversal: true,
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(child: FocusScope(node: _trackerScope, child: content)),
-
-                  const VerticalDivider(
-                    width: AppTokens.strokeThick,
+                  // An additional strip above the split; doesn't touch the
+                  // tracker/panel layout or behaviour below it.
+                  const PageHeader(
+                    panelWidth: panelWidth,
+                    dividerWidth: AppTokens.strokeThick,
+                  ),
+                  const Divider(
+                    height: AppTokens.strokeThick,
+                    thickness: AppTokens.strokeThick,
                     color: AppTokens.colorBorder,
                   ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FocusScope(node: _trackerScope, child: content),
+                        ),
 
-                  SizedBox(width: 320, child: panel(keyboardNav: true)),
+                        const VerticalDivider(
+                          width: AppTokens.strokeThick,
+                          color: AppTokens.colorBorder,
+                        ),
+
+                        SizedBox(
+                          width: panelWidth,
+                          child: panel(keyboardNav: true),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -292,7 +317,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         }
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Time Tracker'),
+            title: SvgPicture.asset(
+              'assets/logo/timedart_logo_horizontal.svg',
+              height: 22,
+            ),
             // Explicit menu button (replacing the auto one) padded to sit at
             // the same right inset as the content below.
             actions: [
