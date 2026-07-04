@@ -54,12 +54,32 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // is a follow-up, see issue).
   final FocusNode _panelCursor = FocusNode(debugLabel: 'panelCursor');
   final FocusScopeNode _trackerScope = FocusScopeNode(debugLabel: 'trackerScope');
+  // The tracker pane's own row cursor (its entry list). Owned here so the shell
+  // can move focus straight onto it — mirrors _panelCursor. See TimerView.
+  final FocusNode _trackerCursor = FocusNode(debugLabel: 'trackerCursor');
+  // Panel search field, owned here so `/` from any pane jumps into search.
+  final FocusNode _panelSearch = FocusNode(debugLabel: 'panelSearch');
+  // Lets a global Space toggle the timer from any pane while it's in view.
+  final TimerController _timer = TimerController();
   bool _pendingCtrlW = false; // saw Ctrl-w, awaiting an h/l
 
   void _focusPanel() => _panelCursor.requestFocus();
-  void _focusTracker() => _trackerScope.requestFocus();
-  void _togglePane() =>
-      _panelCursor.hasFocus ? _focusTracker() : _focusPanel();
+  void _focusTracker() => _trackerCursor.requestFocus();
+  void _focusSearch() => _panelSearch.requestFocus();
+
+  // Is a text field currently focused? EditableText wraps its focusNode in a
+  // Focus whose context sits under the EditableText widget, so the primary
+  // focus resolves an EditableText ancestor exactly when we're typing.
+  bool _isEditing() {
+    final ctx = FocusManager.instance.primaryFocus?.context;
+    return ctx != null &&
+        ctx.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+  // "In the panel" means either its row cursor or its search field has focus —
+  // otherwise Tab out of a focused search would wrongly jump to the tracker.
+  void _togglePane() => (_panelCursor.hasFocus || _panelSearch.hasFocus)
+      ? _focusTracker()
+      : _focusPanel();
 
   // Pane-switching lives at the shell: Tab, Ctrl+←/→, Ctrl-h/l, and the vim
   // Ctrl-w h/l chord. Row navigation is the panel's own concern.
@@ -71,6 +91,25 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
     final key = event.logicalKey;
     final ctrl = HardwareKeyboard.instance.isControlPressed;
+
+    // Global single-key bindings (`/`, Space) must stand down while a text
+    // field is focused — printable-key events still bubble up here even as the
+    // field is receiving them, so without this guard they'd double-fire.
+    final editing = _isEditing();
+
+    // `/` is global: focus the panel search from whichever pane has focus.
+    if (!ctrl && !editing && key == LogicalKeyboardKey.slash) {
+      _focusSearch();
+      return KeyEventResult.handled;
+    }
+
+    // Space is global while the tracker is in view: toggle start/pause/resume
+    // from any pane. Fires once per press (repeats are swallowed, not repeated).
+    if (!ctrl && !editing && key == LogicalKeyboardKey.space && _detail is _Tracker) {
+      if (event is KeyDownEvent) _timer.primary?.call();
+      return KeyEventResult.handled;
+    }
+
     final left =
         key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft;
     final right =
@@ -161,6 +200,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     _jobsSub?.cancel();
     _panelCursor.dispose();
     _trackerScope.dispose();
+    _trackerCursor.dispose();
+    _panelSearch.dispose();
+    _timer.dispose();
     super.dispose();
   }
 
@@ -171,6 +213,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         db: widget.db,
         jobId: _selectedJobId,
         onInvoice: _invoiceJob,
+        // Keyboard cursor for the entry list; only ever focused in the wide
+        // layout (Tab / Ctrl-h / Ctrl-w h), inert in the drawer.
+        cursorFocusNode: _trackerCursor,
+        controller: _timer,
       ),
       _EditJob(:final job, :final clientId) => JobForm(
         db: widget.db,
@@ -213,6 +259,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         onAddClient: () => run(_addClient),
         // Keyboard nav is wired only where the panel is persistent (wide).
         cursorFocusNode: keyboardNav ? _panelCursor : null,
+        searchFocusNode: keyboardNav ? _panelSearch : null,
         onExitToTracker: keyboardNav ? _focusTracker : null,
         autofocus: keyboardNav,
       );

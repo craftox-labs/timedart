@@ -83,7 +83,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       style: ButtonStyle(
         side: WidgetStateProperty.resolveWith((states) {
           final color = states.contains(WidgetState.disabled)
-              ? scheme.onSurface.withValues(alpha: 0.50) // faded when disabled
+              ? borderColor // disabled → the shared muted border
               : scheme.primary; // primary otherwise
           return BorderSide(color: color, width: AppTokens.strokeThick);
         }),

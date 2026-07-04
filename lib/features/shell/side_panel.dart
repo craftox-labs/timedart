@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/panel_rows.dart';
+import 'package:time_tracker/widgets/focus_ring.dart';
 
 class SidePanel extends StatefulWidget {
   const SidePanel({
@@ -15,6 +16,7 @@ class SidePanel extends StatefulWidget {
     required this.onEditClient,
     required this.onAddClient,
     this.cursorFocusNode,
+    this.searchFocusNode,
     this.onExitToTracker,
     this.autofocus = false,
   });
@@ -28,6 +30,9 @@ class SidePanel extends StatefulWidget {
   // Row-cursor focus, owned by the shell so it can move focus *into* the panel.
   // Null in layouts without keyboard nav (drawer) — an internal node is used.
   final FocusNode? cursorFocusNode;
+  // Search-field focus, owned by the shell so a global `/` (from any pane) can
+  // jump straight into search. Null → an internal node (drawer layout).
+  final FocusNode? searchFocusNode;
   // Called when the user asks to leave the panel for the tracker pane
   // (Tab / Ctrl-l / Ctrl-w l). Null when there's nowhere to go.
   final VoidCallback? onExitToTracker;
@@ -42,7 +47,9 @@ class _SidePanelState extends State<SidePanel> {
   late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
   late final Stream<List<Job>> _jobsStream = widget.db.watchJobs();
   final _searchController = TextEditingController();
-  final _searchFocus = FocusNode(debugLabel: 'panelSearch');
+  FocusNode? _internalSearch;
+  FocusNode get _searchFocus =>
+      widget.searchFocusNode ?? (_internalSearch ??= FocusNode());
   String _query = '';
 
   // Manually expanded clients. Selecting a job seeds its client here once (so
@@ -71,6 +78,19 @@ class _SidePanelState extends State<SidePanel> {
     super.initState();
     // Repaint the focus indicator as the cursor gains/loses primary focus.
     _cursorNode.addListener(_onFocusChanged);
+    // Select-all whenever the search field gains focus, so typing replaces a
+    // stale query. Lives on the node (not just the local `/` path) so the
+    // shell's global `/` gets the same behaviour.
+    _searchFocus.addListener(_onSearchFocusChanged);
+  }
+
+  void _onSearchFocusChanged() {
+    if (_searchFocus.hasFocus) {
+      _searchController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _searchController.text.length,
+      );
+    }
   }
 
   void _onFocusChanged() {
@@ -84,8 +104,9 @@ class _SidePanelState extends State<SidePanel> {
   @override
   void dispose() {
     _cursorNode.removeListener(_onFocusChanged);
+    _searchFocus.removeListener(_onSearchFocusChanged);
     _internalFocus?.dispose();
-    _searchFocus.dispose();
+    _internalSearch?.dispose();
     _searchController.dispose();
     _scroll.dispose();
     super.dispose();
@@ -185,13 +206,9 @@ class _SidePanelState extends State<SidePanel> {
     });
   }
 
-  void _focusSearch() {
-    _searchFocus.requestFocus();
-    _searchController.selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: _searchController.text.length,
-    );
-  }
+  // Select-all happens in _onSearchFocusChanged (fires for this and the shell's
+  // global `/` alike).
+  void _focusSearch() => _searchFocus.requestFocus();
 
   void _ensureVisible() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -401,8 +418,9 @@ class _SidePanelState extends State<SidePanel> {
         final row = _rows[i];
         final focused = i == _cursor && cursorActive;
         final key = i == _cursor ? _cursorKey : null;
-        final tile = _FocusRing(
+        final tile = FocusRing(
           focused: focused,
+          edgesOnly: true, // top/bottom rules only, matching the entry list
           child: switch (row) {
             ClientRow() => _ClientHeaderTile(
               key: key,
@@ -449,29 +467,6 @@ class _SidePanelState extends State<SidePanel> {
 
 // A subtle inset ring on the keyboard-focused row — deliberately distinct from
 // the green *selected*-job tint so both can show at once.
-class _FocusRing extends StatelessWidget {
-  final bool focused;
-  final Widget child;
-  const _FocusRing({required this.focused, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      // Square corners — the ring hugs the rectangular row edges.
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: focused
-              ? scheme.onSurfaceVariant.withValues(alpha: 0.7)
-              : Colors.transparent,
-          width: AppTokens.strokeThin,
-        ),
-      ),
-      child: child,
-    );
-  }
-}
-
 // --- Search field + Add-client button, pinned to the top of the panel ---
 class _SearchHeader extends StatelessWidget {
   final TextEditingController controller;
