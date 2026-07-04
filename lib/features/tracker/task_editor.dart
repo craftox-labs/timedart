@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/util/parse_rate.dart';
-import 'package:time_tracker/widgets/confirm_dialog.dart';
+import 'package:time_tracker/features/deletions.dart';
 
 // Add/edit/delete a task under a job. Presented adaptively — a modal dialog on
 // wide windows, a bottom sheet on narrow — mirroring showEntryEditor.
@@ -102,29 +102,13 @@ class _TaskFormState extends State<TaskForm> {
   }
 
   Future<void> _confirmDelete() async {
-    final ok = await confirmDelete(
-      context,
-      title: 'Delete task?',
-      message:
-          '"${widget.task!.title}" and its time entries will be removed.',
-    );
-    if (!ok) return;
-    try {
-      await widget.db.deleteTask(widget.task!.id);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not delete task: $e')));
-      }
-      return;
-    }
-    if (mounted) Navigator.pop(context);
+    final deleted = await confirmDeleteTask(context, widget.db, widget.task!);
+    if (deleted && mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final form = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -173,5 +157,10 @@ class _TaskFormState extends State<TaskForm> {
         ),
       ],
     );
+
+    // In edit mode, `d` triggers Delete (a focused field eats it while typing).
+    return _isEdit
+        ? DeleteHotkey(onDelete: _confirmDelete, child: form)
+        : form;
   }
 }

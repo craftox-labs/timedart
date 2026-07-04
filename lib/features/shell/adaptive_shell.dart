@@ -23,17 +23,6 @@ class _Tracker extends _Detail {
   const _Tracker();
 }
 
-class _EditJob extends _Detail {
-  final Job? job; // null = adding
-  final int? clientId; // preselected client when adding under one
-  const _EditJob({this.job, this.clientId});
-}
-
-class _EditClient extends _Detail {
-  final Client? client; // null = adding
-  const _EditClient({this.client});
-}
-
 class _Invoice extends _Detail {
   final Job job;
   const _Invoice(this.job);
@@ -165,12 +154,23 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     _selectedJobId = id;
     _detail = const _Tracker(); // picking a job returns you to the timer
   });
-  void _editJob(Job job) => setState(() => _detail = _EditJob(job: job));
-  void _addJob(int clientId) =>
-      setState(() => _detail = _EditJob(clientId: clientId));
+
+  // Client/job editing are modals (like task/entry), so they open over the
+  // content pane rather than replacing it.
+  void _editJob(Job job) => showJobEditor(context, db: widget.db, job: job);
+  Future<void> _addJob(int clientId) async {
+    final createdJobId = await showJobEditor(
+      context,
+      db: widget.db,
+      initialClientId: clientId,
+    );
+    // A freshly-created job becomes the selection so the timer switches to it.
+    if (createdJobId != null && mounted) _selectJob(createdJobId);
+  }
+
   void _editClient(Client c) =>
-      setState(() => _detail = _EditClient(client: c));
-  void _addClient() => setState(() => _detail = const _EditClient());
+      showClientEditor(context, db: widget.db, client: c);
+  void _addClient() => showClientEditor(context, db: widget.db);
   void _invoiceJob(Job job) => setState(() => _detail = _Invoice(job));
 
   @override
@@ -182,27 +182,16 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       }
     });
 
-    // Keep selection and any open job editor honest when jobs change:
-    // if the selected/edited job is deleted, fall back gracefully.
+    // Keep the selection honest when jobs change: if the selected job is
+    // deleted, fall back to the first remaining job (or none).
     _jobsSub = widget.db.watchJobs().listen((jobs) {
       if (!mounted) return;
       final ids = jobs.map((j) => j.id).toSet();
-      var selected = _selectedJobId;
-      var detail = _detail;
-
+      final selected = _selectedJobId;
       if (selected != null && !ids.contains(selected)) {
-        selected = jobs.isNotEmpty ? jobs.first.id : null;
-      }
-      if (detail is _EditJob &&
-          detail.job != null &&
-          !ids.contains(detail.job!.id)) {
-        detail = const _Tracker();
-      }
-      if (selected != _selectedJobId || !identical(detail, _detail)) {
-        setState(() {
-          _selectedJobId = selected;
-          _detail = detail;
-        });
+        setState(
+          () => _selectedJobId = jobs.isNotEmpty ? jobs.first.id : null,
+        );
       }
     });
   }
@@ -229,20 +218,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // layout (Tab / Ctrl-h / Ctrl-w h), inert in the drawer.
         cursorFocusNode: _trackerCursor,
         controller: _timer,
-      ),
-      _EditJob(:final job, :final clientId) => JobForm(
-        db: widget.db,
-        initial: job,
-        initialClientId: clientId,
-        // A freshly-created job becomes the selection so the timer switches
-        // to it; edit/delete/cancel just return to the tracker.
-        onDone: (createdJobId) =>
-            createdJobId == null ? _showTracker() : _selectJob(createdJobId),
-      ),
-      _EditClient(:final client) => ClientForm(
-        db: widget.db,
-        initial: client,
-        onDone: _showTracker,
       ),
       _Invoice(:final job) => InvoiceView(
         db: widget.db,

@@ -27,7 +27,7 @@ void main() {
     expect(entries.single.description, 'first pass');
   });
 
-  test('deleteTask removes the task and cascades to its entries', () async {
+  test('deleteTask is blocked while the task has time entries', () async {
     final jobId = await db.ensureDefaultJob();
     final taskId = await db.addTask(jobId: jobId, title: 'Build');
     await db.addEntry(
@@ -37,11 +37,19 @@ void main() {
       endedAt: DateTime(2026),
       seconds: 120,
     );
+
+    // FK restrict: can't drop a task that still has entries.
+    await expectLater(db.deleteTask(taskId), throwsA(anything));
+    expect((await db.select(db.tasks).get()).length, 1);
     expect((await db.select(db.timeEntries).get()).length, 1);
+  });
+
+  test('deleteTask removes a task with no entries', () async {
+    final jobId = await db.ensureDefaultJob();
+    final taskId = await db.addTask(jobId: jobId, title: 'Empty');
 
     await db.deleteTask(taskId);
 
     expect(await db.select(db.tasks).get(), isEmpty);
-    expect(await db.select(db.timeEntries).get(), isEmpty);
   });
 }

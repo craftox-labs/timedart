@@ -1,22 +1,50 @@
-# time_tracker
+# timedart
 
-A local-first **time-tracking desktop app** that records time against jobs and clients and
-(eventually) generates PDF invoices. Built with Flutter for one codebase across Linux desktop and
-Android, with web available for demos.
+**Track your hours the way you think about your work — client, job, task — and turn them into an invoice in a couple of clicks.**
 
-## What it does
+timedart is a fast, local-first time tracker for people who bill by the hour. Your data lives on your machine, the timer is always one keypress away, and every recorded minute rolls straight up into a per-job PDF invoice. Built with Flutter, it runs as a native desktop app and adapts down to a phone from the same codebase.
 
-- Start / pause / resume / finish a timer and record the session as a **time entry** (`hh:mm:ss`).
-- Organise entries under **jobs** (each with a code, title, and optional rate) tied to **clients**
-  (each with an optional default rate).
-- Effective rate resolves per entry as `job.rate ?? client.defaultRate`.
-- Entries persist locally in SQLite via [drift](https://drift.simonbinder.eu), with foreign keys
-  enforced so deletes can't orphan data.
-- Create, edit, and delete clients and jobs inline; **per-job PDF invoices** — pick a date range,
-  preview the itemised entries at the effective rate, and export to a PDF file.
-- **Adaptive layout**: a persistent side panel beside the content on wide windows; the panel collapses
-  into a drawer when narrow. Editing/invoicing happens in the content pane (master–detail), not on
-  separate screens.
+---
+
+## Why timedart
+
+- **Structured, not scattered.** Organise work as **clients → jobs → tasks**, and record each timed session as an **entry** under a task. Your history reads like your workload, not a flat log.
+- **A timer that stays out of the way.** Start, pause, resume, and finish with a single key — from anywhere in the app. The running session survives while you edit a client, add a job, or preview an invoice.
+- **Rates that just resolve.** Set a default rate on a client, override it per job or per task; every entry bills at the right rate automatically.
+- **Invoices in seconds.** Pick a job and a date range, preview the itemised entries and total, and export a clean PDF — no spreadsheet round-trip.
+- **Yours, on your disk.** Everything persists locally in SQLite. No account, no cloud, no sync — nothing leaves your machine.
+- **Keyboard-first.** The whole app is drivable without the mouse, vim-style. Press `?` any time for the full shortcut map.
+- **One app, every screen.** A roomy two-pane layout on desktop folds into a drawer on narrow windows — same features throughout.
+
+## Feature tour
+
+- **Timer** — `hh:mm:ss` count-up bound to a task, with start / pause / resume / finish. Name a session or let it inherit the task title.
+- **Clients, jobs & tasks** — full create / edit / delete for each, in quick modal editors. Deletes are guarded so you can't accidentally erase billable history.
+- **Entries** — adjust the task, note, start time, and duration of any recorded segment after the fact.
+- **Invoicing** — per-job, date-ranged, itemised at the effective rate, exported to PDF.
+- **Adaptive UI** — persistent side panel + content pane when there's room; a drawer when there isn't.
+- **Design** — a considered Material 3 theme in the timedart green, Raleway throughout, and a single design-token source so it stays consistent.
+
+## Keyboard
+
+timedart is built to be flown from the keyboard. Navigation is identical across the side panel and the tracker, so the same keys work wherever your cursor is.
+
+| Keys | Action |
+| --- | --- |
+| `j` / `k` · `↓` / `↑` | move the cursor |
+| `gg` / `G` | jump to first / last |
+| `l` / `→` | open / expand |
+| `h` / `←` | collapse / go to parent |
+| `Enter` | select / activate |
+| `e` | edit the focused item |
+| `Tab` · `Ctrl`+`←`/`→` · `Ctrl-w` `h`/`l` | switch panes |
+| `/` | search |
+| `Space` | start / pause / resume the timer (from any pane) |
+| `f` · `i` | finish · focus the description |
+| `a` / `A` | add (job / client in the panel · task / entry in the tracker) |
+| `d` | delete, from inside an edit modal |
+| `Enter` / `Esc` | save / cancel in any editor |
+| `?` | show the full shortcut overlay |
 
 ## Running it
 
@@ -24,109 +52,53 @@ Requires the Flutter SDK ([install guide](https://docs.flutter.dev/get-started/i
 
 ```sh
 flutter pub get
-flutter run -d linux      # Linux desktop (primary target)
+flutter run -d linux      # native desktop (primary target)
 flutter run -d chrome     # web, for a quick demo
 flutter analyze           # static analysis (should be clean)
 flutter test              # unit tests
-flutter build linux       # release build (verifies the native build)
+flutter build linux       # release build
 ```
 
 For iterative work there's `./dev.sh`: it runs `build_runner watch` (regenerating `*.g.dart` from
-drift on save) alongside `flutter run -d linux`, and hot-reloads on any change under `lib/` (debounced).
-See the comments at the bottom of the script for the manual reload/restart/quit commands.
+drift on save) alongside `flutter run -d linux`, and hot-reloads on changes under `lib/`.
 
-The local database lives in the platform app-support directory (e.g. `~/.local/share/` on Linux),
-not the project folder.
+The database lives in the platform app-support directory (e.g. `~/.local/share/` on Linux), not the
+project folder.
 
-## Keyboard navigation
+## Under the hood
 
-The side panel is fully keyboard-drivable in the wide layout (arrow keys or vim keys). A row cursor
-moves over the flattened list of clients and the jobs of expanded clients:
-
-| Key | Action |
-| --- | --- |
-| `j` / `↓`, `k` / `↑` | move the cursor down / up |
-| `l` / `→` / `Enter` | expand a collapsed client · step into an expanded one · open a job |
-| `h` / `←` | collapse an expanded client · from a job, jump to its parent |
-| `gg` / `G` | jump to the first / last row |
-| `n` / `N` | next / previous job row (handy while searching) |
-| `/` | focus the search field (`Esc` returns to the cursor) |
-| `Tab` | toggle focus between the tracker pane and the side panel |
-| `Ctrl-h` / `Ctrl-←` | focus the tracker (left pane) |
-| `Ctrl-l` / `Ctrl-→` | focus the side panel (right pane) |
-| `Ctrl-w` then `h` / `l` | vim window-motion: left → tracker, right → panel |
-
-Focus direction follows on-screen position: the tracker is on the left, the side panel on the right.
-The focused row shows a subtle outline, distinct from the highlighted *selected* job.
-
-## Project structure
-
-Organised **feature-first** — each feature owns its widgets, with shared building blocks pulled out:
+Flutter + [drift](https://drift.simonbinder.eu) (SQLite) with foreign keys enforced, so deletes can
+never orphan data. Organised **feature-first** — each feature owns its widgets, with shared
+primitives and design tokens pulled out:
 
 ```
 lib/
-├── main.dart                  app entry; wires the database into AdaptiveShell
-├── constants/                 cross-cutting design + helpers
-│   ├── tokens.dart            AppTokens: spacing, breakpoints, radii, type, palette, icon sizes
-│   ├── theme.dart             buildAppTheme() — Material 3 theme from tokens
-│   └── format.dart            formatting helpers (e.g. Duration.hms)
-├── data/
-│   └── database.dart          drift database, tables, queries (Clients / Jobs / TimeEntries)
+├── main.dart              wires the database into the adaptive shell
+├── constants/             design tokens, Material 3 theme, formatting helpers
+├── data/database.dart     drift tables + queries (Clients / Jobs / Tasks / TimeEntries)
 ├── features/
-│   ├── shell/                 the adaptive master–detail shell
-│   │   ├── adaptive_shell.dart  owns selection + detail view (sealed _Detail) + keyboard focus
-│   │   ├── side_panel.dart      clients→jobs nav; select/edit/add/invoice + keyboard row cursor
-│   │   └── panel_rows.dart      pure flattener: (clients, jobs, query, expanded) → row list
-│   ├── tracker/               the timer and its session history
-│   │   ├── timer_view.dart      selection-driven timer
-│   │   ├── timer_controls.dart  start/pause/resume/finish controls
-│   │   └── time_entry_list.dart recorded-entry list (filtered to the selected job)
-│   ├── clients/               client_form.dart — create/edit/delete client
-│   ├── jobs/                  job_form.dart — create/edit/delete job
-│   └── invoices/              per-job PDF invoicing (read-only leaf)
-│       ├── invoice_view.dart    date range → itemised preview → export
-│       └── invoice_pdf.dart     pure PDF builder (bytes out)
-└── widgets/                   shared UI primitives (ContentBody, confirm dialog, …)
+│   ├── shell/             adaptive master–detail shell, side panel, shortcut overlay
+│   ├── tracker/           timer, task list, task/entry editors
+│   ├── clients/ · jobs/   client & job editors
+│   ├── invoices/          per-job PDF invoicing (date range → preview → export)
+│   └── deletions.dart     shared, guarded delete flows
+└── widgets/               shared UI primitives
 ```
 
-**State flow:** `AdaptiveShell` holds `_selectedJobId` (what the timer records against) and a sealed
-`_Detail` value for the content pane (timer / edit-job / edit-client / invoice). The side panel sends
-actions up via callbacks; children read state via props. Editing and invoicing render in the content
-pane rather than as pushed routes.
-
-## Development workflow
-
-Work lands one issue per branch, reviewed as a PR and squash-merged so `main` stays a clean,
-linear history of feature-sized commits.
-
-```sh
-git switch -c feat/<slug>            # branch off main, one issue per branch
-
-# ... implement ...
-
-flutter analyze && flutter test      # both must pass before a PR
-flutter build linux                  # verify the native build
-
-git commit                           # small, focused commits; reference the issue (#NN)
-git push -u origin feat/<slug>
-gh pr create --fill                   # open the PR (closes #NN)
-```
-
-- **Review** the diff before merging — `gh pr view --web`, or the `/review` and `/code-review`
-  helpers if you're driving this with Claude Code.
-- **Squash-merge** so the PR collapses to a single commit on `main`:
-
-  ```sh
-  gh pr merge --squash --delete-branch
-  git switch main && git pull         # sync your local main
-  ```
-
-- Stacked PRs: if a branch builds on another unmerged branch, base the PR on that branch and
-  retarget it to `main` once the parent merges.
+The shell holds the selected job (what the timer records against) and the content pane's state;
+the side panel raises actions via callbacks, and editing happens in adaptive modals over the pane.
 
 ## Roadmap
 
-Tracked as [GitHub issues](https://github.com/tm-ox/time_tracker/issues). **Core complete:**
-persistence, jobs, clients & rates, adaptive layout, full CRUD, per-job PDF invoices, and
-keyboard navigation (#39). Open: visual polish (#20), job archive (#12), bundle JetBrains Mono
-(#22), stored/immutable invoice snapshots (#26), content-pane keymap (#41).
+Core is complete and in daily-driver shape: persistent tracking across clients, jobs, and tasks;
+full editing everywhere; per-job PDF invoices; and end-to-end keyboard control. Next on the horizon:
+
+- Richer invoicing — per-task and per-entry rate control, and stored, immutable invoice snapshots.
+- Bulk actions to clear out old clients and jobs in one deliberate step.
+- Archiving jobs you're done with, to keep the working set tidy.
+- Ongoing design polish.
+
+## Development
+
+Work lands one change per branch, reviewed as a PR and squash-merged so `main` stays a clean,
+linear history. `flutter analyze` and `flutter test` should both pass before every PR.

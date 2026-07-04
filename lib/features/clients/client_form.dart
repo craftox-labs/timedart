@@ -2,18 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/util/parse_rate.dart';
-import 'package:time_tracker/widgets/confirm_dialog.dart';
+import 'package:time_tracker/features/deletions.dart';
+
+// Add/edit/delete a client. Presented adaptively — a modal dialog on wide
+// windows, a bottom sheet on narrow — mirroring showTaskEditor / showJobEditor.
+Future<void> showClientEditor(
+  BuildContext context, {
+  required AppDatabase db,
+  Client? client,
+}) {
+  final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
+  if (wide) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.all(AppTokens.spaceXl),
+            child: ClientForm(db: db, initial: client),
+          ),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.spaceLg),
+        child: ClientForm(db: db, initial: client),
+      ),
+    ),
+  );
+}
 
 class ClientForm extends StatefulWidget {
-  const ClientForm({
-    super.key,
-    required this.db,
-    this.initial,
-    required this.onDone,
-  });
+  const ClientForm({super.key, required this.db, this.initial});
   final AppDatabase db;
   final Client? initial; // null = create, set = edit
-  final VoidCallback onDone;
   @override
   State<ClientForm> createState() => _ClientFormState();
 }
@@ -71,92 +100,78 @@ class _ClientFormState extends State<ClientForm> {
       }
       return;
     }
-    if (mounted) widget.onDone();
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _confirmDelete() async {
-    final ok = await confirmDelete(
+    final deleted = await confirmDeleteClient(
       context,
-      title: 'Delete client?',
-      message: '"${widget.initial!.name}" will be removed.',
+      widget.db,
+      widget.initial!,
     );
-    if (!ok) return;
-    try {
-      await widget.db.deleteClient(widget.initial!.id);
-    } catch (e) {
-      // FK restrict: the client still has jobs.
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cannot delete a client that still has jobs.'),
-          ),
-        );
-      }
-      return;
-    }
-    if (mounted) widget.onDone();
+    if (deleted && mounted) Navigator.pop(context);
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          _isEdit ? 'Edit client' : 'New client',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: AppTokens.spaceMd),
-        // Title stays pinned at the top; the fields + actions center in the
-        // remaining vertical space.
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              const SizedBox(height: AppTokens.spaceSm),
-              TextField(
-                controller: _email,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-              const SizedBox(height: AppTokens.spaceXl),
-              TextField(
-                controller: _rate,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Default Rate',
-                  errorText: _rateError,
-                ),
-              ),
-              const SizedBox(height: AppTokens.spaceXl),
-              Row(
-                children: [
-                  if (_isEdit)
-                    TextButton(
-                      onPressed: _confirmDelete,
-                      child: const Text('Delete'),
-                    ),
-                  const Spacer(),
-                  OutlinedButton(
-                    onPressed: widget.onDone,
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: AppTokens.spaceSm),
-                  FilledButton(
-                    onPressed: _submit,
-                    child: Text(_isEdit ? 'Save' : 'Add'),
-                  ),
-                ],
-              ),
-            ],
+  Widget build(BuildContext context) {
+    final form = SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _isEdit ? 'Edit client' : 'New client',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
+        const SizedBox(height: AppTokens.spaceXl),
+        TextField(
+          controller: _name,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(labelText: 'Name'),
+        ),
+        const SizedBox(height: AppTokens.spaceLg),
+        TextField(
+          controller: _email,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(labelText: 'Email'),
+        ),
+        const SizedBox(height: AppTokens.spaceXl),
+        TextField(
+          controller: _rate,
+          keyboardType: TextInputType.number,
+          onSubmitted: (_) => _submit(),
+          decoration: InputDecoration(
+            labelText: 'Default Rate',
+            errorText: _rateError,
+          ),
+        ),
+        const SizedBox(height: AppTokens.spaceXl),
+        Row(
+          children: [
+            if (_isEdit)
+              TextButton(
+                onPressed: _confirmDelete,
+                child: const Text('Delete'),
+              ),
+            const Spacer(),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: AppTokens.spaceSm),
+            FilledButton(
+              onPressed: _submit,
+              child: Text(_isEdit ? 'Save' : 'Add'),
+            ),
+          ],
         ),
       ],
     ),
   );
+
+    // In edit mode, `d` triggers Delete (a focused field eats it while typing).
+    return _isEdit
+        ? DeleteHotkey(onDelete: _confirmDelete, child: form)
+        : form;
+  }
 }

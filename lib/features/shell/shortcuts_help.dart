@@ -53,6 +53,7 @@ const List<_Group> _keymap = [
   ]),
   _Group('Editors', [
     _Shortcut(['Enter'], 'Save'),
+    _Shortcut(['d'], 'Delete (in an edit modal)'),
     _Shortcut(['Esc'], 'Cancel / close'),
   ]),
 ];

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/widgets/confirm_dialog.dart';
+import 'package:time_tracker/features/deletions.dart';
 
 // Add/edit/delete a time entry. Presented adaptively — a modal dialog on wide
 // windows, a bottom sheet on narrow — by [showEntryEditor]. Time is entered as
@@ -208,26 +208,8 @@ class _EntryFormState extends State<EntryForm> {
   }
 
   Future<void> _confirmDelete() async {
-    final label = widget.entry!.description?.trim();
-    final ok = await confirmDelete(
-      context,
-      title: 'Delete entry?',
-      message: label == null || label.isEmpty
-          ? 'This time entry will be removed.'
-          : '"$label" will be removed.',
-    );
-    if (!ok) return;
-    try {
-      await widget.db.deleteEntry(widget.entry!.id);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not delete entry: $e')));
-      }
-      return;
-    }
-    if (mounted) widget.onClose();
+    final deleted = await confirmDeleteEntry(context, widget.db, widget.entry!);
+    if (deleted && mounted) widget.onClose();
   }
 
   // A borderless number field for the Duration box (hours or minutes).
@@ -272,7 +254,7 @@ class _EntryFormState extends State<EntryForm> {
         '${loc.formatMediumDate(_start)} · '
         '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(_start))}';
 
-    return SingleChildScrollView(
+    final form = SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -366,5 +348,10 @@ class _EntryFormState extends State<EntryForm> {
         ],
       ),
     );
+
+    // In edit mode, `d` triggers Delete (a focused field eats it while typing).
+    return _isEdit
+        ? DeleteHotkey(onDelete: _confirmDelete, child: form)
+        : form;
   }
 }
