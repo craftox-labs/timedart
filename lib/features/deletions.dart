@@ -3,23 +3,36 @@ import 'package:flutter/services.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
 
-/// Wraps an edit modal so pressing `d` runs [onDelete] (its Delete flow). A
-/// focused text field consumes the keypress first, so `d` types normally while
-/// editing a field and only deletes when focus is elsewhere in the modal.
+/// Wraps an edit modal so pressing `d` runs [onDelete] (its Delete flow), but
+/// only when a text field isn't focused — a focused field still needs `d` for
+/// typing. (A field inserts characters via the IME, yet the raw key event
+/// still bubbles here, so a plain shortcut would wrongly eat it.)
 ///
-/// The inner [Focus] takes focus when the modal opens so key events originate
-/// *inside* this subtree — otherwise the dialog's focus scope sits above the
-/// shortcut and `d` never reaches it.
+/// Autofocuses so, on open with no field focused, the key originates inside
+/// this subtree; otherwise the dialog's focus scope sits above us and `d`
+/// never reaches the handler.
 class DeleteHotkey extends StatelessWidget {
   const DeleteHotkey({super.key, required this.onDelete, required this.child});
   final VoidCallback onDelete;
   final Widget child;
 
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyD) {
+      return KeyEventResult.ignored;
+    }
+    // A text field is focused (its EditableText is the primary-focus context) →
+    // leave `d` for typing.
+    final ctx = FocusManager.instance.primaryFocus?.context;
+    final editing =
+        ctx != null && ctx.findAncestorWidgetOfExactType<EditableText>() != null;
+    if (editing) return KeyEventResult.ignored;
+    onDelete();
+    return KeyEventResult.handled;
+  }
+
   @override
-  Widget build(BuildContext context) => CallbackShortcuts(
-    bindings: {const SingleActivator(LogicalKeyboardKey.keyD): onDelete},
-    child: Focus(autofocus: true, child: child),
-  );
+  Widget build(BuildContext context) =>
+      Focus(autofocus: true, onKeyEvent: _onKey, child: child);
 }
 
 // Confirm-then-delete for each entity, shared by the edit modals' Delete button
