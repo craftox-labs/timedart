@@ -32,9 +32,13 @@ abstract class AppTokens {
   static const double fontSizeMd = 16.0;
 
   // ── 5. Color Palette ──
-  static const Color colorSeed = Colors.lightGreenAccent;
-  static const Color colorBrandPrimary = Colors.lightGreenAccent;
+  // Seed drives the M3 surface tones; keep it as the brand primary so the
+  // palette stays coherent.
+  static const Color colorSeed = Color(0xFF69E228);
+  static const Color colorBrandPrimary = Color(0xFF69E228);
   static const Color colorBrandOnPrimary = Colors.black;
+  static const Color colorBrandSecondary = Color(0xFF2E6C0F);
+  static const Color colorBrandOnSecondary = Colors.white;
   // Structural borders app-wide: dividers, app-bar hairline, input rest state,
   // side-panel section/vertical dividers. The one knob — brighten/darken here.
   static const Color colorBorder = Color(0xFF4A5142);

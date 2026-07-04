@@ -7,6 +7,8 @@ ThemeData buildAppTheme(Brightness brightness) {
     brightness: brightness,
     primary: AppTokens.colorBrandPrimary,
     onPrimary: AppTokens.colorBrandOnPrimary,
+    secondary: AppTokens.colorBrandSecondary,
+    onSecondary: AppTokens.colorBrandOnSecondary,
   );
 
   // One source of truth for structural borders (dividers, app-bar hairline,
