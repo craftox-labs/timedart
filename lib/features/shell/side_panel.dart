@@ -18,6 +18,7 @@ class SidePanel extends StatefulWidget {
     this.cursorFocusNode,
     this.searchFocusNode,
     this.onExitToTracker,
+    this.onShowHelp,
     this.autofocus = false,
   });
   final AppDatabase db;
@@ -36,6 +37,9 @@ class SidePanel extends StatefulWidget {
   // Called when the user asks to leave the panel for the tracker pane
   // (Tab / Ctrl-l / Ctrl-w l). Null when there's nowhere to go.
   final VoidCallback? onExitToTracker;
+  // `?` (Shift+/) — open the shortcuts help. Routed up because the panel
+  // consumes the `/` key itself (so it can't bubble to the shell).
+  final VoidCallback? onShowHelp;
   // Take the row cursor on first build (wide layout, where keys are live).
   final bool autofocus;
 
@@ -333,6 +337,12 @@ class _SidePanelState extends State<SidePanel> {
       _collapseOrParent();
       return KeyEventResult.handled;
     }
+    // `?` = help (matched by character — a shifted `/` isn't reported as the
+    // slash logical key); plain `/` = search.
+    if (event.character == '?') {
+      widget.onShowHelp?.call();
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.slash) {
       _focusSearch();
       return KeyEventResult.handled;
@@ -345,8 +355,23 @@ class _SidePanelState extends State<SidePanel> {
       _editCurrent();
       return KeyEventResult.handled;
     }
+    // a = add job under the focused row's client; A = add client.
+    if (key == LogicalKeyboardKey.keyA) {
+      if (shift) {
+        widget.onAddClient();
+      } else {
+        _addJobCurrent();
+      }
+      return KeyEventResult.handled;
+    }
     // Tab is left for the shell (tracker↔panel toggle) — don't consume.
     return KeyEventResult.ignored;
+  }
+
+  // A : add a job under the focused row's client (client or job row).
+  void _addJobCurrent() {
+    if (_cursor >= _rows.length) return;
+    widget.onAddJob(_rows[_cursor].clientId);
   }
 
   @override
@@ -384,6 +409,10 @@ class _SidePanelState extends State<SidePanel> {
               },
             ),
           ),
+          // A quiet hint at the base — opens the same help as `?`. Only where
+          // keyboard nav is live (wide layout).
+          if (widget.onShowHelp != null)
+            _ShortcutsHint(onTap: widget.onShowHelp!),
         ],
       ),
     );
@@ -582,7 +611,7 @@ class _SearchHeader extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Add client',
+            tooltip: 'Add client (A)',
             onPressed: onAddClient,
           ),
         ],
@@ -661,7 +690,7 @@ class _ClientHeaderTile extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Add job',
+            tooltip: 'Add job (a)',
             onPressed: onAddJob,
           ),
           const SizedBox(width: AppTokens.spaceSm),
@@ -672,7 +701,7 @@ class _ClientHeaderTile extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Edit client',
+            tooltip: 'Edit client (e)',
             onPressed: onEditClient,
           ),
         ],
@@ -726,10 +755,68 @@ class JobRowItem extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(),
-        tooltip: 'Edit job',
+        tooltip: 'Edit job (e)',
         onPressed: onEdit,
       ),
       onTap: onTap,
+    );
+  }
+}
+
+// Base-of-panel hint: a `?` keycap + "Shortcuts", opening the help modal.
+class _ShortcutsHint extends StatelessWidget {
+  const _ShortcutsHint({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Divider(
+          height: AppTokens.strokeThin,
+          thickness: AppTokens.strokeThin,
+          color: AppTokens.colorBorder,
+        ),
+        InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.spaceMd,
+              vertical: AppTokens.spaceSm,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.space2xs,
+                    vertical: AppTokens.space4xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                    border: Border.all(color: AppTokens.colorBorder),
+                  ),
+                  child: Text(
+                    '?',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppTokens.spaceXs),
+                Text(
+                  'Shortcuts',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

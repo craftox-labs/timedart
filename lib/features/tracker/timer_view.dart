@@ -428,11 +428,28 @@ class _TimerViewState extends State<TimerView> {
       _editCursor();
       return KeyEventResult.handled;
     }
+    // a = add task (parent), A = add entry to the focused task.
     if (key == LogicalKeyboardKey.keyA) {
-      _openTaskEditor(null);
+      if (shift) {
+        _addEntryToCursor();
+      } else {
+        _openTaskEditor(null);
+      }
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  // A : add an entry to the focused row's task (task header or one of its
+  // entries).
+  void _addEntryToCursor() {
+    if (_cursor >= _rows.length) return;
+    switch (_rows[_cursor]) {
+      case TaskHeaderRow(:final taskId):
+        _openEntryEditor(null, taskId: taskId);
+      case TaskEntryRow(:final task):
+        _openEntryEditor(null, taskId: task.id);
+    }
   }
 
   void _ensureVisible() {
@@ -719,7 +736,7 @@ class _TasksHeader extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                tooltip: 'Add task',
+                tooltip: 'Add task (a)',
               ),
               const SizedBox(width: AppTokens.spaceMd),
               TextButton.icon(
