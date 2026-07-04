@@ -6,6 +6,10 @@ import 'package:time_tracker/widgets/confirm_dialog.dart';
 /// Wraps an edit modal so pressing `d` runs [onDelete] (its Delete flow). A
 /// focused text field consumes the keypress first, so `d` types normally while
 /// editing a field and only deletes when focus is elsewhere in the modal.
+///
+/// The inner [Focus] takes focus when the modal opens so key events originate
+/// *inside* this subtree — otherwise the dialog's focus scope sits above the
+/// shortcut and `d` never reaches it.
 class DeleteHotkey extends StatelessWidget {
   const DeleteHotkey({super.key, required this.onDelete, required this.child});
   final VoidCallback onDelete;
@@ -14,7 +18,7 @@ class DeleteHotkey extends StatelessWidget {
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
     bindings: {const SingleActivator(LogicalKeyboardKey.keyD): onDelete},
-    child: child,
+    child: Focus(autofocus: true, child: child),
   );
 }
 
