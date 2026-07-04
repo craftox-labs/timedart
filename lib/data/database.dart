@@ -24,10 +24,25 @@ class Jobs extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// A unit of work under a job. Owns many time-entry segments, so multiple
+// sessions accumulate against one task. `rate` overrides the job's rate (used
+// by a later invoicing pass); status leaves room for open/done/archived.
+class Tasks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get jobId => integer().references(Jobs, #id)();
+  TextColumn get title => text()();
+  RealColumn get rate => real().nullable()(); // overrides job.rate
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 class TimeEntries extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get jobId => integer().references(Jobs, #id)();
-  TextColumn get task => text()();
+  TextColumn get task => text()(); // DEAD once #57 lands — taskId is the source
+  // Nullable only to allow the ALTER TABLE add during the v1→v2 migration; the
+  // add/update bridge always sets it, so in practice every row has a task.
+  IntColumn get taskId => integer().nullable().references(Tasks, #id)();
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime()();
   IntColumn get seconds =>
@@ -75,19 +90,41 @@ class JobInvoice {
   double? get total => rate == null ? null : totalHours * rate!;
 }
 
-@DriftDatabase(tables: [Clients, Jobs, TimeEntries])
+@DriftDatabase(tables: [Clients, Jobs, Tasks, TimeEntries])
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a job that has time entries (or a client
   // that has jobs) fails loudly instead of silently orphaning rows.
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      // v1 → v2: introduce Tasks between Job and TimeEntry. Create the table,
+      // add the (nullable) taskId column, then fold each distinct
+      // (job, task-string) into one Task and repoint its entries. The old
+      // `task` string column is left in place (dropped later in #57). FK
+      // enforcement is off during migration (beforeOpen runs afterwards), so
+      // the ALTER + backfill are safe.
+      if (from < 2) {
+        await m.createTable(tasks);
+        await m.addColumn(timeEntries, timeEntries.taskId);
+        await customStatement(
+          'INSERT INTO tasks (job_id, title) '
+          'SELECT DISTINCT job_id, task FROM time_entries',
+        );
+        await customStatement(
+          'UPDATE time_entries SET task_id = ('
+          'SELECT t.id FROM tasks t '
+          'WHERE t.job_id = time_entries.job_id AND t.title = time_entries.task)',
+        );
+      }
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
@@ -116,21 +153,37 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  // Bridge until #56 passes a real taskId: resolve the free-text task to a Task
+  // row (creating it once per job+title), so every entry links to a task while
+  // callers still speak in strings.
+  Future<int> _getOrCreateTask(int jobId, String title) async {
+    final existing =
+        await (select(tasks)
+              ..where((t) => t.jobId.equals(jobId) & t.title.equals(title)))
+            .getSingleOrNull();
+    if (existing != null) return existing.id;
+    return into(tasks).insert(TasksCompanion.insert(jobId: jobId, title: title));
+  }
+
   Future<void> addEntry({
     required int jobId,
     required String task,
     required DateTime startedAt,
     required DateTime endedAt,
     required int seconds,
-  }) => into(timeEntries).insert(
-    TimeEntriesCompanion.insert(
-      jobId: jobId,
-      task: task,
-      startedAt: startedAt,
-      endedAt: endedAt,
-      seconds: seconds,
-    ),
-  );
+  }) async {
+    final taskId = await _getOrCreateTask(jobId, task);
+    await into(timeEntries).insert(
+      TimeEntriesCompanion.insert(
+        jobId: jobId,
+        task: task,
+        taskId: Value(taskId),
+        startedAt: startedAt,
+        endedAt: endedAt,
+        seconds: seconds,
+      ),
+    );
+  }
 
   Future<void> updateEntry({
     required int id,
@@ -138,14 +191,22 @@ class AppDatabase extends _$AppDatabase {
     required DateTime startedAt,
     required DateTime endedAt,
     required int seconds,
-  }) => (update(timeEntries)..where((t) => t.id.equals(id))).write(
-    TimeEntriesCompanion(
-      task: Value(task),
-      startedAt: Value(startedAt),
-      endedAt: Value(endedAt),
-      seconds: Value(seconds),
-    ),
-  );
+  }) async {
+    // Editing the label may re-point the entry to a different task under the
+    // same job — keep task_id consistent with the string.
+    final row =
+        await (select(timeEntries)..where((t) => t.id.equals(id))).getSingle();
+    final taskId = await _getOrCreateTask(row.jobId, task);
+    await (update(timeEntries)..where((t) => t.id.equals(id))).write(
+      TimeEntriesCompanion(
+        task: Value(task),
+        taskId: Value(taskId),
+        startedAt: Value(startedAt),
+        endedAt: Value(endedAt),
+        seconds: Value(seconds),
+      ),
+    );
+  }
 
   Future<void> deleteEntry(int id) =>
       (delete(timeEntries)..where((t) => t.id.equals(id))).go();
@@ -206,6 +267,43 @@ class AppDatabase extends _$AppDatabase {
             ..where((t) => t.jobId.equals(jobId))
             ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
           .watch();
+
+  // --- Tasks ---
+
+  Stream<List<Task>> watchTasksForJob(int jobId) =>
+      (select(tasks)
+            ..where((t) => t.jobId.equals(jobId))
+            ..orderBy([(t) => OrderingTerm.asc(t.title)]))
+          .watch();
+
+  Stream<List<TimeEntry>> watchEntriesForTask(int taskId) =>
+      (select(timeEntries)
+            ..where((t) => t.taskId.equals(taskId))
+            ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
+          .watch();
+
+  Future<int> addTask({
+    required int jobId,
+    required String title,
+    double? rate,
+  }) => into(tasks).insert(
+    TasksCompanion.insert(
+      jobId: jobId,
+      title: title,
+      rate: rate == null ? const Value.absent() : Value(rate),
+    ),
+  );
+
+  Future<void> updateTask({
+    required int id,
+    required String title,
+    double? rate,
+  }) => (update(tasks)..where((t) => t.id.equals(id))).write(
+    TasksCompanion(title: Value(title), rate: Value(rate)),
+  );
+
+  Future<void> deleteTask(int id) =>
+      (delete(tasks)..where((t) => t.id.equals(id))).go();
 
   Stream<List<Client>> watchClients() =>
       (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
