@@ -337,13 +337,14 @@ class _SidePanelState extends State<SidePanel> {
       _collapseOrParent();
       return KeyEventResult.handled;
     }
+    // `?` = help (matched by character — a shifted `/` isn't reported as the
+    // slash logical key); plain `/` = search.
+    if (event.character == '?') {
+      widget.onShowHelp?.call();
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.slash) {
-      // Shift+/ = `?` → help; plain `/` → search.
-      if (shift) {
-        widget.onShowHelp?.call();
-      } else {
-        _focusSearch();
-      }
+      _focusSearch();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.keyN) {

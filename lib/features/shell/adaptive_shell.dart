@@ -94,22 +94,23 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
     final key = event.logicalKey;
     final ctrl = HardwareKeyboard.instance.isControlPressed;
-    final shift = HardwareKeyboard.instance.isShiftPressed;
 
     // Global single-key bindings (`?`, `/`, Space) must stand down while a text
     // field is focused — printable-key events still bubble up here even as the
     // field is receiving them, so without this guard they'd double-fire.
     final editing = _isEditing();
 
-    // `?` (Shift+/) is global: open the shortcuts help. Reaches here whenever
-    // the focused pane doesn't consume it (the panel routes it via onShowHelp).
-    if (!ctrl && !editing && key == LogicalKeyboardKey.slash && shift) {
+    // `?` (Shift+/) is global: open the shortcuts help. Matched by character,
+    // not logical key — a shifted `/` doesn't report LogicalKeyboardKey.slash.
+    // Reaches here whenever the focused pane doesn't consume it (the panel
+    // routes it via onShowHelp).
+    if (!ctrl && !editing && event.character == '?') {
       if (event is KeyDownEvent) showShortcutsHelp(context);
       return KeyEventResult.handled;
     }
 
     // `/` is global: focus the panel search from whichever pane has focus.
-    if (!ctrl && !editing && key == LogicalKeyboardKey.slash && !shift) {
+    if (!ctrl && !editing && key == LogicalKeyboardKey.slash) {
       _focusSearch();
       return KeyEventResult.handled;
     }
