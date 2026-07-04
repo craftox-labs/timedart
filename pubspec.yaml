@@ -44,6 +44,7 @@ dev_dependencies:
     sdk: flutter
   drift_dev: ^2.34.0
   build_runner: ^2.4.0
+  sqlite3: ^3.3.0 # migration tests open a raw in-memory v1 db
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

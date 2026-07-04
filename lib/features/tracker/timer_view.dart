@@ -6,7 +6,9 @@ import 'package:time_tracker/features/tracker/timer_controls.dart';
 import 'package:time_tracker/features/tracker/timer_session.dart';
 import 'package:time_tracker/constants/format.dart';
 import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/features/tracker/time_entry_list.dart';
+import 'package:time_tracker/features/tracker/task_rows.dart';
+import 'package:time_tracker/features/tracker/task_list.dart';
+import 'package:time_tracker/features/tracker/task_editor.dart';
 import 'package:time_tracker/features/tracker/entry_form.dart';
 
 /// Owns the running timer so it survives content-pane switches. Editing a
@@ -99,16 +101,22 @@ class _TimerViewState extends State<TimerView> {
       widget.controller ?? (_internalController ??= TimerController());
   final _taskFocus = FocusNode(debugLabel: 'taskField');
   Stream<List<TimeEntry>>? _entriesStream; // entries for the selected job
+  Stream<List<Task>>? _tasksStream; // tasks for the selected job
   Stream<(Job, Client)?>? _jobStream;
 
-  // Keyboard cursor over the entry list. _entries mirrors the latest stream
-  // emission so the key handler can index into it outside of build.
+  // The cursor navigates a flattened task/entry row list (mirrors the side
+  // panel). _tasks/_entries mirror the latest stream emissions; _rows is
+  // rebuilt each build and cached so the key handler can index it outside build.
+  List<Task> _tasks = const [];
   List<TimeEntry> _entries = const [];
+  StreamSubscription<List<Task>>? _tasksSub;
   StreamSubscription<List<TimeEntry>>? _entriesSub;
+  final Set<int> _expanded = {}; // expanded task ids
+  List<TaskListRow> _rows = const [];
   int _cursor = 0;
   final _cursorKey = GlobalKey(); // rides the focused row for ensureVisible
   final _scroll = ScrollController();
-  static const _estRowHeight = 64.0; // rough row height for off-screen jumps
+  static const _estRowHeight = 56.0; // rough row height for off-screen jumps
   bool _pendingG = false; // saw a bare 'g', awaiting the second for gg
 
   FocusNode? get _cursorNode => widget.cursorFocusNode;
@@ -141,6 +149,7 @@ class _TimerViewState extends State<TimerView> {
   void dispose() {
     _taskFocus.dispose();
     _entriesSub?.cancel();
+    _tasksSub?.cancel();
     _scroll.dispose();
     _cursorNode?.removeListener(_onFocusChanged);
     if (_c.primary == _primaryAction) _c.primary = null;
@@ -161,19 +170,25 @@ class _TimerViewState extends State<TimerView> {
     final id = widget.jobId;
     _jobStream = id == null ? null : widget.db.watchJobWithClient(id);
     _entriesStream = id == null ? null : widget.db.watchEntriesForJob(id);
+    _tasksStream = id == null ? null : widget.db.watchTasksForJob(id);
 
-    // Cache entries so the keyboard cursor can index them. Clamp the cursor as
-    // the list grows/shrinks (e.g. after a delete or a new finished session).
+    // Cache tasks + entries so the key handler can index the flattened rows
+    // (rebuilt in build()). The cursor is clamped there against _rows.
     _entriesSub?.cancel();
+    _tasksSub?.cancel();
     _entries = const [];
+    _tasks = const [];
+    _expanded.clear();
     _cursor = 0;
     _entriesSub = _entriesStream?.listen((rows) {
+      if (mounted) setState(() => _entries = rows);
+    });
+    _tasksSub = _tasksStream?.listen((rows) {
       if (!mounted) return;
       setState(() {
-        _entries = rows;
-        if (_cursor >= _entries.length) {
-          _cursor = _entries.isEmpty ? 0 : _entries.length - 1;
-        }
+        _tasks = rows;
+        final ids = rows.map((t) => t.id).toSet();
+        _expanded.removeWhere((id) => !ids.contains(id)); // drop deleted tasks
       });
     });
   }
@@ -219,6 +234,13 @@ class _TimerViewState extends State<TimerView> {
     showEntryEditor(context, db: widget.db, jobId: jobId, entry: entry);
   }
 
+  // Open the add/edit-task editor. task == null adds.
+  void _openTaskEditor(Task? task) {
+    final jobId = widget.jobId;
+    if (jobId == null) return;
+    showTaskEditor(context, db: widget.db, jobId: jobId, task: task);
+  }
+
   // The Space action mirrors the primary button (start/resume ⇄ pause) with one
   // extra guard: a *fresh* keyboard start needs a task, so Space can't quietly
   // create an "Untitled session". Pause/resume of an existing session is fine.
@@ -236,11 +258,11 @@ class _TimerViewState extends State<TimerView> {
     _startOrResume();
   }
 
-  // --- Entry-list keyboard cursor (wide layout) ---
+  // --- Task/entry row cursor (wide layout) ---
 
   void _moveCursor(int delta) {
-    if (_entries.isEmpty) return;
-    final next = (_cursor + delta).clamp(0, _entries.length - 1);
+    if (_rows.isEmpty) return;
+    final next = (_cursor + delta).clamp(0, _rows.length - 1);
     if (next != _cursor) {
       setState(() => _cursor = next);
       _ensureVisible();
@@ -248,16 +270,69 @@ class _TimerViewState extends State<TimerView> {
   }
 
   void _jumpTo(int index) {
-    if (_entries.isEmpty) return;
-    final next = index.clamp(0, _entries.length - 1);
+    if (_rows.isEmpty) return;
+    final next = index.clamp(0, _rows.length - 1);
     if (next != _cursor) {
       setState(() => _cursor = next);
       _ensureVisible();
     }
   }
 
-  void _openCursorEntry() {
-    if (_cursor < _entries.length) _openEntryEditor(_entries[_cursor]);
+  void _toggleTask(int taskId) {
+    setState(() {
+      if (!_expanded.remove(taskId)) _expanded.add(taskId);
+    });
+  }
+
+  // l / → : expand a collapsed task (or step into its entries); open an entry.
+  void _expandOrOpen() {
+    if (_cursor >= _rows.length) return;
+    switch (_rows[_cursor]) {
+      case TaskHeaderRow(:final taskId, :final expanded, :final entryCount):
+        if (!expanded && entryCount > 0) {
+          setState(() => _expanded.add(taskId));
+        } else if (expanded) {
+          _moveCursor(1); // into the first entry
+        }
+      case TaskEntryRow(:final entry):
+        _openEntryEditor(entry);
+    }
+  }
+
+  // h / ← : collapse an expanded task; from an entry, jump to its task header.
+  void _collapseOrParent() {
+    if (_cursor >= _rows.length) return;
+    switch (_rows[_cursor]) {
+      case TaskHeaderRow(:final taskId, :final expanded):
+        if (expanded) setState(() => _expanded.remove(taskId));
+      case TaskEntryRow(:final task):
+        final i = _rows.indexWhere(
+          (r) => r is TaskHeaderRow && r.taskId == task.id,
+        );
+        if (i >= 0) _jumpTo(i);
+    }
+  }
+
+  // Enter : toggle a task's expansion; open an entry.
+  void _activateCursor() {
+    if (_cursor >= _rows.length) return;
+    switch (_rows[_cursor]) {
+      case TaskHeaderRow(:final taskId):
+        _toggleTask(taskId);
+      case TaskEntryRow(:final entry):
+        _openEntryEditor(entry);
+    }
+  }
+
+  // e : edit the focused row (task or entry).
+  void _editCursor() {
+    if (_cursor >= _rows.length) return;
+    switch (_rows[_cursor]) {
+      case TaskHeaderRow(:final task):
+        _openTaskEditor(task);
+      case TaskEntryRow(:final entry):
+        _openEntryEditor(entry);
+    }
   }
 
   void _focusTask() => _taskFocus.requestFocus();
@@ -299,7 +374,7 @@ class _TimerViewState extends State<TimerView> {
     if (key == LogicalKeyboardKey.keyG) {
       if (shift) {
         _pendingG = false;
-        _jumpTo(_entries.length - 1);
+        _jumpTo(_rows.length - 1);
       } else if (_pendingG) {
         _pendingG = false;
         _jumpTo(0);
@@ -310,12 +385,19 @@ class _TimerViewState extends State<TimerView> {
     }
     _pendingG = false; // any other key breaks a half-typed gg
 
-    // Open the focused entry: Enter / l / →.
-    if (key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter ||
-        key == LogicalKeyboardKey.keyL ||
+    // Tree nav: l/→ expand-or-open, h/← collapse-or-parent, Enter activate.
+    if (key == LogicalKeyboardKey.keyL ||
         key == LogicalKeyboardKey.arrowRight) {
-      _openCursorEntry();
+      _expandOrOpen();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft) {
+      _collapseOrParent();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      _activateCursor();
       return KeyEventResult.handled;
     }
     // Space is handled globally at the shell (works from any pane while the
@@ -328,8 +410,12 @@ class _TimerViewState extends State<TimerView> {
       _focusTask();
       return KeyEventResult.handled;
     }
+    if (key == LogicalKeyboardKey.keyE) {
+      _editCursor();
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.keyA) {
-      _openEntryEditor(null);
+      _openTaskEditor(null);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -368,6 +454,17 @@ class _TimerViewState extends State<TimerView> {
     // Rebuild on every controller change (per-second tick, start/pause/finish).
     // Subscribing here in build — rather than a manual addListener in initState
     // — keeps the binding declarative and survives hot reload.
+    // Flatten tasks + entries into the visible rows and keep the cursor valid.
+    // Computed here (not in a stream builder) so the key handler can index it.
+    _rows = buildTaskRows(
+      tasks: _tasks,
+      entries: _entries,
+      isExpanded: _expanded.contains,
+    );
+    if (_cursor >= _rows.length) {
+      _cursor = _rows.isEmpty ? 0 : _rows.length - 1;
+    }
+
     return ListenableBuilder(
       listenable: _c,
       builder: (context, _) {
@@ -453,24 +550,36 @@ class _TimerViewState extends State<TimerView> {
           ],
         ),
         const SizedBox(height: AppTokens.space2xl),
-        // 2. Entries section: header (with the per-job Invoice action) + list
+        // 2. Tasks section: header (add task + per-job Invoice action) + list
         if (widget.jobId != null) ...[
-          _EntriesHeader(
+          _TasksHeader(
             jobStream: _jobStream,
             onInvoice: widget.onInvoice,
-            onAddEntry: () => _openEntryEditor(null),
+            onAddTask: () => _openTaskEditor(null),
           ),
           const Divider(),
         ],
         Expanded(
-          child: EntryHistoryList(
-            entries: _entries,
-            jobStream: _jobStream,
-            onEditEntry: _openEntryEditor,
-            cursor: _cursor,
-            cursorActive: _cursorActive,
-            cursorKey: _cursorKey,
-            scrollController: _scroll,
+          child: StreamBuilder<(Job, Client)?>(
+            stream: _jobStream,
+            builder: (context, snap) {
+              final data = snap.data;
+              // Effective job/client rate; a task may override it per-row.
+              final rate = data == null
+                  ? null
+                  : (data.$1.rate ?? data.$2.defaultRate);
+              return TaskList(
+                rows: _rows,
+                rate: rate,
+                cursor: _cursor,
+                cursorActive: _cursorActive,
+                cursorKey: _cursorKey,
+                scrollController: _scroll,
+                onToggle: _toggleTask,
+                onEditTask: _openTaskEditor,
+                onEditEntry: _openEntryEditor,
+              );
+            },
           ),
         ),
       ],
@@ -518,16 +627,16 @@ class JobHeader extends StatelessWidget {
   }
 }
 
-// --- Entries section header: label + per-job Invoice action ---
-class _EntriesHeader extends StatelessWidget {
+// --- Tasks section header: label + add-task + per-job Invoice action ---
+class _TasksHeader extends StatelessWidget {
   final Stream<(Job, Client)?>? jobStream;
   final void Function(Job) onInvoice;
-  final VoidCallback onAddEntry;
+  final VoidCallback onAddTask;
 
-  const _EntriesHeader({
+  const _TasksHeader({
     required this.jobStream,
     required this.onInvoice,
-    required this.onAddEntry,
+    required this.onAddTask,
   });
 
   @override
@@ -541,15 +650,15 @@ class _EntriesHeader extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: AppTokens.spaceSm),
           child: Row(
             children: [
-              Text('Entries', style: theme.textTheme.titleMedium),
+              Text('Tasks', style: theme.textTheme.titleMedium),
               const Spacer(),
               IconButton(
-                onPressed: onAddEntry,
+                onPressed: onAddTask,
                 icon: const Icon(Icons.add, size: AppTokens.iconSm),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                tooltip: 'Add entry',
+                tooltip: 'Add task',
               ),
               const SizedBox(width: AppTokens.spaceMd),
               TextButton.icon(
@@ -566,49 +675,6 @@ class _EntriesHeader extends StatelessWidget {
               ),
             ],
           ),
-        );
-      },
-    );
-  }
-}
-
-// --- Component 2: Isolated Entries List ---
-class EntryHistoryList extends StatelessWidget {
-  final List<TimeEntry> entries; // cached by TimerView (drives the key cursor)
-  final Stream<(Job, Client)?>? jobStream; // for the effective rate
-  final void Function(TimeEntry) onEditEntry;
-  final int cursor; // index of the keyboard cursor
-  final bool cursorActive; // whether the cursor's focus ring should show
-  final Key? cursorKey; // rides the cursor row for ensureVisible
-  final ScrollController? scrollController;
-
-  const EntryHistoryList({
-    super.key,
-    required this.entries,
-    required this.jobStream,
-    required this.onEditEntry,
-    this.cursor = 0,
-    this.cursorActive = false,
-    this.cursorKey,
-    this.scrollController,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<(Job, Client)?>(
-      stream: jobStream,
-      builder: (context, jobSnap) {
-        final data = jobSnap.data;
-        // Effective rate: the job's own rate, else the client default.
-        final rate = data == null ? null : (data.$1.rate ?? data.$2.defaultRate);
-        return TimeEntryList(
-          entries: entries,
-          rate: rate,
-          onEditEntry: onEditEntry,
-          cursor: cursor,
-          cursorActive: cursorActive,
-          cursorKey: cursorKey,
-          scrollController: scrollController,
         );
       },
     );

@@ -302,8 +302,12 @@ class AppDatabase extends _$AppDatabase {
     TasksCompanion(title: Value(title), rate: Value(rate)),
   );
 
-  Future<void> deleteTask(int id) =>
-      (delete(tasks)..where((t) => t.id.equals(id))).go();
+  // Entries FK-reference the task (pragma on), so remove them first. Matches
+  // the editor's "task and its time entries will be removed" confirmation.
+  Future<void> deleteTask(int id) => transaction(() async {
+    await (delete(timeEntries)..where((t) => t.taskId.equals(id))).go();
+    await (delete(tasks)..where((t) => t.id.equals(id))).go();
+  });
 
   Stream<List<Client>> watchClients() =>
       (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
