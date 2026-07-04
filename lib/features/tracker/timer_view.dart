@@ -529,9 +529,22 @@ class _TimerViewState extends State<TimerView> {
         style: theme.textTheme.bodySmall,
       );
     }
-    return Text(
-      '${_c.hasSession ? 'Tracking' : 'Ready'} · ${task.title}',
-      style: theme.textTheme.bodySmall?.copyWith(
+    final label = _c.hasSession ? 'Tracking' : 'Ready';
+    return Text.rich(
+      TextSpan(
+        children: [
+          // Bold label + colon, then the task name at normal weight.
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          TextSpan(
+            text: task.title,
+            style: const TextStyle(fontWeight: FontWeight.w400),
+          ),
+        ],
+      ),
+      style: theme.textTheme.bodyMedium?.copyWith(
         color: theme.colorScheme.primary,
       ),
     );
