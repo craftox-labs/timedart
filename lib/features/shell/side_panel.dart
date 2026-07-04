@@ -18,6 +18,7 @@ class SidePanel extends StatefulWidget {
     this.cursorFocusNode,
     this.searchFocusNode,
     this.onExitToTracker,
+    this.onShowHelp,
     this.autofocus = false,
   });
   final AppDatabase db;
@@ -36,6 +37,9 @@ class SidePanel extends StatefulWidget {
   // Called when the user asks to leave the panel for the tracker pane
   // (Tab / Ctrl-l / Ctrl-w l). Null when there's nowhere to go.
   final VoidCallback? onExitToTracker;
+  // `?` (Shift+/) — open the shortcuts help. Routed up because the panel
+  // consumes the `/` key itself (so it can't bubble to the shell).
+  final VoidCallback? onShowHelp;
   // Take the row cursor on first build (wide layout, where keys are live).
   final bool autofocus;
 
@@ -334,7 +338,12 @@ class _SidePanelState extends State<SidePanel> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.slash) {
-      _focusSearch();
+      // Shift+/ = `?` → help; plain `/` → search.
+      if (shift) {
+        widget.onShowHelp?.call();
+      } else {
+        _focusSearch();
+      }
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.keyN) {

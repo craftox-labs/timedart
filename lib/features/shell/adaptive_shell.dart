@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/page_header.dart';
+import 'package:time_tracker/features/shell/shortcuts_help.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
 import 'package:time_tracker/features/jobs/job_form.dart';
@@ -93,14 +94,22 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
     final key = event.logicalKey;
     final ctrl = HardwareKeyboard.instance.isControlPressed;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
 
-    // Global single-key bindings (`/`, Space) must stand down while a text
+    // Global single-key bindings (`?`, `/`, Space) must stand down while a text
     // field is focused — printable-key events still bubble up here even as the
     // field is receiving them, so without this guard they'd double-fire.
     final editing = _isEditing();
 
+    // `?` (Shift+/) is global: open the shortcuts help. Reaches here whenever
+    // the focused pane doesn't consume it (the panel routes it via onShowHelp).
+    if (!ctrl && !editing && key == LogicalKeyboardKey.slash && shift) {
+      if (event is KeyDownEvent) showShortcutsHelp(context);
+      return KeyEventResult.handled;
+    }
+
     // `/` is global: focus the panel search from whichever pane has focus.
-    if (!ctrl && !editing && key == LogicalKeyboardKey.slash) {
+    if (!ctrl && !editing && key == LogicalKeyboardKey.slash && !shift) {
       _focusSearch();
       return KeyEventResult.handled;
     }
@@ -263,6 +272,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         cursorFocusNode: keyboardNav ? _panelCursor : null,
         searchFocusNode: keyboardNav ? _panelSearch : null,
         onExitToTracker: keyboardNav ? _focusTracker : null,
+        // `?` while the panel is focused: the panel consumes `/`-family keys, so
+        // it routes the help request back up rather than letting it bubble.
+        onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
         autofocus: keyboardNav,
       );
     }
