@@ -154,22 +154,27 @@ class _EntryFormState extends State<EntryForm> {
     final h = hText.isEmpty ? 0 : int.tryParse(hText);
     final m = mText.isEmpty ? 0 : int.tryParse(mText);
 
+    // The form edits whole minutes only; keep the original sub-minute seconds
+    // when editing so re-saving a timer entry doesn't truncate its duration —
+    // and so a sub-minute entry (which shows as 0h 0m here) stays valid when
+    // you edit only its description/task.
+    final remainder = _isEdit ? widget.entry!.seconds % 60 : 0;
+    var seconds = 0;
+    String? durationError;
+    if (h == null || h < 0 || m == null || m < 0 || m > 59) {
+      durationError = 'Enter a valid duration';
+    } else {
+      seconds = (h * 60 + m) * 60 + remainder;
+      // Validate the *total* (including retained seconds), so a sub-minute
+      // entry isn't rejected on an edit that leaves 0h 0m untouched.
+      if (seconds <= 0) durationError = 'Duration must be more than zero';
+    }
+
     setState(() {
       _taskError = taskId == null ? 'Pick a task' : null;
-      if (h == null || h < 0 || m == null || m < 0 || m > 59) {
-        _durationError = 'Enter a valid duration';
-      } else if (h == 0 && m == 0) {
-        _durationError = 'Duration must be more than zero';
-      } else {
-        _durationError = null;
-      }
+      _durationError = durationError;
     });
-    if (_taskError != null || _durationError != null) return;
-
-    // The form edits whole minutes only; keep the original sub-minute seconds
-    // when editing so re-saving a timer entry doesn't truncate its duration.
-    final remainder = _isEdit ? widget.entry!.seconds % 60 : 0;
-    final seconds = (h! * 60 + m!) * 60 + remainder;
+    if (_taskError != null || durationError != null) return;
     final endedAt = _start.add(Duration(seconds: seconds));
     try {
       if (_isEdit) {
