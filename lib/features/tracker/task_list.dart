@@ -46,7 +46,9 @@ class TaskList extends StatelessWidget {
     }
     return ListView.builder(
       controller: scrollController,
-      padding: const EdgeInsets.symmetric(vertical: AppTokens.space4xs),
+      // No top padding: the first task's focus ring sits flush against the
+      // section divider above. A little breathing room at the bottom only.
+      padding: const EdgeInsets.only(bottom: AppTokens.space4xs),
       itemCount: rows.length,
       itemBuilder: (context, i) {
         final row = rows[i];
