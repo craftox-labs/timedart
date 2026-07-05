@@ -21,9 +21,10 @@ timedart is a fast, local-first time tracker for people who bill by the hour. Yo
 - **Timer** — `hh:mm:ss` count-up bound to a task, with start / pause / resume / finish. Name a session or let it inherit the task title.
 - **Clients, jobs & tasks** — full create / edit / delete for each, in quick modal editors. Deletes are guarded so you can't accidentally erase billable history.
 - **Entries** — adjust the task, note, start time, and duration of any recorded segment after the fact.
-- **Invoicing** — per-job, date-ranged, itemised at the effective rate, exported to PDF.
+- **Invoicing** — per-job, date-ranged, itemised at the effective rate, exported to a branded PDF.
+- **Invoice branding** — design how invoices look and read: reusable **themes** (colours, logo, font), **profiles** (business identity, bank / payment details, currency, optional tax), and **templates** that pair a theme with a profile. Edit them under **App Settings → Branding** with a live, A4-proportioned preview beside the form.
 - **Adaptive UI** — persistent side panel + content pane when there's room; a drawer when there isn't.
-- **Design** — a considered Material 3 theme in the timedart green, Raleway throughout, and a single design-token source so it stays consistent.
+- **Design** — a considered Material 3 theme in the timedart green, Urbanist throughout, and a single design-token source so it stays consistent.
 
 ## Keyboard
 
@@ -75,25 +76,32 @@ primitives and design tokens pulled out:
 lib/
 ├── main.dart              wires the database into the adaptive shell
 ├── constants/             design tokens, Material 3 theme, formatting helpers
-├── data/database.dart     drift tables + queries (Clients / Jobs / Tasks / TimeEntries)
+├── data/database.dart     drift tables + queries (Clients / Jobs / Tasks / TimeEntries
+│                          · invoice Themes / Profiles / Templates)
 ├── features/
-│   ├── shell/             adaptive master–detail shell, side panel, shortcut overlay
+│   ├── shell/             adaptive master–detail shell, side panel, branding-mode panel, shortcut overlay
 │   ├── tracker/           timer, task list, task/entry editors
 │   ├── clients/ · jobs/   client & job editors
-│   ├── invoices/          per-job PDF invoicing (date range → preview → export)
+│   ├── invoices/          per-job PDF invoicing + invoice branding
+│   │                      (theme / profile / template editors, shared live A4 preview)
 │   └── deletions.dart     shared, guarded delete flows
 └── widgets/               shared UI primitives
 ```
 
-The shell holds the selected job (what the timer records against) and the content pane's state;
-the side panel raises actions via callbacks, and editing happens in adaptive modals over the pane.
+The shell holds the selected job (what the timer records against) and the content pane's state.
+Client / job / task / entry editing happens in adaptive modals over the pane; invoicing and the
+branding editors live in the content pane itself — a settings mode that swaps the side panel for
+Themes / Profiles / Templates sections, driven by the same keyboard navigation.
 
 ## Roadmap
 
 Core is complete and in daily-driver shape: persistent tracking across clients, jobs, and tasks;
-full editing everywhere; per-job PDF invoices; and end-to-end keyboard control. Next on the horizon:
+full editing everywhere; per-job PDF invoices with customisable branding; and end-to-end keyboard
+control. Next on the horizon:
 
-- Richer invoicing — per-task and per-entry rate control, and stored, immutable invoice snapshots.
+- Invoicing flow — pick a template and set the invoice number at export time.
+- PDF polish — print-safe margins, and A4 / Letter as a page-size setting.
+- Stored, immutable invoice snapshots.
 - Bulk actions to clear out old clients and jobs in one deliberate step.
 - Archiving jobs you're done with, to keep the working set tidy.
 - Ongoing design polish.
