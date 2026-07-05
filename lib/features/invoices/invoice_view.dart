@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/constants/format.dart';
+import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_pdf.dart';
+import 'package:time_tracker/features/invoices/invoice_preview.dart';
 import 'package:time_tracker/features/invoices/invoice_repository.dart';
 
 /// Read-only invoice builder for one job: pick a date range, preview the
@@ -26,7 +27,7 @@ class InvoiceView extends StatefulWidget {
 
 class _InvoiceViewState extends State<InvoiceView> {
   late DateTimeRange _range;
-  late Future<JobInvoice> _future;
+  late Future<({InvoiceDocument doc, InvoiceTheme theme})?> _future;
 
   @override
   void initState() {
@@ -37,7 +38,8 @@ class _InvoiceViewState extends State<InvoiceView> {
   }
 
   void _load() {
-    _future = widget.db.jobInvoice(
+    _future = loadInvoiceDocument(
+      widget.db,
       jobId: widget.job.id,
       from: _range.start,
       to: DateTime(
@@ -48,6 +50,7 @@ class _InvoiceViewState extends State<InvoiceView> {
         59,
         59,
       ),
+      issueDate: DateTime.now(),
     );
   }
 
@@ -157,7 +160,7 @@ class _InvoiceViewState extends State<InvoiceView> {
           ),
           const SizedBox(height: AppTokens.spaceSm),
           Expanded(
-            child: FutureBuilder<JobInvoice>(
+            child: FutureBuilder<({InvoiceDocument doc, InvoiceTheme theme})?>(
               future: _future,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) {
@@ -166,60 +169,28 @@ class _InvoiceViewState extends State<InvoiceView> {
                 if (snap.hasError) {
                   return Center(child: Text('Error: ${snap.error}'));
                 }
-                final inv = snap.data!;
-                if (inv.entries.isEmpty) {
+                final loaded = snap.data;
+                if (loaded == null) {
                   return const Center(
-                    child: Text('No tracked time in this period.'),
+                    child: Text('No invoice template configured.'),
                   );
                 }
+                final doc = loaded.doc;
+                final empty = doc.lines.isEmpty;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (inv.rate == null)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: AppTokens.spaceXs,
-                        ),
-                        child: Text(
-                          'No rate set for this job or its client — amounts unavailable.',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ),
                     Expanded(
-                      child: ListView(
-                        children: [
-                          for (final line in inv.lines)
-                            ListTile(
-                              dense: true,
-                              title: Text(line.label),
-                              subtitle: Text(_fmtDate(line.entry.startedAt)),
-                              trailing: Text(
-                                '${formatHours(line.hours)} h'
-                                '${line.amount == null ? '' : ' · ${formatMoney(line.amount!)}'}',
+                      child: empty
+                          ? const Center(
+                              child: Text('No tracked time in this period.'),
+                            )
+                          : SingleChildScrollView(
+                              child: InvoicePreview(
+                                doc: doc,
+                                theme: loaded.theme,
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                    const Divider(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTokens.spaceMd,
-                        vertical: AppTokens.spaceXs,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Total (${formatHours(inv.totalHours)} h)',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          Text(
-                            inv.total == null ? '—' : formatMoney(inv.total!),
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
                     ),
                     const SizedBox(height: AppTokens.spaceSm),
                     Row(
@@ -231,7 +202,7 @@ class _InvoiceViewState extends State<InvoiceView> {
                         ),
                         const SizedBox(width: AppTokens.spaceSm),
                         FilledButton.icon(
-                          onPressed: _exportPdf,
+                          onPressed: empty ? null : _exportPdf,
                           icon: const Icon(Icons.picture_as_pdf),
                           label: const Text('Export PDF'),
                         ),
