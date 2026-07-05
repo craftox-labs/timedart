@@ -5,6 +5,7 @@ import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/constants/format.dart';
 import 'package:time_tracker/features/invoices/invoice_pdf.dart';
+import 'package:time_tracker/features/invoices/invoice_repository.dart';
 
 /// Read-only invoice builder for one job: pick a date range, preview the
 /// itemised entries, export a PDF. Generates on demand — stores nothing.
@@ -65,9 +66,9 @@ class _InvoiceViewState extends State<InvoiceView> {
     }
   }
 
-  Future<void> _exportPdf(JobInvoice inv) async {
+  Future<void> _exportPdf() async {
     try {
-      final safe = inv.job.code.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+      final safe = widget.job.code.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
       // Let the user choose where to save (native file dialog).
       final location = await getSaveLocation(
         suggestedName: 'invoice_$safe.pdf',
@@ -77,10 +78,34 @@ class _InvoiceViewState extends State<InvoiceView> {
       );
       if (location == null) return; // cancelled
 
-      final bytes = await buildInvoicePdf(
-        inv: inv,
+      // Build the branded document from the default template (#84 adds template
+      // selection + a manual invoice number; issue date is today for now).
+      final loaded = await loadInvoiceDocument(
+        widget.db,
+        jobId: widget.job.id,
         from: _range.start,
-        to: _range.end,
+        to: DateTime(
+          _range.end.year,
+          _range.end.month,
+          _range.end.day,
+          23,
+          59,
+          59,
+        ),
+        issueDate: DateTime.now(),
+      );
+      if (loaded == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No invoice template configured.')),
+          );
+        }
+        return;
+      }
+
+      final bytes = await buildBrandedInvoicePdf(
+        doc: loaded.doc,
+        theme: loaded.theme,
       );
       await File(location.path).writeAsBytes(bytes);
       if (mounted) {
@@ -206,7 +231,7 @@ class _InvoiceViewState extends State<InvoiceView> {
                         ),
                         const SizedBox(width: AppTokens.spaceSm),
                         FilledButton.icon(
-                          onPressed: () => _exportPdf(inv),
+                          onPressed: _exportPdf,
                           icon: const Icon(Icons.picture_as_pdf),
                           label: const Text('Export PDF'),
                         ),

@@ -553,6 +553,29 @@ class AppDatabase extends _$AppDatabase {
     );
   });
 
+  // Row getters for assembling an InvoiceDocument (the pure builder lives in
+  // features/invoices — the data layer only hands back rows).
+  Future<Job> getJob(int id) =>
+      (select(jobs)..where((j) => j.id.equals(id))).getSingle();
+  Future<Client> getClient(int id) =>
+      (select(clients)..where((c) => c.id.equals(id))).getSingle();
+  Future<List<Task>> tasksForJob(int jobId) =>
+      (select(tasks)..where((t) => t.jobId.equals(jobId))).get();
+  Future<List<TimeEntry>> entriesForJobInPeriod(
+    int jobId,
+    DateTime from,
+    DateTime to,
+  ) =>
+      (select(timeEntries)
+            ..where(
+              (t) =>
+                  t.jobId.equals(jobId) &
+                  t.startedAt.isBiggerOrEqualValue(from) &
+                  t.startedAt.isSmallerOrEqualValue(to),
+            )
+            ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
+          .get();
+
   /// Build an on-demand invoice for a single job over [from]..[to] (inclusive):
   /// the job, its client, effective rate, and the itemised entries. Read-only —
   /// stores nothing.
