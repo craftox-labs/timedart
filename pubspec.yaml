@@ -67,12 +67,12 @@ flutter:
   assets:
     - assets/logo/
 
-  # Raleway is a variable font: one file per axis-set. Flutter maps the
+  # Urbanist is a variable font: one file per axis-set. Flutter maps the
   # `fontWeight` used in the theme onto its `wght` axis, so w300/w400/etc. all
-  # resolve from the single file.
+  # resolve from the single file. (Replaced Raleway — its numerals read poorly.)
   fonts:
-    - family: Raleway
+    - family: Urbanist
       fonts:
-        - asset: assets/fonts/Raleway-VariableFont_wght.ttf
-        - asset: assets/fonts/Raleway-Italic-VariableFont_wght.ttf
+        - asset: assets/fonts/Urbanist-VariableFont_wght.ttf
+        - asset: assets/fonts/Urbanist-Italic-VariableFont_wght.ttf
           style: italic
