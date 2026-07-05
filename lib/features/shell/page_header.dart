@@ -33,9 +33,14 @@ class PageHeader extends StatelessWidget {
         );
         final leftInset = margin + AppTokens.spaceLg;
         return Padding(
-          // Top/bottom inset matches the search field so the bars line up and the
-          // gap below equals the gap above.
-          padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceLg),
+          // Top inset matches the search field so the bars line up. The bottom
+          // is small on purpose: the content pane adds its own spaceLg top, so
+          // the header→content gap ends up equal to the panel's search→first-row
+          // gap (a spaceLg plus the list's small inset) rather than double it.
+          padding: const EdgeInsets.only(
+            top: AppTokens.spaceLg,
+            bottom: AppTokens.space4xs,
+          ),
           child: SizedBox(
             height: 36,
             child: Stack(

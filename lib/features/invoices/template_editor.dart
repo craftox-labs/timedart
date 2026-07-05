@@ -113,21 +113,17 @@ class _TemplateEditorState extends State<TemplateEditor> {
             // Default the pickers to the default (or first) row once loaded.
             _themeId ??= _defaultId(themes);
             _profileId ??= _defaultId(profiles);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            return EditorShell(
+              title: _isEdit ? 'Edit template' : 'New template',
+              name: _isEdit ? _name.text : null,
+              isEdit: _isEdit,
+              onDelete: _delete,
+              onCancel: widget.onDone,
+              onSave: _save,
               children: [
-                editorHeader(
-                  context: context,
-                  title: _isEdit ? 'Edit template' : 'New template',
-                  isEdit: _isEdit,
-                  onDelete: _delete,
-                  onCancel: widget.onDone,
-                  onSave: _save,
-                ),
-                const SizedBox(height: AppTokens.spaceMd),
                 _form(themes, profiles),
                 const SizedBox(height: AppTokens.spaceMd),
-                Expanded(child: _preview(themes, profiles)),
+                _preview(themes, profiles),
               ],
             );
           },
@@ -145,68 +141,63 @@ class _TemplateEditorState extends State<TemplateEditor> {
   }
 
   Widget _form(List<InvoiceTheme> themes, List<InvoiceProfile> profiles) {
-    return Wrap(
-      spacing: AppTokens.spaceSm,
-      runSpacing: AppTokens.spaceSm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 240,
-          child: TextField(
-            controller: _name,
-            decoration: fieldDecoration('Name'),
-            onChanged: (_) => setState(() {}),
-          ),
+    return FieldRow([
+      Field(
+        EditorTextField(
+          controller: _name,
+          label: 'Name',
+          persistentLabel: true,
+          onChanged: (_) => setState(() {}),
         ),
-        SizedBox(
-          width: 200,
-          child: DropdownButtonFormField<int>(
-            initialValue: _themeId,
-            isDense: true,
-            decoration: fieldDecoration('Theme', dropdown: true),
-            items: [
-              for (final t in themes)
-                DropdownMenuItem(value: t.id, child: Text(t.name)),
-            ],
-            onChanged: (v) => setState(() => _themeId = v),
-          ),
+      ),
+      Field(
+        EditorDropdown<int>(
+          label: 'Theme',
+          value: _themeId,
+          items: [
+            for (final t in themes)
+              DropdownMenuItem(value: t.id, child: Text(t.name)),
+          ],
+          onChanged: (v) => setState(() => _themeId = v),
         ),
-        SizedBox(
-          width: 200,
-          child: DropdownButtonFormField<int>(
-            initialValue: _profileId,
-            isDense: true,
-            decoration: fieldDecoration('Profile', dropdown: true),
-            items: [
-              for (final p in profiles)
-                DropdownMenuItem(value: p.id, child: Text(p.name)),
-            ],
-            onChanged: (v) => setState(() => _profileId = v),
-          ),
+      ),
+      Field(
+        EditorDropdown<int>(
+          label: 'Profile',
+          value: _profileId,
+          items: [
+            for (final p in profiles)
+              DropdownMenuItem(value: p.id, child: Text(p.name)),
+          ],
+          onChanged: (v) => setState(() => _profileId = v),
         ),
-        SizedBox(
-          height: 48,
-          child: brandingDefaultToggle(
-            value: _isDefault,
-            onChanged: (v) => setState(() => _isDefault = v),
-          ),
+      ),
+      Field(
+        flex: 0,
+        brandingDefaultToggle(
+          value: _isDefault,
+          onChanged: (v) => setState(() => _isDefault = v),
         ),
-      ],
-    );
+      ),
+    ]);
   }
 
   Widget _preview(List<InvoiceTheme> themes, List<InvoiceProfile> profiles) {
     final theme = _byId(themes, _themeId);
     final profile = _byId(profiles, _profileId);
     if (theme == null || profile == null) {
-      return const Center(child: Text('Add a theme and a profile to preview.'));
+      return const SizedBox(
+        height: 240,
+        child: Center(child: Text('Add a theme and a profile to preview.')),
+      );
     }
     final doc = sampleInvoiceDocument(
       profile: profile,
       issueDate: DateTime.now(),
     );
+    // scrollable: false — the editor's outer scroll owns vertical scrolling.
     return brandingPreviewFrame(
-      child: invoicePreviewPage(doc: doc, theme: theme),
+      child: invoicePreviewPage(doc: doc, theme: theme, scrollable: false),
     );
   }
 

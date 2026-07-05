@@ -177,108 +177,93 @@ class _ThemeEditorState extends State<ThemeEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context);
-    // Stacked layout at every width: a compact settings block up top (title +
-    // actions, then controls that run horizontally to stay short) over a
-    // full-width live preview that fills the rest of the content column.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Header pinned; settings block over a full-width live preview, the two
+    // scrolling together as one content pane.
+    return EditorShell(
+      title: _isEdit ? 'Edit theme' : 'New theme',
+      name: _isEdit ? _name.text : null,
+      isEdit: _isEdit,
+      onDelete: _delete,
+      onCancel: widget.onDone,
+      onSave: _save,
       children: [
-        Row(
-          children: [
-            Text(
-              _isEdit ? 'Edit theme' : 'New theme',
-              style: t.textTheme.titleLarge,
-            ),
-            const Spacer(),
-            if (_isEdit)
-              TextButton.icon(
-                onPressed: _delete,
-                icon: const Icon(Icons.delete_outline, size: AppTokens.iconSm),
-                label: const Text('Delete'),
-              ),
-            const SizedBox(width: AppTokens.spaceSm),
-            OutlinedButton(
-              onPressed: widget.onDone,
-              child: const Text('Cancel'),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
-            FilledButton(onPressed: _save, child: const Text('Save')),
-          ],
-        ),
-        const SizedBox(height: AppTokens.spaceMd),
         _settings(),
         const SizedBox(height: AppTokens.spaceMd),
-        Expanded(child: _preview()),
+        _preview(),
       ],
     );
   }
 
-  // A five-column grid so the top controls line up with the colour fields
-  // below: Name over Background, Font over Surface. Cells flex equally; a row
-  // is padded with blank cells to keep the columns aligned.
-  Widget _gridRow(List<Widget> cells) {
-    final children = <Widget>[];
-    for (var i = 0; i < 5; i++) {
-      if (i > 0) children.add(const SizedBox(width: AppTokens.spaceSm));
-      children.add(
-        Expanded(child: i < cells.length ? cells[i] : const SizedBox()),
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: children,
-    );
-  }
+  // A shared breakpoint so both settings rows collapse to a stacked column
+  // together — keeping Name over Background, Font over Surface aligned above it.
+  static const double _gridStackBelow = AppTokens.breakpointMd;
 
   // Shared decoration so every text/dropdown input is the same height.
   Widget _settings() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _gridRow([
-          TextField(
-            controller: _name,
-            decoration: fieldDecoration('Name'),
-            onChanged: (_) => setState(() {}),
-          ),
-          DropdownButtonFormField<String>(
-            initialValue: _fontFamily,
-            isDense: true,
-            decoration: fieldDecoration('Font', dropdown: true),
-            items: const [
-              DropdownMenuItem(value: 'Urbanist', child: Text('Urbanist')),
-            ],
-            onChanged: (v) => setState(() => _fontFamily = v ?? _fontFamily),
-          ),
-          _LogoField(
-            logo: _logo,
-            onPick: _pickLogo,
-            onRemove: _logo == null
-                ? null
-                : () => setState(() {
-                    _logo = null;
-                    _logoMime = null;
-                  }),
-          ),
-          const SizedBox(), // spacer column
-          // Default toggle at the right edge, under Save.
-          Align(
-            alignment: Alignment.centerRight,
-            child: brandingDefaultToggle(
-              value: _isDefault,
-              onChanged: (v) => setState(() => _isDefault = v),
+        // Top row spans the same 5 tracks as the colours below: Name and Font
+        // take one each, the (wider) Logo control two, the Default toggle the
+        // trailing one — so Name·Font·Logo·Default sit over Background·Surface·
+        // (Primary+Text)·Accent.
+        FieldRow(
+          stackBelow: _gridStackBelow,
+          [
+            Field(
+              EditorTextField(
+                controller: _name,
+                label: 'Name',
+                persistentLabel: true,
+                onChanged: (_) => setState(() {}),
+              ),
             ),
-          ),
-        ]),
+            Field(
+              EditorDropdown<String>(
+                label: 'Font',
+                value: _fontFamily,
+                items: const [
+                  DropdownMenuItem(value: 'Urbanist', child: Text('Urbanist')),
+                ],
+                onChanged: (v) =>
+                    setState(() => _fontFamily = v ?? _fontFamily),
+              ),
+            ),
+            Field(
+              flex: 2,
+              _LogoField(
+                logo: _logo,
+                onPick: _pickLogo,
+                onRemove: _logo == null
+                    ? null
+                    : () => setState(() {
+                        _logo = null;
+                        _logoMime = null;
+                      }),
+              ),
+            ),
+            Field(
+              Align(
+                alignment: Alignment.centerRight,
+                child: brandingDefaultToggle(
+                  value: _isDefault,
+                  onChanged: (v) => setState(() => _isDefault = v),
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: AppTokens.spaceSm),
-        _gridRow([
-          _colorField('Background', _bg, (v) => _bg = v),
-          _colorField('Surface', _surface, (v) => _surface = v),
-          _colorField('Primary', _primary, (v) => _primary = v),
-          _colorField('Text', _text, (v) => _text = v),
-          _colorField('Accent', _accent, (v) => _accent = v),
-        ]),
+        FieldRow(
+          stackBelow: _gridStackBelow,
+          [
+            Field(_colorField('Background', _bg, (v) => _bg = v)),
+            Field(_colorField('Surface', _surface, (v) => _surface = v)),
+            Field(_colorField('Primary', _primary, (v) => _primary = v)),
+            Field(_colorField('Text', _text, (v) => _text = v)),
+            Field(_colorField('Accent', _accent, (v) => _accent = v)),
+          ],
+        ),
       ],
     );
   }
@@ -310,19 +295,26 @@ class _ThemeEditorState extends State<ThemeEditor> {
       future: _sampleProfile,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox(
+            height: 240,
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
         final profile = snap.data;
         if (profile == null) {
-          return const Center(child: Text('Add a profile to preview.'));
+          return const SizedBox(
+            height: 240,
+            child: Center(child: Text('Add a profile to preview.')),
+          );
         }
         final doc = sampleInvoiceDocument(
           profile: profile,
           issueDate: DateTime.now(),
         );
-        // A bordered frame holding an A4 page preview; scrolls when long.
+        // A bordered frame holding an A4 page preview. scrollable: false — the
+        // editor's outer scroll owns vertical scrolling.
         return brandingPreviewFrame(
-          child: invoicePreviewPage(doc: doc, theme: _draft()),
+          child: invoicePreviewPage(doc: doc, theme: _draft(), scrollable: false),
         );
       },
     );

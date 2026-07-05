@@ -38,29 +38,46 @@ enum InvoicePageSize {
 /// print proportions and a minimum height, so it reads like the printed output
 /// (with the content's own safe margin) rather than a raw content block. Scrolls
 /// vertically inside its parent when the invoice runs longer than one page.
+/// When [scrollable] (the default) the page scrolls vertically within its own
+/// slot — right for a fixed-size preview panel. Pass `false` when embedding the
+/// preview inside an outer scroll view (e.g. an editor whose whole content pane
+/// scrolls): the page then renders at its natural height and the outer view
+/// owns scrolling, avoiding nested scrollables.
 Widget invoicePreviewPage({
   required InvoiceDocument doc,
   required InvoiceTheme theme,
   InvoicePageSize size = InvoicePageSize.a4,
+  bool scrollable = true,
 }) {
   return LayoutBuilder(
     builder: (context, c) {
       // A gutter around the page so it sits in the frame like a sheet on a
-      // surface, then cap it to a comfortable page width and centre it.
+      // surface. The page is always laid out at a fixed A4 design width, then
+      // scaled down to fit narrower panes — so the preview reads like the
+      // printed sheet (content proportionate to the page) rather than reflowing
+      // its contents. It is never scaled up past the design width.
       const gutter = AppTokens.spaceLg;
+      const designWidth = 820.0;
       final available = c.maxWidth - gutter * 2;
-      final pageWidth = available < 820.0 ? available : 820.0;
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(gutter),
-        child: Center(
-          child: Container(
-            width: pageWidth,
-            constraints: BoxConstraints(minHeight: pageWidth * size.ratio),
-            color: Color(theme.colorBackground),
-            child: InvoicePreview(doc: doc, theme: theme),
-          ),
-        ),
+      final sheet = Container(
+        width: designWidth,
+        constraints: BoxConstraints(minHeight: designWidth * size.ratio),
+        color: Color(theme.colorBackground),
+        child: InvoicePreview(doc: doc, theme: theme),
       );
+      final page = Padding(
+        padding: const EdgeInsets.all(gutter),
+        child: available >= designWidth
+            ? Center(child: sheet)
+            // Uniform down-scale: width matches the pane, height follows in
+            // proportion, so the whole page shrinks like a thumbnail.
+            : FittedBox(
+                fit: BoxFit.fitWidth,
+                alignment: Alignment.topCenter,
+                child: sheet,
+              ),
+      );
+      return scrollable ? SingleChildScrollView(child: page) : page;
     },
   );
 }

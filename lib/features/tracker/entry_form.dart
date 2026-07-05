@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/widgets/dropdown_field.dart';
 import 'package:time_tracker/features/deletions.dart';
 
 // Add/edit/delete a time entry. Presented adaptively — a modal dialog on wide
@@ -267,11 +268,7 @@ class _EntryFormState extends State<EntryForm> {
           DropdownButtonFormField<int>(
             initialValue: _selectedTaskId,
             isExpanded: true,
-            // Inset the arrow so it isn't flush against the field's edge.
-            icon: const Padding(
-              padding: EdgeInsets.only(right: AppTokens.spaceXs),
-              child: Icon(Icons.arrow_drop_down),
-            ),
+            icon: kDropdownChevron,
             decoration: InputDecoration(
               labelText: 'Task',
               errorText: _taskError,

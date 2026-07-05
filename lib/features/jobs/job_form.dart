@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/constants/tokens.dart';
+import 'package:time_tracker/widgets/dropdown_field.dart';
 import 'package:time_tracker/util/parse_rate.dart';
 import 'package:time_tracker/features/deletions.dart';
 
@@ -155,6 +156,7 @@ class _JobFormState extends State<JobForm> {
                 child: DropdownButton<int>(
                   isExpanded: true,
                   value: value,
+                  icon: kDropdownChevron,
                   hint: const Text('Select a client'),
                   items: [
                     for (final c in clients)

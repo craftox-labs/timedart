@@ -187,114 +187,107 @@ class _ProfileEditorState extends State<ProfileEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Header stays pinned; the form and live preview scroll together as one
+    // content pane, so a short viewport can still reach the whole preview.
+    return EditorShell(
+      title: _isEdit ? 'Edit profile' : 'New profile',
+      name: _isEdit ? _t('name') : null,
+      isEdit: _isEdit,
+      onDelete: _delete,
+      onCancel: widget.onDone,
+      onSave: _save,
       children: [
-        editorHeader(
-          context: context,
-          title: _isEdit ? 'Edit profile' : 'New profile',
-          isEdit: _isEdit,
-          onDelete: _delete,
-          onCancel: widget.onDone,
-          onSave: _save,
-        ),
-        const SizedBox(height: AppTokens.spaceMd),
         _form(),
         const SizedBox(height: AppTokens.spaceMd),
-        Expanded(child: _preview()),
+        _preview(),
       ],
     );
   }
 
   Widget _form() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: AppTokens.spaceXl,
       children: [
-        _group('Business', [
-          _field('name', 'Name', width: 200),
-          _field('businessName', 'Business name'),
-          _field('email', 'Email'),
-          _field('phone', 'Phone', width: 160),
-          _field('website', 'Website'),
-          _field('address', 'Address', width: 320),
-          _field('abn', 'ABN / company no.', width: 180),
+        FieldGroup('Business', [
+          FieldRow([
+            Field(_field('name', 'Name')),
+            Field(_field('businessName', 'Business name')),
+          ]),
+          // Equal thirds: Website lines up above ABN, Email/Phone span the width
+          // that Address occupies below.
+          FieldRow([
+            Field(_field('email', 'Email')),
+            Field(_field('phone', 'Phone')),
+            Field(_field('website', 'Website')),
+          ]),
+          FieldRow([
+            Field(_field('address', 'Address'), flex: 2),
+            Field(_field('abn', 'ABN / company no.')),
+          ]),
         ]),
-        const SizedBox(height: AppTokens.spaceSm),
-        _group('Payment', [
-          _field('payeeName', 'Payee name'),
-          _field('bankName', 'Bank'),
-          _field('bankBsb', 'BSB', width: 140),
-          _field('bankAccount', 'Account', width: 180),
-          _field('swift', 'SWIFT / BIC', width: 160),
-          _field('paymentLink', 'Payment link', width: 320),
+        FieldGroup('Payment', [
+          FieldRow([
+            Field(_field('payeeName', 'Payee name')),
+            Field(_field('bankName', 'Bank')),
+          ]),
+          FieldRow([
+            Field(_field('bankBsb', 'BSB')),
+            Field(_field('bankAccount', 'Account')),
+            Field(_field('swift', 'SWIFT / BIC')),
+          ]),
+          FieldRow([Field(_field('paymentLink', 'Payment link'))]),
         ]),
-        const SizedBox(height: AppTokens.spaceSm),
-        _group('Currency & tax', [
-          _field('currency', 'Currency', width: 120),
-          _field('taxLabel', 'Tax label', width: 160),
-          _field('taxRate', 'Tax %', width: 120, number: true),
-          SizedBox(
-            height: 48,
-            child: brandingDefaultToggle(
-              value: _isDefault,
-              onChanged: (v) => setState(() => _isDefault = v),
+        FieldGroup('Currency & tax', [
+          FieldRow([
+            Field(_field('currency', 'Currency')),
+            Field(_field('taxLabel', 'Tax label')),
+            Field(_field('taxRate', 'Tax %', number: true)),
+            Field(
+              flex: 0,
+              brandingDefaultToggle(
+                value: _isDefault,
+                onChanged: (v) => setState(() => _isDefault = v),
+              ),
             ),
-          ),
+          ]),
         ]),
+        const SizedBox(height: AppTokens.space4xs),
       ],
     );
   }
 
-  Widget _group(String title, List<Widget> fields) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(title, style: Theme.of(context).textTheme.bodySmall),
-      const SizedBox(height: AppTokens.space3xs),
-      Wrap(
-        spacing: AppTokens.spaceSm,
-        runSpacing: AppTokens.spaceSm,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: fields,
-      ),
-    ],
-  );
-
-  Widget _field(
-    String key,
-    String label, {
-    double width = 240,
-    bool number = false,
-  }) {
-    return SizedBox(
-      width: width,
-      child: TextField(
-        controller: _c[key],
-        keyboardType: number
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : null,
-        decoration: fieldDecoration(label),
+  Widget _field(String key, String label, {bool number = false}) =>
+      EditorTextField(
+        controller: _c[key]!,
+        label: label,
+        number: number,
         onChanged: (_) => setState(() {}),
-      ),
-    );
-  }
+      );
 
   Widget _preview() {
     return FutureBuilder<InvoiceTheme?>(
       future: _sampleTheme,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox(
+            height: 240,
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
         final theme = snap.data;
         if (theme == null) {
-          return const Center(child: Text('Add a theme to preview.'));
+          return const SizedBox(
+            height: 240,
+            child: Center(child: Text('Add a theme to preview.')),
+          );
         }
         final doc = sampleInvoiceDocument(
           profile: _draft(),
           issueDate: DateTime.now(),
         );
+        // scrollable: false — the editor's outer scroll owns vertical scrolling.
         return brandingPreviewFrame(
-          child: invoicePreviewPage(doc: doc, theme: theme),
+          child: invoicePreviewPage(doc: doc, theme: theme, scrollable: false),
         );
       },
     );
