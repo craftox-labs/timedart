@@ -19,6 +19,7 @@ class SidePanel extends StatefulWidget {
     this.searchFocusNode,
     this.onExitToTracker,
     this.onShowHelp,
+    this.onOpenSettings,
     this.autofocus = false,
   });
   final AppDatabase db;
@@ -40,6 +41,8 @@ class SidePanel extends StatefulWidget {
   // `?` (Shift+/) — open the shortcuts help. Routed up because the panel
   // consumes the `/` key itself (so it can't bubble to the shell).
   final VoidCallback? onShowHelp;
+  // Open App Settings (Branding mode). Shown as a gear in the panel footer.
+  final VoidCallback? onOpenSettings;
   // Take the row cursor on first build (wide layout, where keys are live).
   final bool autofocus;
 
@@ -409,10 +412,13 @@ class _SidePanelState extends State<SidePanel> {
               },
             ),
           ),
-          // A quiet hint at the base — opens the same help as `?`. Only where
-          // keyboard nav is live (wide layout).
-          if (widget.onShowHelp != null)
-            _ShortcutsHint(onTap: widget.onShowHelp!),
+          // A quiet footer at the base: the Shortcuts hint (wide layout, where
+          // keys are live) on the left, an App Settings gear on the right.
+          if (widget.onShowHelp != null || widget.onOpenSettings != null)
+            PanelFooter(
+              onShowHelp: widget.onShowHelp,
+              onOpenSettings: widget.onOpenSettings,
+            ),
         ],
       ),
     );
@@ -763,10 +769,13 @@ class JobRowItem extends StatelessWidget {
   }
 }
 
-// Base-of-panel hint: a `?` keycap + "Shortcuts", opening the help modal.
-class _ShortcutsHint extends StatelessWidget {
-  const _ShortcutsHint({required this.onTap});
-  final VoidCallback onTap;
+// Base-of-panel footer: a `?` keycap + "Shortcuts" hint (opens the help modal),
+// and an App Settings gear. Either half is shown only when its callback is set.
+// Public so the branding panel shows the same footer.
+class PanelFooter extends StatelessWidget {
+  const PanelFooter({super.key, this.onShowHelp, this.onOpenSettings});
+  final VoidCallback? onShowHelp;
+  final VoidCallback? onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -779,41 +788,65 @@ class _ShortcutsHint extends StatelessWidget {
           thickness: AppTokens.strokeThin,
           color: AppTokens.colorBorder,
         ),
-        InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.spaceMd,
-              vertical: AppTokens.spaceSm,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTokens.space2xs,
-                    vertical: AppTokens.space4xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                    border: Border.all(color: AppTokens.colorBorder),
-                  ),
-                  child: Text(
-                    '?',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.spaceMd,
+            vertical: AppTokens.space3xs,
+          ),
+          child: Row(
+            children: [
+              if (onShowHelp != null)
+                InkWell(
+                  onTap: onShowHelp,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppTokens.spaceXs,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTokens.space2xs,
+                            vertical: AppTokens.space4xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(
+                              AppTokens.radiusSm,
+                            ),
+                            border: Border.all(color: AppTokens.colorBorder),
+                          ),
+                          child: Text(
+                            '?',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppTokens.spaceXs),
+                        Text(
+                          'Shortcuts',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(width: AppTokens.spaceXs),
-                Text(
-                  'Shortcuts',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              const Spacer(),
+              if (onOpenSettings != null)
+                IconButton(
+                  icon: const Icon(Icons.settings),
+                  iconSize: AppTokens.iconMd,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Settings',
+                  onPressed: onOpenSettings,
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ],

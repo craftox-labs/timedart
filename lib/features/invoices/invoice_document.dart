@@ -184,6 +184,73 @@ InvoiceDocument buildInvoiceDocument({
   );
 }
 
+/// A synthetic [InvoiceDocument] for branding previews — a fixed set of
+/// placeholder line items plus a stand-in recipient, dressed with a real
+/// [profile]'s sender/payment/tax fields. Lets the theme/profile/template
+/// editors show a live, representative invoice without a real job or any tracked
+/// time. Pure: [issueDate] is injected so it's deterministic in tests/previews.
+InvoiceDocument sampleInvoiceDocument({
+  required InvoiceProfile profile,
+  required DateTime issueDate,
+}) {
+  final from = DateTime(issueDate.year, issueDate.month);
+  final lines = <InvoiceLineItem>[
+    InvoiceLineItem(
+      item: 'Design · Homepage layout',
+      date: from,
+      seconds: 3 * 3600 + 30 * 60,
+      rate: 120,
+    ),
+    InvoiceLineItem(
+      item: 'Development · API integration',
+      date: from.add(const Duration(days: 6)),
+      seconds: 5 * 3600,
+      rate: 120,
+    ),
+    InvoiceLineItem(
+      item: 'Review · Client walkthrough',
+      date: from.add(const Duration(days: 12)),
+      seconds: 45 * 60,
+      rate: 90,
+    ),
+  ];
+
+  final subtotal = lines.fold<double>(0, (sum, l) => sum + l.amount);
+  final taxLabel = profile.taxLabel?.trim();
+  final taxRate = profile.taxRate;
+  final tax = (taxLabel != null && taxLabel.isNotEmpty && taxRate != null)
+      ? InvoiceTax(label: taxLabel, rate: taxRate, amount: subtotal * taxRate / 100)
+      : null;
+
+  return InvoiceDocument(
+    invoiceNumber: 'INV-0001',
+    issueDate: issueDate,
+    periodFrom: from,
+    periodTo: issueDate,
+    reference: 'SAMPLE',
+    businessName: profile.businessName,
+    senderEmail: profile.email,
+    senderPhone: profile.phone,
+    senderWebsite: profile.website,
+    senderAddress: profile.address,
+    senderAbn: profile.abn,
+    attention: 'Alex',
+    recipientContact: 'Alex Rivera',
+    organisation: 'Sample Client Co.',
+    recipientEmail: 'accounts@example.com',
+    recipientPhone: '+61 400 000 000',
+    lines: lines,
+    currency: profile.currency,
+    tax: tax,
+    payeeName: profile.payeeName,
+    bankName: profile.bankName,
+    bankBsb: profile.bankBsb,
+    bankAccount: profile.bankAccount,
+    swift: profile.swift,
+    paymentLink: profile.paymentLink,
+  );
+}
+
 // The line label: task title, plus the entry's own note when it has one; falls
 // back to the note alone, then a dash. Mirrors the old JobInvoice labelling.
 String _label(Task? task, String? description) {

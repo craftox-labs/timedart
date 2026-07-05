@@ -7,10 +7,12 @@ import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/page_header.dart';
 import 'package:time_tracker/features/shell/shortcuts_help.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
+import 'package:time_tracker/features/shell/branding_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
 import 'package:time_tracker/features/jobs/job_form.dart';
 import 'package:time_tracker/features/clients/client_form.dart';
 import 'package:time_tracker/features/invoices/invoice_view.dart';
+import 'package:time_tracker/features/invoices/branding_home.dart';
 import 'package:time_tracker/widgets/content_body.dart';
 
 // What the detail pane is currently showing. One value instead of a pile of
@@ -28,6 +30,12 @@ class _Invoice extends _Detail {
   const _Invoice(this.job);
 }
 
+// App Settings → Branding: the panel shows theme/profile/template sections and
+// the content pane previews the selected branding. (Editors land in a later PR.)
+class _Branding extends _Detail {
+  const _Branding();
+}
+
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key, required this.db});
   final AppDatabase db;
@@ -39,6 +47,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   int? _selectedJobId; // the job the timer records against
   _Detail _detail = const _Tracker();
   StreamSubscription<List<Job>>? _jobsSub;
+
+  // Branding-mode preview selection (null → the default theme/profile). Picking
+  // a template sets both at once.
+  int? _brandingThemeId;
+  int? _brandingProfileId;
+  bool get _inBranding => _detail is _Branding;
 
   // Keyboard-nav focus (wide layout only). The panel's row cursor lives here so
   // the shell can move focus *into* the panel; the tracker pane is a scope we
@@ -173,6 +187,19 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _addClient() => showClientEditor(context, db: widget.db);
   void _invoiceJob(Job job) => setState(() => _detail = _Invoice(job));
 
+  // App Settings → Branding mode. Starts on the default theme/profile.
+  void _openBranding() => setState(() {
+    _brandingThemeId = null;
+    _brandingProfileId = null;
+    _detail = const _Branding();
+  });
+  void _selectBrandingTheme(int id) => setState(() => _brandingThemeId = id);
+  void _selectBrandingProfile(int id) => setState(() => _brandingProfileId = id);
+  void _selectBrandingTemplate(InvoiceTemplate t) => setState(() {
+    _brandingThemeId = t.themeId;
+    _brandingProfileId = t.profileId;
+  });
+
   @override
   void initState() {
     super.initState();
@@ -227,16 +254,37 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         job: job,
         onDone: _showTracker,
       ),
+      _Branding() => BrandingHome(
+        db: widget.db,
+        selectedThemeId: _brandingThemeId,
+        selectedProfileId: _brandingProfileId,
+      ),
     };
     final content = ContentBody(child: detailView);
 
     // In the narrow layout the panel lives in a drawer, so every action must
     // close the drawer first to reveal the content pane it just changed.
     // `before` runs that pop; in the wide layout it's null (panel is persistent).
-    SidePanel panel({VoidCallback? before, bool keyboardNav = false}) {
+    Widget panel({VoidCallback? before, bool keyboardNav = false}) {
       void run(VoidCallback action) {
         before?.call();
         action();
+      }
+
+      // In Branding mode the right column is the branding panel instead of the
+      // client/job tree; the content pane shows the matching preview.
+      if (_inBranding) {
+        return BrandingPanel(
+          db: widget.db,
+          onSelectTheme: (id) => run(() => _selectBrandingTheme(id)),
+          onSelectProfile: (id) => run(() => _selectBrandingProfile(id)),
+          onSelectTemplate: (t) => run(() => _selectBrandingTemplate(t)),
+          onBack: () => run(_showTracker),
+          // Same footer as the normal panel; Shortcuts only where keys are live.
+          onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
+          onOpenSettings: () => run(_openBranding),
+          autofocus: keyboardNav,
+        );
       }
 
       return SidePanel(
@@ -254,6 +302,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // `?` while the panel is focused: the panel consumes `/`-family keys, so
         // it routes the help request back up rather than letting it bubble.
         onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
+        onOpenSettings: () => run(_openBranding),
         autofocus: keyboardNav,
       );
     }
