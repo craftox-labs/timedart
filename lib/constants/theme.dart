@@ -7,8 +7,6 @@ ThemeData buildAppTheme(Brightness brightness) {
     brightness: brightness,
     primary: AppTokens.colorBrandPrimary,
     onPrimary: AppTokens.colorBrandOnPrimary,
-    secondary: AppTokens.colorBrandSecondary,
-    onSecondary: AppTokens.colorBrandOnSecondary,
   );
 
   // One source of truth for structural borders (dividers, app-bar hairline,
@@ -28,16 +26,23 @@ ThemeData buildAppTheme(Brightness brightness) {
 
     // ── Type scale: tweak roles once, applies everywhere ──
     textTheme: TextTheme(
-      headlineLarge: const TextStyle(fontWeight: FontWeight.w300),
+      headlineLarge: const TextStyle(
+        fontWeight: FontWeight.w300,
+        letterSpacing: 5,
+      ),
       titleLarge: const TextStyle(
         color: AppTokens.colorBrandPrimary,
         fontWeight: FontWeight.w600,
         letterSpacing: 1,
       ),
       titleMedium: const TextStyle(fontWeight: FontWeight.w600),
-      bodyMedium: const TextStyle(height: AppTokens.fontHeightDefault),
+      bodyMedium: const TextStyle(
+        height: AppTokens.fontHeightDefault,
+        color: AppTokens.colorBrandPrimary,
+        letterSpacing: 1,
+      ),
       // Explainer / helper / empty-state text — muted throughout.
-      bodySmall: TextStyle(color: scheme.onSurfaceVariant),
+      bodySmall: TextStyle(color: scheme.onSurfaceVariant, letterSpacing: 1),
     ),
 
     // ── App bar ── flat, same colour as the body, with a primary hairline under it

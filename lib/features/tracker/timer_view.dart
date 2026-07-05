@@ -543,7 +543,9 @@ class _TimerViewState extends State<TimerView> {
     if (task == null) {
       return Text(
         'Pick a task below to start tracking',
-        style: theme.textTheme.bodySmall,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          color: theme.colorScheme.primary,
+        ),
       );
     }
     final label = _c.hasSession ? 'Tracking' : 'Ready';
@@ -580,13 +582,12 @@ class _TimerViewState extends State<TimerView> {
                 Duration(seconds: _c.elapsed).hms,
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   fontSize: counterSize,
-                  fontWeight: FontWeight.w300,
                   fontFeatures: const [FontFeature.tabularFigures()],
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
-            const SizedBox(height: AppTokens.spaceSm),
+            const SizedBox(height: AppTokens.space3xs),
             TimerControls(
               running: _c.isRunning,
               hasSession: _c.hasSession,
@@ -600,7 +601,7 @@ class _TimerViewState extends State<TimerView> {
             ),
             const SizedBox(height: AppTokens.spaceLg),
             _armedLabel(context),
-            const SizedBox(height: AppTokens.spaceLg),
+            const SizedBox(height: AppTokens.spaceXl),
             // Optional note for this session; becomes the entry's description on
             // finish. Esc returns to the row cursor; Enter starts if armed.
             CallbackShortcuts(
@@ -623,7 +624,7 @@ class _TimerViewState extends State<TimerView> {
             ),
           ],
         ),
-        const SizedBox(height: AppTokens.space2xl),
+        const SizedBox(height: AppTokens.spaceXl),
         // 2. Tasks section: header (add task + per-job Invoice action) + list
         if (widget.jobId != null) ...[
           _TasksHeader(
