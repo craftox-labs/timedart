@@ -14,7 +14,12 @@ import 'package:time_tracker/constants/tokens.dart';
 /// header matches them. The logo is centred to the pane, which (because the
 /// content column is itself centred) is the same as centring it over the column.
 class PageHeader extends StatelessWidget {
-  const PageHeader({super.key});
+  const PageHeader({super.key, this.alignLogoStart = false});
+
+  /// Left-align the logo inside the bar (instead of centring it over the content
+  /// column). Used on settings/branding pages, whose content stretches wider so
+  /// a centred logo would drift off the reading column.
+  final bool alignLogoStart;
 
   @override
   Widget build(BuildContext context) {
@@ -22,8 +27,10 @@ class PageHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         // Left edge of the centred, capped content column, relative to the pane.
-        final margin =
-            ((c.maxWidth - AppTokens.maxContentWidth) / 2).clamp(0.0, double.infinity);
+        final margin = ((c.maxWidth - AppTokens.maxContentWidth) / 2).clamp(
+          0.0,
+          double.infinity,
+        );
         final leftInset = margin + AppTokens.spaceLg;
         return Padding(
           // Top/bottom inset matches the search field so the bars line up and the
@@ -50,12 +57,22 @@ class PageHeader extends StatelessWidget {
                   ),
                 ),
                 // Logo centred to the pane (== centred over the centred content
-                // column). The horizontal logo carries the "timedart" wordmark.
+                // column), or left-aligned inside the bar on settings pages.
                 Positioned.fill(
-                  child: Center(
-                    child: SvgPicture.asset(
-                      'assets/logo/timedart_logo_horizontal.svg',
-                      height: 18,
+                  child: Align(
+                    alignment: alignLogoStart
+                        ? Alignment.centerLeft
+                        : Alignment.center,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: alignLogoStart
+                            ? leftInset + AppTokens.spaceMd
+                            : 0,
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/logo/timedart_logo_horizontal.svg',
+                        height: 18,
+                      ),
                     ),
                   ),
                 ),

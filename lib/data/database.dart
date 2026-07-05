@@ -470,7 +470,7 @@ class AppDatabase extends _$AppDatabase {
       ThemesCompanion.insert(
         name: 'timedart',
         colorBackground: 0xFF11140E, // brand dark surface
-        colorSurface: 0xFF1C2113,
+        colorSurface: 0xFF23241F, // neutral dark card (was green-tinted)
         colorPrimary: 0xFF69E228, // brand green
         colorText: 0xFFE8F5E0,
         colorAccent: 0xFF2E6C0F, // brand secondary

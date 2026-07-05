@@ -20,6 +20,12 @@ class BrandingPanel extends StatefulWidget {
     required this.onSelectProfile,
     required this.onSelectTemplate,
     required this.onBack,
+    this.onAddTheme,
+    this.onEditTheme,
+    this.onAddProfile,
+    this.onEditProfile,
+    this.onAddTemplate,
+    this.onEditTemplate,
     this.onShowHelp,
     this.onOpenSettings,
     this.autofocus = false,
@@ -30,6 +36,15 @@ class BrandingPanel extends StatefulWidget {
   final void Function(int profileId) onSelectProfile;
   final void Function(InvoiceTemplate template) onSelectTemplate;
   final VoidCallback onBack; // leave Branding mode (Esc / the back arrow)
+  // Add/edit affordances per section — an add `+` on the header and an edit
+  // icon on each row appear only where the matching callback is wired. (Themes
+  // land first; profiles/templates follow.)
+  final VoidCallback? onAddTheme;
+  final void Function(InvoiceTheme)? onEditTheme;
+  final VoidCallback? onAddProfile;
+  final void Function(InvoiceProfile)? onEditProfile;
+  final VoidCallback? onAddTemplate;
+  final void Function(InvoiceTemplate)? onEditTemplate;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -111,10 +126,41 @@ class _BrandingPanelState extends State<BrandingPanel> {
     });
   }
 
-  // Templates need the full row (themeId/profileId) to drive the preview, but
-  // _EntityRow carries only an id, so we keep the latest templates snapshot to
-  // resolve a tap back to its row.
+  // _EntityRow carries only an id, so we keep the latest snapshots to resolve a
+  // tapped/edited row back to its full object (templates also need theme/profile
+  // ids to drive the preview).
+  List<InvoiceTheme> _latestThemes = const [];
+  List<InvoiceProfile> _latestProfiles = const [];
   List<InvoiceTemplate> _latestTemplates = const [];
+
+  VoidCallback? _addFor(_Section s) => switch (s) {
+        _Section.themes => widget.onAddTheme,
+        _Section.profiles => widget.onAddProfile,
+        _Section.templates => widget.onAddTemplate,
+      };
+
+  bool _editableSection(_Section s) => switch (s) {
+        _Section.themes => widget.onEditTheme != null,
+        _Section.profiles => widget.onEditProfile != null,
+        _Section.templates => widget.onEditTemplate != null,
+      };
+
+  void _edit(_Section s, int id) {
+    switch (s) {
+      case _Section.themes:
+        for (final x in _latestThemes) {
+          if (x.id == id) return widget.onEditTheme?.call(x);
+        }
+      case _Section.profiles:
+        for (final x in _latestProfiles) {
+          if (x.id == id) return widget.onEditProfile?.call(x);
+        }
+      case _Section.templates:
+        for (final x in _latestTemplates) {
+          if (x.id == id) return widget.onEditTemplate?.call(x);
+        }
+    }
+  }
 
   void _selectEntity(_EntityRow row) {
     setState(() {
@@ -188,11 +234,41 @@ class _BrandingPanelState extends State<BrandingPanel> {
       _collapseCurrent();
       return KeyEventResult.handled;
     }
+    // a: add to the current row's section; e: edit the current entity.
+    if (key == LogicalKeyboardKey.keyA) {
+      _addCurrent();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyE) {
+      _editCurrent();
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.escape) {
       widget.onBack();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  _Section? _sectionAtCursor() {
+    if (_cursor >= _rows.length) return null;
+    final row = _rows[_cursor];
+    if (row is _HeaderRow) return row.section;
+    if (row is _EntityRow) return row.section;
+    return null;
+  }
+
+  void _addCurrent() {
+    final s = _sectionAtCursor();
+    if (s != null) _addFor(s)?.call();
+  }
+
+  void _editCurrent() {
+    if (_cursor >= _rows.length) return;
+    final row = _rows[_cursor];
+    if (row is _EntityRow && _editableSection(row.section)) {
+      _edit(row.section, row.id);
+    }
   }
 
   @override
@@ -214,10 +290,12 @@ class _BrandingPanelState extends State<BrandingPanel> {
                     return StreamBuilder<List<InvoiceTemplate>>(
                       stream: _templates,
                       builder: (context, templateSnap) {
+                        _latestThemes = themeSnap.data ?? const [];
+                        _latestProfiles = profileSnap.data ?? const [];
                         _latestTemplates = templateSnap.data ?? const [];
                         return _buildList(
-                          themes: themeSnap.data ?? const [],
-                          profiles: profileSnap.data ?? const [],
+                          themes: _latestThemes,
+                          profiles: _latestProfiles,
                           templates: _latestTemplates,
                         );
                       },
@@ -286,6 +364,12 @@ class _BrandingPanelState extends State<BrandingPanel> {
                   setState(() => _cursor = i);
                   if (row.hasItems) _toggleSection(row.section);
                 },
+                onAdd: _addFor(row.section) == null
+                    ? null
+                    : () {
+                        setState(() => _cursor = i);
+                        _addFor(row.section)!.call();
+                      },
               ),
             _EntityRow() => _EntityTile(
                 name: row.name,
@@ -295,6 +379,12 @@ class _BrandingPanelState extends State<BrandingPanel> {
                   setState(() => _cursor = i);
                   _selectEntity(row);
                 },
+                onEdit: !_editableSection(row.section)
+                    ? null
+                    : () {
+                        setState(() => _cursor = i);
+                        _edit(row.section, row.id);
+                      },
               ),
           },
         );
@@ -322,11 +412,13 @@ class _SectionHeaderTile extends StatelessWidget {
     required this.expanded,
     required this.hasItems,
     required this.onTap,
+    this.onAdd,
   });
   final String label;
   final bool expanded;
   final bool hasItems;
   final VoidCallback onTap;
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -351,6 +443,17 @@ class _SectionHeaderTile extends StatelessWidget {
           color: t.colorScheme.onSurface,
         ),
       ),
+      trailing: onAdd == null
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.add),
+              iconSize: AppTokens.iconMd,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Add $label (a)',
+              onPressed: onAdd,
+            ),
     );
   }
 }
@@ -361,11 +464,13 @@ class _EntityTile extends StatelessWidget {
     required this.isDefault,
     required this.selected,
     required this.onTap,
+    this.onEdit,
   });
   final String name;
   final bool isDefault;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -404,6 +509,17 @@ class _EntityTile extends StatelessWidget {
           ],
         ],
       ),
+      trailing: onEdit == null
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.edit_note),
+              iconSize: AppTokens.iconMd,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Edit (e)',
+              onPressed: onEdit,
+            ),
       onTap: onTap,
     );
   }

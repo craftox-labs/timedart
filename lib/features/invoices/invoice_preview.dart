@@ -4,6 +4,67 @@ import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
 
+/// A bordered frame around an invoice preview, filling its slot. Shared by the
+/// branding home and the theme editor so both previews read the same: a bounded,
+/// outlined panel whose content scrolls when the invoice overflows. The child is
+/// clipped to a radius inset by the border width so the corners meet cleanly (a
+/// bordered Container with a rounded child otherwise leaves a square notch).
+Widget brandingPreviewFrame({required Widget child}) => Container(
+  // Container (unlike DecoratedBox) insets its child by the border width, so the
+  // opaque preview can't paint over the border. ClipRRect rounds the inner
+  // corners to match.
+  decoration: BoxDecoration(
+    border: Border.all(color: AppTokens.colorBorder),
+    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+  ),
+  child: ClipRRect(
+    borderRadius: BorderRadius.circular(AppTokens.radiusSm - 1),
+    child: child,
+  ),
+);
+
+/// Standard print page proportions (height ÷ width). A4 is the default; Letter
+/// is offered for US output. A page-size picker is a later setting — for now the
+/// preview assumes A4.
+enum InvoicePageSize {
+  a4(297 / 210),
+  letter(279 / 216);
+
+  const InvoicePageSize(this.ratio);
+  final double ratio; // height / width
+}
+
+/// The invoice preview laid out as a page — a centred sheet with the chosen
+/// print proportions and a minimum height, so it reads like the printed output
+/// (with the content's own safe margin) rather than a raw content block. Scrolls
+/// vertically inside its parent when the invoice runs longer than one page.
+Widget invoicePreviewPage({
+  required InvoiceDocument doc,
+  required InvoiceTheme theme,
+  InvoicePageSize size = InvoicePageSize.a4,
+}) {
+  return LayoutBuilder(
+    builder: (context, c) {
+      // A gutter around the page so it sits in the frame like a sheet on a
+      // surface, then cap it to a comfortable page width and centre it.
+      const gutter = AppTokens.spaceLg;
+      final available = c.maxWidth - gutter * 2;
+      final pageWidth = available < 820.0 ? available : 820.0;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(gutter),
+        child: Center(
+          child: Container(
+            width: pageWidth,
+            constraints: BoxConstraints(minHeight: pageWidth * size.ratio),
+            color: Color(theme.colorBackground),
+            child: InvoicePreview(doc: doc, theme: theme),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 /// On-screen, WYSIWYG preview of an [InvoiceDocument] rendered with an
 /// [InvoiceTheme]. Presentational — reads resolved values from the document and
 /// applies the theme, mirroring the PDF renderer (invoice_pdf.dart) so what you
@@ -119,7 +180,10 @@ class InvoicePreview extends StatelessWidget {
         ),
       ),
       const SizedBox(height: AppTokens.spaceXs),
-      Text(_iso(doc.issueDate), style: TextStyle(color: _muted, fontSize: AppTokens.fontSizeXs)),
+      Text(
+        _iso(doc.issueDate),
+        style: TextStyle(color: _muted, fontSize: AppTokens.fontSizeXs),
+      ),
       if (doc.invoiceNumber != null)
         Text(
           'Invoice #${doc.invoiceNumber}',

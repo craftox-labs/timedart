@@ -13,6 +13,7 @@ import 'package:time_tracker/features/jobs/job_form.dart';
 import 'package:time_tracker/features/clients/client_form.dart';
 import 'package:time_tracker/features/invoices/invoice_view.dart';
 import 'package:time_tracker/features/invoices/branding_home.dart';
+import 'package:time_tracker/features/invoices/theme_editor.dart';
 import 'package:time_tracker/widgets/content_body.dart';
 
 // What the detail pane is currently showing. One value instead of a pile of
@@ -31,9 +32,16 @@ class _Invoice extends _Detail {
 }
 
 // App Settings → Branding: the panel shows theme/profile/template sections and
-// the content pane previews the selected branding. (Editors land in a later PR.)
+// the content pane previews the selected branding.
 class _Branding extends _Detail {
   const _Branding();
+}
+
+// Editing (or creating, when theme is null) an invoice theme in the content
+// pane, with the branding panel still alongside.
+class _ThemeEditorDetail extends _Detail {
+  final InvoiceTheme? theme;
+  const _ThemeEditorDetail(this.theme);
 }
 
 class AdaptiveShell extends StatefulWidget {
@@ -52,14 +60,20 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // a template sets both at once.
   int? _brandingThemeId;
   int? _brandingProfileId;
-  bool get _inBranding => _detail is _Branding;
+  // Branding mode swaps the side panel for the branding sections.
+  bool get _inBranding => _detail is _Branding || _detail is _ThemeEditorDetail;
+  // Pages whose content stretches to the divider with a left-aligned header
+  // logo — the branding pages plus the per-job invoice view (a preview page too).
+  bool get _wideContentPage => _inBranding || _detail is _Invoice;
 
   // Keyboard-nav focus (wide layout only). The panel's row cursor lives here so
   // the shell can move focus *into* the panel; the tracker pane is a scope we
   // hand focus to (its own widgets take over from there — content-pane keymap
   // is a follow-up, see issue).
   final FocusNode _panelCursor = FocusNode(debugLabel: 'panelCursor');
-  final FocusScopeNode _trackerScope = FocusScopeNode(debugLabel: 'trackerScope');
+  final FocusScopeNode _trackerScope = FocusScopeNode(
+    debugLabel: 'trackerScope',
+  );
   // The tracker pane's own row cursor (its entry list). Owned here so the shell
   // can move focus straight onto it — mirrors _panelCursor. See TimerView.
   final FocusNode _trackerCursor = FocusNode(debugLabel: 'trackerCursor');
@@ -81,6 +95,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return ctx != null &&
         ctx.findAncestorWidgetOfExactType<EditableText>() != null;
   }
+
   // "In the panel" means either its row cursor or its search field has focus —
   // otherwise Tab out of a focused search would wrongly jump to the tracker.
   void _togglePane() => (_panelCursor.hasFocus || _panelSearch.hasFocus)
@@ -120,7 +135,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
     // Space is global while the tracker is in view: toggle start/pause/resume
     // from any pane. Fires once per press (repeats are swallowed, not repeated).
-    if (!ctrl && !editing && key == LogicalKeyboardKey.space && _detail is _Tracker) {
+    if (!ctrl &&
+        !editing &&
+        key == LogicalKeyboardKey.space &&
+        _detail is _Tracker) {
       if (event is KeyDownEvent) _timer.primary?.call();
       return KeyEventResult.handled;
     }
@@ -194,11 +212,16 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     _detail = const _Branding();
   });
   void _selectBrandingTheme(int id) => setState(() => _brandingThemeId = id);
-  void _selectBrandingProfile(int id) => setState(() => _brandingProfileId = id);
+  void _selectBrandingProfile(int id) =>
+      setState(() => _brandingProfileId = id);
   void _selectBrandingTemplate(InvoiceTemplate t) => setState(() {
     _brandingThemeId = t.themeId;
     _brandingProfileId = t.profileId;
   });
+  void _showBrandingHome() => setState(() => _detail = const _Branding());
+  void _addTheme() => setState(() => _detail = const _ThemeEditorDetail(null));
+  void _editTheme(InvoiceTheme t) =>
+      setState(() => _detail = _ThemeEditorDetail(t));
 
   @override
   void initState() {
@@ -210,8 +233,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     });
     widget.db.ensureInvoiceDefaults(); // seed timedart theme/profile/template
 
-
-
     // Keep the selection honest when jobs change: if the selected job is
     // deleted, fall back to the first remaining job (or none).
     _jobsSub = widget.db.watchJobs().listen((jobs) {
@@ -219,9 +240,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       final ids = jobs.map((j) => j.id).toSet();
       final selected = _selectedJobId;
       if (selected != null && !ids.contains(selected)) {
-        setState(
-          () => _selectedJobId = jobs.isNotEmpty ? jobs.first.id : null,
-        );
+        setState(() => _selectedJobId = jobs.isNotEmpty ? jobs.first.id : null);
       }
     });
   }
@@ -259,8 +278,33 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         selectedThemeId: _brandingThemeId,
         selectedProfileId: _brandingProfileId,
       ),
+      _ThemeEditorDetail(:final theme) => ThemeEditor(
+        db: widget.db,
+        initial: theme,
+        onDone: _showBrandingHome,
+      ),
     };
-    final content = ContentBody(child: detailView);
+    // Preview pages (branding + per-job invoice) keep the left edge aligned with
+    // the page header (same inset as the centred content column) but stretch
+    // right to the panel divider so the preview + controls use the extra width.
+    // Other pages stay centred within ContentBody's reading width.
+    final Widget content = _wideContentPage
+        ? LayoutBuilder(
+            builder: (context, c) {
+              final margin = ((c.maxWidth - AppTokens.maxContentWidth) / 2)
+                  .clamp(0.0, double.infinity);
+              return Padding(
+                padding: EdgeInsets.fromLTRB(
+                  margin + AppTokens.spaceLg,
+                  AppTokens.spaceLg,
+                  AppTokens.spaceLg,
+                  AppTokens.spaceLg,
+                ),
+                child: detailView,
+              );
+            },
+          )
+        : ContentBody(child: detailView);
 
     // In the narrow layout the panel lives in a drawer, so every action must
     // close the drawer first to reveal the content pane it just changed.
@@ -280,6 +324,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onSelectProfile: (id) => run(() => _selectBrandingProfile(id)),
           onSelectTemplate: (t) => run(() => _selectBrandingTemplate(t)),
           onBack: () => run(_showTracker),
+          onAddTheme: () => run(_addTheme),
+          onEditTheme: (t) => run(() => _editTheme(t)),
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openBranding),
@@ -327,7 +373,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const PageHeader(),
+                          PageHeader(alignLogoStart: _wideContentPage),
                           Expanded(child: content),
                         ],
                       ),

@@ -20,8 +20,12 @@ class BrandingHome extends StatelessWidget {
   final int? selectedThemeId; // null → the default theme
   final int? selectedProfileId; // null → the default profile
 
-  static T? _pick<T>(List<T> items, int? id, int Function(T) idOf,
-      bool Function(T) isDefault) {
+  static T? _pick<T>(
+    List<T> items,
+    int? id,
+    int Function(T) idOf,
+    bool Function(T) isDefault,
+  ) {
     if (items.isEmpty) return null;
     if (id != null) {
       for (final it in items) {
@@ -37,59 +41,59 @@ class BrandingHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Branding', style: t.textTheme.titleLarge),
-          const SizedBox(height: AppTokens.spaceXs),
-          Text(
-            'Preview updates as you pick a theme, profile, or template. '
-            'Editing arrives next.',
-            style: t.textTheme.bodySmall,
-          ),
-          const SizedBox(height: AppTokens.spaceSm),
-          Expanded(
-            child: StreamBuilder<List<InvoiceTheme>>(
-              stream: db.watchThemes(),
-              builder: (context, themeSnap) {
-                return StreamBuilder<List<InvoiceProfile>>(
-                  stream: db.watchProfiles(),
-                  builder: (context, profileSnap) {
-                    final themes = themeSnap.data;
-                    final profiles = profileSnap.data;
-                    if (themes == null || profiles == null) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final theme = _pick(
-                      themes, selectedThemeId, (x) => x.id, (x) => x.isDefault);
-                    final profile = _pick(
-                      profiles, selectedProfileId, (x) => x.id, (x) => x.isDefault);
-                    if (theme == null || profile == null) {
-                      return const Center(
-                        child: Text('No branding configured yet.'),
-                      );
-                    }
-                    final doc = sampleInvoiceDocument(
-                      profile: profile,
-                      issueDate: DateTime.now(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Branding', style: t.textTheme.titleLarge),
+        const SizedBox(height: AppTokens.spaceXs),
+        Text(
+          'Preview updates as you pick a theme, profile, or template. '
+          'Editing arrives next.',
+          style: t.textTheme.bodySmall,
+        ),
+        const SizedBox(height: AppTokens.spaceSm),
+        Expanded(
+          child: StreamBuilder<List<InvoiceTheme>>(
+            stream: db.watchThemes(),
+            builder: (context, themeSnap) {
+              return StreamBuilder<List<InvoiceProfile>>(
+                stream: db.watchProfiles(),
+                builder: (context, profileSnap) {
+                  final themes = themeSnap.data;
+                  final profiles = profileSnap.data;
+                  if (themes == null || profiles == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final theme = _pick(
+                    themes,
+                    selectedThemeId,
+                    (x) => x.id,
+                    (x) => x.isDefault,
+                  );
+                  final profile = _pick(
+                    profiles,
+                    selectedProfileId,
+                    (x) => x.id,
+                    (x) => x.isDefault,
+                  );
+                  if (theme == null || profile == null) {
+                    return const Center(
+                      child: Text('No branding configured yet.'),
                     );
-                    return SingleChildScrollView(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 640),
-                          child: InvoicePreview(doc: doc, theme: theme),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                  }
+                  final doc = sampleInvoiceDocument(
+                    profile: profile,
+                    issueDate: DateTime.now(),
+                  );
+                  return brandingPreviewFrame(
+                    child: invoicePreviewPage(doc: doc, theme: theme),
+                  );
+                },
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -130,91 +130,85 @@ class _InvoiceViewState extends State<InvoiceView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Invoice · ${widget.job.code} — ${widget.job.title}',
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: AppTokens.spaceXs),
-          Row(
-            children: [
-              // Flexible so a narrow content pane ellipsizes the date range
-              // instead of overflowing the row.
-              Flexible(
-                child: Text(
-                  '${_fmtDate(_range.start)} – ${_fmtDate(_range.end)}',
-                  overflow: TextOverflow.ellipsis,
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Invoice · ${widget.job.code} — ${widget.job.title}',
+          style: theme.textTheme.titleLarge,
+        ),
+        const SizedBox(height: AppTokens.spaceXs),
+        Row(
+          children: [
+            // Flexible so a narrow content pane ellipsizes the date range
+            // instead of overflowing the row.
+            Flexible(
+              child: Text(
+                '${_fmtDate(_range.start)} – ${_fmtDate(_range.end)}',
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(width: AppTokens.spaceSm),
-              TextButton.icon(
-                onPressed: _pickRange,
-                icon: const Icon(Icons.date_range, size: AppTokens.iconSm),
-                label: const Text('Change dates'),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTokens.spaceSm),
-          Expanded(
-            child: FutureBuilder<({InvoiceDocument doc, InvoiceTheme theme})?>(
-              future: _future,
-              builder: (context, snap) {
-                if (snap.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) {
-                  return Center(child: Text('Error: ${snap.error}'));
-                }
-                final loaded = snap.data;
-                if (loaded == null) {
-                  return const Center(
-                    child: Text('No invoice template configured.'),
-                  );
-                }
-                final doc = loaded.doc;
-                final empty = doc.lines.isEmpty;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
+            ),
+            const SizedBox(width: AppTokens.spaceSm),
+            TextButton.icon(
+              onPressed: _pickRange,
+              icon: const Icon(Icons.date_range, size: AppTokens.iconSm),
+              label: const Text('Change dates'),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppTokens.spaceSm),
+        Expanded(
+          child: FutureBuilder<({InvoiceDocument doc, InvoiceTheme theme})?>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return Center(child: Text('Error: ${snap.error}'));
+              }
+              final loaded = snap.data;
+              if (loaded == null) {
+                return const Center(
+                  child: Text('No invoice template configured.'),
+                );
+              }
+              final doc = loaded.doc;
+              final empty = doc.lines.isEmpty;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: brandingPreviewFrame(
                       child: empty
                           ? const Center(
                               child: Text('No tracked time in this period.'),
                             )
-                          : SingleChildScrollView(
-                              child: InvoicePreview(
-                                doc: doc,
-                                theme: loaded.theme,
-                              ),
-                            ),
+                          : invoicePreviewPage(doc: doc, theme: loaded.theme),
                     ),
-                    const SizedBox(height: AppTokens.spaceSm),
-                    Row(
-                      children: [
-                        const Spacer(),
-                        OutlinedButton(
-                          onPressed: widget.onDone,
-                          child: const Text('Close'),
-                        ),
-                        const SizedBox(width: AppTokens.spaceSm),
-                        FilledButton.icon(
-                          onPressed: empty ? null : _exportPdf,
-                          icon: const Icon(Icons.picture_as_pdf),
-                          label: const Text('Export PDF'),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                  const SizedBox(height: AppTokens.spaceSm),
+                  Row(
+                    children: [
+                      const Spacer(),
+                      OutlinedButton(
+                        onPressed: widget.onDone,
+                        child: const Text('Close'),
+                      ),
+                      const SizedBox(width: AppTokens.spaceSm),
+                      FilledButton.icon(
+                        onPressed: empty ? null : _exportPdf,
+                        icon: const Icon(Icons.picture_as_pdf),
+                        label: const Text('Export PDF'),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
