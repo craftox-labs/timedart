@@ -1845,11 +1845,12 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   }
 }
 
-class $ThemesTable extends Themes with TableInfo<$ThemesTable, InvoiceTheme> {
+class $TemplatesTable extends Templates
+    with TableInfo<$TemplatesTable, InvoiceTemplate> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $ThemesTable(this.attachedDatabase, [this._alias]);
+  $TemplatesTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -1996,10 +1997,10 @@ class $ThemesTable extends Themes with TableInfo<$ThemesTable, InvoiceTheme> {
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'themes';
+  static const String $name = 'templates';
   @override
   VerificationContext validateIntegrity(
-    Insertable<InvoiceTheme> instance, {
+    Insertable<InvoiceTemplate> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -2097,9 +2098,9 @@ class $ThemesTable extends Themes with TableInfo<$ThemesTable, InvoiceTheme> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  InvoiceTheme map(Map<String, dynamic> data, {String? tablePrefix}) {
+  InvoiceTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return InvoiceTheme(
+    return InvoiceTemplate(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -2148,12 +2149,12 @@ class $ThemesTable extends Themes with TableInfo<$ThemesTable, InvoiceTheme> {
   }
 
   @override
-  $ThemesTable createAlias(String alias) {
-    return $ThemesTable(attachedDatabase, alias);
+  $TemplatesTable createAlias(String alias) {
+    return $TemplatesTable(attachedDatabase, alias);
   }
 }
 
-class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
+class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
   final int id;
   final String name;
   final Uint8List? logo;
@@ -2165,7 +2166,7 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
   final int colorAccent;
   final String fontFamily;
   final bool isDefault;
-  const InvoiceTheme({
+  const InvoiceTemplate({
     required this.id,
     required this.name,
     this.logo,
@@ -2199,8 +2200,8 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
     return map;
   }
 
-  ThemesCompanion toCompanion(bool nullToAbsent) {
-    return ThemesCompanion(
+  TemplatesCompanion toCompanion(bool nullToAbsent) {
+    return TemplatesCompanion(
       id: Value(id),
       name: Value(name),
       logo: logo == null && nullToAbsent ? const Value.absent() : Value(logo),
@@ -2217,12 +2218,12 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
     );
   }
 
-  factory InvoiceTheme.fromJson(
+  factory InvoiceTemplate.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return InvoiceTheme(
+    return InvoiceTemplate(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       logo: serializer.fromJson<Uint8List?>(json['logo']),
@@ -2254,7 +2255,7 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
     };
   }
 
-  InvoiceTheme copyWith({
+  InvoiceTemplate copyWith({
     int? id,
     String? name,
     Value<Uint8List?> logo = const Value.absent(),
@@ -2266,7 +2267,7 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
     int? colorAccent,
     String? fontFamily,
     bool? isDefault,
-  }) => InvoiceTheme(
+  }) => InvoiceTemplate(
     id: id ?? this.id,
     name: name ?? this.name,
     logo: logo.present ? logo.value : this.logo,
@@ -2279,8 +2280,8 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
     fontFamily: fontFamily ?? this.fontFamily,
     isDefault: isDefault ?? this.isDefault,
   );
-  InvoiceTheme copyWithCompanion(ThemesCompanion data) {
-    return InvoiceTheme(
+  InvoiceTemplate copyWithCompanion(TemplatesCompanion data) {
+    return InvoiceTemplate(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       logo: data.logo.present ? data.logo.value : this.logo,
@@ -2307,7 +2308,7 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
 
   @override
   String toString() {
-    return (StringBuffer('InvoiceTheme(')
+    return (StringBuffer('InvoiceTemplate(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('logo: $logo, ')
@@ -2340,7 +2341,7 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is InvoiceTheme &&
+      (other is InvoiceTemplate &&
           other.id == this.id &&
           other.name == this.name &&
           $driftBlobEquality.equals(other.logo, this.logo) &&
@@ -2354,7 +2355,7 @@ class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
           other.isDefault == this.isDefault);
 }
 
-class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
+class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
   final Value<int> id;
   final Value<String> name;
   final Value<Uint8List?> logo;
@@ -2366,7 +2367,7 @@ class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
   final Value<int> colorAccent;
   final Value<String> fontFamily;
   final Value<bool> isDefault;
-  const ThemesCompanion({
+  const TemplatesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.logo = const Value.absent(),
@@ -2379,7 +2380,7 @@ class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
     this.fontFamily = const Value.absent(),
     this.isDefault = const Value.absent(),
   });
-  ThemesCompanion.insert({
+  TemplatesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     this.logo = const Value.absent(),
@@ -2397,7 +2398,7 @@ class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
        colorPrimary = Value(colorPrimary),
        colorText = Value(colorText),
        colorAccent = Value(colorAccent);
-  static Insertable<InvoiceTheme> custom({
+  static Insertable<InvoiceTemplate> custom({
     Expression<int>? id,
     Expression<String>? name,
     Expression<Uint8List>? logo,
@@ -2425,7 +2426,7 @@ class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
     });
   }
 
-  ThemesCompanion copyWith({
+  TemplatesCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
     Value<Uint8List?>? logo,
@@ -2438,7 +2439,7 @@ class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
     Value<String>? fontFamily,
     Value<bool>? isDefault,
   }) {
-    return ThemesCompanion(
+    return TemplatesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       logo: logo ?? this.logo,
@@ -2494,7 +2495,7 @@ class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
 
   @override
   String toString() {
-    return (StringBuffer('ThemesCompanion(')
+    return (StringBuffer('TemplatesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('logo: $logo, ')
@@ -2717,6 +2718,20 @@ class $ProfilesTable extends Profiles
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _templateIdMeta = const VerificationMeta(
+    'templateId',
+  );
+  @override
+  late final GeneratedColumn<int> templateId = GeneratedColumn<int>(
+    'template_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES templates (id)',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2737,6 +2752,7 @@ class $ProfilesTable extends Profiles
     taxLabel,
     taxRate,
     isDefault,
+    templateId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2866,6 +2882,12 @@ class $ProfilesTable extends Profiles
         isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
       );
     }
+    if (data.containsKey('template_id')) {
+      context.handle(
+        _templateIdMeta,
+        templateId.isAcceptableOrUnknown(data['template_id']!, _templateIdMeta),
+      );
+    }
     return context;
   }
 
@@ -2947,6 +2969,10 @@ class $ProfilesTable extends Profiles
         DriftSqlType.bool,
         data['${effectivePrefix}is_default'],
       )!,
+      templateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}template_id'],
+      ),
     );
   }
 
@@ -2975,6 +3001,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
   final String? taxLabel;
   final double? taxRate;
   final bool isDefault;
+  final int? templateId;
   const InvoiceProfile({
     required this.id,
     required this.name,
@@ -2994,6 +3021,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     this.taxLabel,
     this.taxRate,
     required this.isDefault,
+    this.templateId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3042,6 +3070,9 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       map['tax_rate'] = Variable<double>(taxRate);
     }
     map['is_default'] = Variable<bool>(isDefault);
+    if (!nullToAbsent || templateId != null) {
+      map['template_id'] = Variable<int>(templateId);
+    }
     return map;
   }
 
@@ -3089,6 +3120,9 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           ? const Value.absent()
           : Value(taxRate),
       isDefault: Value(isDefault),
+      templateId: templateId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(templateId),
     );
   }
 
@@ -3116,6 +3150,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       taxLabel: serializer.fromJson<String?>(json['taxLabel']),
       taxRate: serializer.fromJson<double?>(json['taxRate']),
       isDefault: serializer.fromJson<bool>(json['isDefault']),
+      templateId: serializer.fromJson<int?>(json['templateId']),
     );
   }
   @override
@@ -3140,6 +3175,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       'taxLabel': serializer.toJson<String?>(taxLabel),
       'taxRate': serializer.toJson<double?>(taxRate),
       'isDefault': serializer.toJson<bool>(isDefault),
+      'templateId': serializer.toJson<int?>(templateId),
     };
   }
 
@@ -3162,6 +3198,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     Value<String?> taxLabel = const Value.absent(),
     Value<double?> taxRate = const Value.absent(),
     bool? isDefault,
+    Value<int?> templateId = const Value.absent(),
   }) => InvoiceProfile(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3181,6 +3218,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     taxLabel: taxLabel.present ? taxLabel.value : this.taxLabel,
     taxRate: taxRate.present ? taxRate.value : this.taxRate,
     isDefault: isDefault ?? this.isDefault,
+    templateId: templateId.present ? templateId.value : this.templateId,
   );
   InvoiceProfile copyWithCompanion(ProfilesCompanion data) {
     return InvoiceProfile(
@@ -3208,6 +3246,9 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       taxLabel: data.taxLabel.present ? data.taxLabel.value : this.taxLabel,
       taxRate: data.taxRate.present ? data.taxRate.value : this.taxRate,
       isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+      templateId: data.templateId.present
+          ? data.templateId.value
+          : this.templateId,
     );
   }
 
@@ -3231,7 +3272,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           ..write('currency: $currency, ')
           ..write('taxLabel: $taxLabel, ')
           ..write('taxRate: $taxRate, ')
-          ..write('isDefault: $isDefault')
+          ..write('isDefault: $isDefault, ')
+          ..write('templateId: $templateId')
           ..write(')'))
         .toString();
   }
@@ -3256,6 +3298,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     taxLabel,
     taxRate,
     isDefault,
+    templateId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3278,7 +3321,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           other.currency == this.currency &&
           other.taxLabel == this.taxLabel &&
           other.taxRate == this.taxRate &&
-          other.isDefault == this.isDefault);
+          other.isDefault == this.isDefault &&
+          other.templateId == this.templateId);
 }
 
 class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
@@ -3300,6 +3344,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
   final Value<String?> taxLabel;
   final Value<double?> taxRate;
   final Value<bool> isDefault;
+  final Value<int?> templateId;
   const ProfilesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -3319,6 +3364,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.taxLabel = const Value.absent(),
     this.taxRate = const Value.absent(),
     this.isDefault = const Value.absent(),
+    this.templateId = const Value.absent(),
   });
   ProfilesCompanion.insert({
     this.id = const Value.absent(),
@@ -3339,6 +3385,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.taxLabel = const Value.absent(),
     this.taxRate = const Value.absent(),
     this.isDefault = const Value.absent(),
+    this.templateId = const Value.absent(),
   }) : name = Value(name);
   static Insertable<InvoiceProfile> custom({
     Expression<int>? id,
@@ -3359,6 +3406,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Expression<String>? taxLabel,
     Expression<double>? taxRate,
     Expression<bool>? isDefault,
+    Expression<int>? templateId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3379,6 +3427,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       if (taxLabel != null) 'tax_label': taxLabel,
       if (taxRate != null) 'tax_rate': taxRate,
       if (isDefault != null) 'is_default': isDefault,
+      if (templateId != null) 'template_id': templateId,
     });
   }
 
@@ -3401,6 +3450,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Value<String?>? taxLabel,
     Value<double?>? taxRate,
     Value<bool>? isDefault,
+    Value<int?>? templateId,
   }) {
     return ProfilesCompanion(
       id: id ?? this.id,
@@ -3421,6 +3471,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       taxLabel: taxLabel ?? this.taxLabel,
       taxRate: taxRate ?? this.taxRate,
       isDefault: isDefault ?? this.isDefault,
+      templateId: templateId ?? this.templateId,
     );
   }
 
@@ -3481,6 +3532,9 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     if (isDefault.present) {
       map['is_default'] = Variable<bool>(isDefault.value);
     }
+    if (templateId.present) {
+      map['template_id'] = Variable<int>(templateId.value);
+    }
     return map;
   }
 
@@ -3504,368 +3558,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
           ..write('currency: $currency, ')
           ..write('taxLabel: $taxLabel, ')
           ..write('taxRate: $taxRate, ')
-          ..write('isDefault: $isDefault')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $TemplatesTable extends Templates
-    with TableInfo<$TemplatesTable, InvoiceTemplate> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $TemplatesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    additionalChecks: GeneratedColumn.checkTextLength(
-      minTextLength: 1,
-      maxTextLength: 100,
-    ),
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _themeIdMeta = const VerificationMeta(
-    'themeId',
-  );
-  @override
-  late final GeneratedColumn<int> themeId = GeneratedColumn<int>(
-    'theme_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES themes (id)',
-    ),
-  );
-  static const VerificationMeta _profileIdMeta = const VerificationMeta(
-    'profileId',
-  );
-  @override
-  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
-    'profile_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES profiles (id)',
-    ),
-  );
-  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
-    'isDefault',
-  );
-  @override
-  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
-    'is_default',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_default" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    name,
-    themeId,
-    profileId,
-    isDefault,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'templates';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<InvoiceTemplate> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('theme_id')) {
-      context.handle(
-        _themeIdMeta,
-        themeId.isAcceptableOrUnknown(data['theme_id']!, _themeIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_themeIdMeta);
-    }
-    if (data.containsKey('profile_id')) {
-      context.handle(
-        _profileIdMeta,
-        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_profileIdMeta);
-    }
-    if (data.containsKey('is_default')) {
-      context.handle(
-        _isDefaultMeta,
-        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  InvoiceTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return InvoiceTemplate(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      themeId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}theme_id'],
-      )!,
-      profileId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}profile_id'],
-      )!,
-      isDefault: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_default'],
-      )!,
-    );
-  }
-
-  @override
-  $TemplatesTable createAlias(String alias) {
-    return $TemplatesTable(attachedDatabase, alias);
-  }
-}
-
-class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
-  final int id;
-  final String name;
-  final int themeId;
-  final int profileId;
-  final bool isDefault;
-  const InvoiceTemplate({
-    required this.id,
-    required this.name,
-    required this.themeId,
-    required this.profileId,
-    required this.isDefault,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['name'] = Variable<String>(name);
-    map['theme_id'] = Variable<int>(themeId);
-    map['profile_id'] = Variable<int>(profileId);
-    map['is_default'] = Variable<bool>(isDefault);
-    return map;
-  }
-
-  TemplatesCompanion toCompanion(bool nullToAbsent) {
-    return TemplatesCompanion(
-      id: Value(id),
-      name: Value(name),
-      themeId: Value(themeId),
-      profileId: Value(profileId),
-      isDefault: Value(isDefault),
-    );
-  }
-
-  factory InvoiceTemplate.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return InvoiceTemplate(
-      id: serializer.fromJson<int>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      themeId: serializer.fromJson<int>(json['themeId']),
-      profileId: serializer.fromJson<int>(json['profileId']),
-      isDefault: serializer.fromJson<bool>(json['isDefault']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'name': serializer.toJson<String>(name),
-      'themeId': serializer.toJson<int>(themeId),
-      'profileId': serializer.toJson<int>(profileId),
-      'isDefault': serializer.toJson<bool>(isDefault),
-    };
-  }
-
-  InvoiceTemplate copyWith({
-    int? id,
-    String? name,
-    int? themeId,
-    int? profileId,
-    bool? isDefault,
-  }) => InvoiceTemplate(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    themeId: themeId ?? this.themeId,
-    profileId: profileId ?? this.profileId,
-    isDefault: isDefault ?? this.isDefault,
-  );
-  InvoiceTemplate copyWithCompanion(TemplatesCompanion data) {
-    return InvoiceTemplate(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      themeId: data.themeId.present ? data.themeId.value : this.themeId,
-      profileId: data.profileId.present ? data.profileId.value : this.profileId,
-      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('InvoiceTemplate(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('themeId: $themeId, ')
-          ..write('profileId: $profileId, ')
-          ..write('isDefault: $isDefault')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, name, themeId, profileId, isDefault);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is InvoiceTemplate &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.themeId == this.themeId &&
-          other.profileId == this.profileId &&
-          other.isDefault == this.isDefault);
-}
-
-class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
-  final Value<int> id;
-  final Value<String> name;
-  final Value<int> themeId;
-  final Value<int> profileId;
-  final Value<bool> isDefault;
-  const TemplatesCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.themeId = const Value.absent(),
-    this.profileId = const Value.absent(),
-    this.isDefault = const Value.absent(),
-  });
-  TemplatesCompanion.insert({
-    this.id = const Value.absent(),
-    required String name,
-    required int themeId,
-    required int profileId,
-    this.isDefault = const Value.absent(),
-  }) : name = Value(name),
-       themeId = Value(themeId),
-       profileId = Value(profileId);
-  static Insertable<InvoiceTemplate> custom({
-    Expression<int>? id,
-    Expression<String>? name,
-    Expression<int>? themeId,
-    Expression<int>? profileId,
-    Expression<bool>? isDefault,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (themeId != null) 'theme_id': themeId,
-      if (profileId != null) 'profile_id': profileId,
-      if (isDefault != null) 'is_default': isDefault,
-    });
-  }
-
-  TemplatesCompanion copyWith({
-    Value<int>? id,
-    Value<String>? name,
-    Value<int>? themeId,
-    Value<int>? profileId,
-    Value<bool>? isDefault,
-  }) {
-    return TemplatesCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      themeId: themeId ?? this.themeId,
-      profileId: profileId ?? this.profileId,
-      isDefault: isDefault ?? this.isDefault,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (themeId.present) {
-      map['theme_id'] = Variable<int>(themeId.value);
-    }
-    if (profileId.present) {
-      map['profile_id'] = Variable<int>(profileId.value);
-    }
-    if (isDefault.present) {
-      map['is_default'] = Variable<bool>(isDefault.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('TemplatesCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('themeId: $themeId, ')
-          ..write('profileId: $profileId, ')
-          ..write('isDefault: $isDefault')
+          ..write('isDefault: $isDefault, ')
+          ..write('templateId: $templateId')
           ..write(')'))
         .toString();
   }
@@ -3878,9 +3572,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $JobsTable jobs = $JobsTable(this);
   late final $TasksTable tasks = $TasksTable(this);
   late final $TimeEntriesTable timeEntries = $TimeEntriesTable(this);
-  late final $ThemesTable themes = $ThemesTable(this);
-  late final $ProfilesTable profiles = $ProfilesTable(this);
   late final $TemplatesTable templates = $TemplatesTable(this);
+  late final $ProfilesTable profiles = $ProfilesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3890,9 +3583,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     jobs,
     tasks,
     timeEntries,
-    themes,
-    profiles,
     templates,
+    profiles,
   ];
 }
 
@@ -5635,8 +5327,8 @@ typedef $$TimeEntriesTableProcessedTableManager =
       TimeEntry,
       PrefetchHooks Function({bool jobId, bool taskId})
     >;
-typedef $$ThemesTableCreateCompanionBuilder =
-    ThemesCompanion Function({
+typedef $$TemplatesTableCreateCompanionBuilder =
+    TemplatesCompanion Function({
       Value<int> id,
       required String name,
       Value<Uint8List?> logo,
@@ -5649,8 +5341,8 @@ typedef $$ThemesTableCreateCompanionBuilder =
       Value<String> fontFamily,
       Value<bool> isDefault,
     });
-typedef $$ThemesTableUpdateCompanionBuilder =
-    ThemesCompanion Function({
+typedef $$TemplatesTableUpdateCompanionBuilder =
+    TemplatesCompanion Function({
       Value<int> id,
       Value<String> name,
       Value<Uint8List?> logo,
@@ -5664,32 +5356,32 @@ typedef $$ThemesTableUpdateCompanionBuilder =
       Value<bool> isDefault,
     });
 
-final class $$ThemesTableReferences
-    extends BaseReferences<_$AppDatabase, $ThemesTable, InvoiceTheme> {
-  $$ThemesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+final class $$TemplatesTableReferences
+    extends BaseReferences<_$AppDatabase, $TemplatesTable, InvoiceTemplate> {
+  $$TemplatesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$TemplatesTable, List<InvoiceTemplate>>
-  _templatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.templates,
-    aliasName: 'themes__id__templates__theme_id',
+  static MultiTypedResultKey<$ProfilesTable, List<InvoiceProfile>>
+  _profilesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.profiles,
+    aliasName: 'templates__id__profiles__template_id',
   );
 
-  $$TemplatesTableProcessedTableManager get templatesRefs {
-    final manager = $$TemplatesTableTableManager(
+  $$ProfilesTableProcessedTableManager get profilesRefs {
+    final manager = $$ProfilesTableTableManager(
       $_db,
-      $_db.templates,
-    ).filter((f) => f.themeId.id.sqlEquals($_itemColumn<int>('id')!));
+      $_db.profiles,
+    ).filter((f) => f.templateId.id.sqlEquals($_itemColumn<int>('id')!));
 
-    final cache = $_typedResult.readTableOrNull(_templatesRefsTable($_db));
+    final cache = $_typedResult.readTableOrNull(_profilesRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
 }
 
-class $$ThemesTableFilterComposer
-    extends Composer<_$AppDatabase, $ThemesTable> {
-  $$ThemesTableFilterComposer({
+class $$TemplatesTableFilterComposer
+    extends Composer<_$AppDatabase, $TemplatesTable> {
+  $$TemplatesTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -5751,22 +5443,22 @@ class $$ThemesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  Expression<bool> templatesRefs(
-    Expression<bool> Function($$TemplatesTableFilterComposer f) f,
+  Expression<bool> profilesRefs(
+    Expression<bool> Function($$ProfilesTableFilterComposer f) f,
   ) {
-    final $$TemplatesTableFilterComposer composer = $composerBuilder(
+    final $$ProfilesTableFilterComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.id,
-      referencedTable: $db.templates,
-      getReferencedColumn: (t) => t.themeId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.templateId,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$TemplatesTableFilterComposer(
+          }) => $$ProfilesTableFilterComposer(
             $db: $db,
-            $table: $db.templates,
+            $table: $db.profiles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5777,9 +5469,9 @@ class $$ThemesTableFilterComposer
   }
 }
 
-class $$ThemesTableOrderingComposer
-    extends Composer<_$AppDatabase, $ThemesTable> {
-  $$ThemesTableOrderingComposer({
+class $$TemplatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $TemplatesTable> {
+  $$TemplatesTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -5842,9 +5534,9 @@ class $$ThemesTableOrderingComposer
   );
 }
 
-class $$ThemesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ThemesTable> {
-  $$ThemesTableAnnotationComposer({
+class $$TemplatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TemplatesTable> {
+  $$TemplatesTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -5894,22 +5586,22 @@ class $$ThemesTableAnnotationComposer
   GeneratedColumn<bool> get isDefault =>
       $composableBuilder(column: $table.isDefault, builder: (column) => column);
 
-  Expression<T> templatesRefs<T extends Object>(
-    Expression<T> Function($$TemplatesTableAnnotationComposer a) f,
+  Expression<T> profilesRefs<T extends Object>(
+    Expression<T> Function($$ProfilesTableAnnotationComposer a) f,
   ) {
-    final $$TemplatesTableAnnotationComposer composer = $composerBuilder(
+    final $$ProfilesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.id,
-      referencedTable: $db.templates,
-      getReferencedColumn: (t) => t.themeId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.templateId,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$TemplatesTableAnnotationComposer(
+          }) => $$ProfilesTableAnnotationComposer(
             $db: $db,
-            $table: $db.templates,
+            $table: $db.profiles,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5920,32 +5612,32 @@ class $$ThemesTableAnnotationComposer
   }
 }
 
-class $$ThemesTableTableManager
+class $$TemplatesTableTableManager
     extends
         RootTableManager<
           _$AppDatabase,
-          $ThemesTable,
-          InvoiceTheme,
-          $$ThemesTableFilterComposer,
-          $$ThemesTableOrderingComposer,
-          $$ThemesTableAnnotationComposer,
-          $$ThemesTableCreateCompanionBuilder,
-          $$ThemesTableUpdateCompanionBuilder,
-          (InvoiceTheme, $$ThemesTableReferences),
-          InvoiceTheme,
-          PrefetchHooks Function({bool templatesRefs})
+          $TemplatesTable,
+          InvoiceTemplate,
+          $$TemplatesTableFilterComposer,
+          $$TemplatesTableOrderingComposer,
+          $$TemplatesTableAnnotationComposer,
+          $$TemplatesTableCreateCompanionBuilder,
+          $$TemplatesTableUpdateCompanionBuilder,
+          (InvoiceTemplate, $$TemplatesTableReferences),
+          InvoiceTemplate,
+          PrefetchHooks Function({bool profilesRefs})
         > {
-  $$ThemesTableTableManager(_$AppDatabase db, $ThemesTable table)
+  $$TemplatesTableTableManager(_$AppDatabase db, $TemplatesTable table)
     : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$ThemesTableFilterComposer($db: db, $table: table),
+              $$TemplatesTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$ThemesTableOrderingComposer($db: db, $table: table),
+              $$TemplatesTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$ThemesTableAnnotationComposer($db: db, $table: table),
+              $$TemplatesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -5959,7 +5651,7 @@ class $$ThemesTableTableManager
                 Value<int> colorAccent = const Value.absent(),
                 Value<String> fontFamily = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
-              }) => ThemesCompanion(
+              }) => TemplatesCompanion(
                 id: id,
                 name: name,
                 logo: logo,
@@ -5985,7 +5677,7 @@ class $$ThemesTableTableManager
                 required int colorAccent,
                 Value<String> fontFamily = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
-              }) => ThemesCompanion.insert(
+              }) => TemplatesCompanion.insert(
                 id: id,
                 name: name,
                 logo: logo,
@@ -6000,30 +5692,36 @@ class $$ThemesTableTableManager
               ),
           withReferenceMapper: (p0) => p0
               .map(
-                (e) =>
-                    (e.readTable(table), $$ThemesTableReferences(db, table, e)),
+                (e) => (
+                  e.readTable(table),
+                  $$TemplatesTableReferences(db, table, e),
+                ),
               )
               .toList(),
-          prefetchHooksCallback: ({templatesRefs = false}) {
+          prefetchHooksCallback: ({profilesRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (templatesRefs) db.templates],
+              explicitlyWatchedTables: [if (profilesRefs) db.profiles],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
-                  if (templatesRefs)
+                  if (profilesRefs)
                     await $_getPrefetchedData<
-                      InvoiceTheme,
-                      $ThemesTable,
-                      InvoiceTemplate
+                      InvoiceTemplate,
+                      $TemplatesTable,
+                      InvoiceProfile
                     >(
                       currentTable: table,
-                      referencedTable: $$ThemesTableReferences
-                          ._templatesRefsTable(db),
+                      referencedTable: $$TemplatesTableReferences
+                          ._profilesRefsTable(db),
                       managerFromTypedResult: (p0) =>
-                          $$ThemesTableReferences(db, table, p0).templatesRefs,
+                          $$TemplatesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).profilesRefs,
                       referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.themeId == item.id),
+                          referencedItems.where((e) => e.templateId == item.id),
                       typedResults: items,
                     ),
                 ];
@@ -6034,19 +5732,19 @@ class $$ThemesTableTableManager
       );
 }
 
-typedef $$ThemesTableProcessedTableManager =
+typedef $$TemplatesTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
-      $ThemesTable,
-      InvoiceTheme,
-      $$ThemesTableFilterComposer,
-      $$ThemesTableOrderingComposer,
-      $$ThemesTableAnnotationComposer,
-      $$ThemesTableCreateCompanionBuilder,
-      $$ThemesTableUpdateCompanionBuilder,
-      (InvoiceTheme, $$ThemesTableReferences),
-      InvoiceTheme,
-      PrefetchHooks Function({bool templatesRefs})
+      $TemplatesTable,
+      InvoiceTemplate,
+      $$TemplatesTableFilterComposer,
+      $$TemplatesTableOrderingComposer,
+      $$TemplatesTableAnnotationComposer,
+      $$TemplatesTableCreateCompanionBuilder,
+      $$TemplatesTableUpdateCompanionBuilder,
+      (InvoiceTemplate, $$TemplatesTableReferences),
+      InvoiceTemplate,
+      PrefetchHooks Function({bool profilesRefs})
     >;
 typedef $$ProfilesTableCreateCompanionBuilder =
     ProfilesCompanion Function({
@@ -6068,6 +5766,7 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       Value<String?> taxLabel,
       Value<double?> taxRate,
       Value<bool> isDefault,
+      Value<int?> templateId,
     });
 typedef $$ProfilesTableUpdateCompanionBuilder =
     ProfilesCompanion Function({
@@ -6089,27 +5788,27 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<String?> taxLabel,
       Value<double?> taxRate,
       Value<bool> isDefault,
+      Value<int?> templateId,
     });
 
 final class $$ProfilesTableReferences
     extends BaseReferences<_$AppDatabase, $ProfilesTable, InvoiceProfile> {
   $$ProfilesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$TemplatesTable, List<InvoiceTemplate>>
-  _templatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.templates,
-    aliasName: 'profiles__id__templates__profile_id',
-  );
+  static $TemplatesTable _templateIdTable(_$AppDatabase db) =>
+      db.templates.createAlias('profiles__template_id__templates__id');
 
-  $$TemplatesTableProcessedTableManager get templatesRefs {
+  $$TemplatesTableProcessedTableManager? get templateId {
+    final $_column = $_itemColumn<int>('template_id');
+    if ($_column == null) return null;
     final manager = $$TemplatesTableTableManager(
       $_db,
       $_db.templates,
-    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_templatesRefsTable($_db));
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_templateIdTable($_db));
+    if (item == null) return manager;
     return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
+      manager.$state.copyWith(prefetchedData: [item]),
     );
   }
 }
@@ -6213,14 +5912,12 @@ class $$ProfilesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  Expression<bool> templatesRefs(
-    Expression<bool> Function($$TemplatesTableFilterComposer f) f,
-  ) {
+  $$TemplatesTableFilterComposer get templateId {
     final $$TemplatesTableFilterComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.id,
+      getCurrentColumn: (t) => t.templateId,
       referencedTable: $db.templates,
-      getReferencedColumn: (t) => t.profileId,
+      getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
@@ -6235,7 +5932,7 @@ class $$ProfilesTableFilterComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
-    return f(composer);
+    return composer;
   }
 }
 
@@ -6337,6 +6034,29 @@ class $$ProfilesTableOrderingComposer
     column: $table.isDefault,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$TemplatesTableOrderingComposer get templateId {
+    final $$TemplatesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.templateId,
+      referencedTable: $db.templates,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TemplatesTableOrderingComposer(
+            $db: $db,
+            $table: $db.templates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ProfilesTableAnnotationComposer
@@ -6408,14 +6128,12 @@ class $$ProfilesTableAnnotationComposer
   GeneratedColumn<bool> get isDefault =>
       $composableBuilder(column: $table.isDefault, builder: (column) => column);
 
-  Expression<T> templatesRefs<T extends Object>(
-    Expression<T> Function($$TemplatesTableAnnotationComposer a) f,
-  ) {
+  $$TemplatesTableAnnotationComposer get templateId {
     final $$TemplatesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.id,
+      getCurrentColumn: (t) => t.templateId,
       referencedTable: $db.templates,
-      getReferencedColumn: (t) => t.profileId,
+      getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
@@ -6430,7 +6148,7 @@ class $$ProfilesTableAnnotationComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
-    return f(composer);
+    return composer;
   }
 }
 
@@ -6447,7 +6165,7 @@ class $$ProfilesTableTableManager
           $$ProfilesTableUpdateCompanionBuilder,
           (InvoiceProfile, $$ProfilesTableReferences),
           InvoiceProfile,
-          PrefetchHooks Function({bool templatesRefs})
+          PrefetchHooks Function({bool templateId})
         > {
   $$ProfilesTableTableManager(_$AppDatabase db, $ProfilesTable table)
     : super(
@@ -6480,6 +6198,7 @@ class $$ProfilesTableTableManager
                 Value<String?> taxLabel = const Value.absent(),
                 Value<double?> taxRate = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
+                Value<int?> templateId = const Value.absent(),
               }) => ProfilesCompanion(
                 id: id,
                 name: name,
@@ -6499,6 +6218,7 @@ class $$ProfilesTableTableManager
                 taxLabel: taxLabel,
                 taxRate: taxRate,
                 isDefault: isDefault,
+                templateId: templateId,
               ),
           createCompanionCallback:
               ({
@@ -6520,6 +6240,7 @@ class $$ProfilesTableTableManager
                 Value<String?> taxLabel = const Value.absent(),
                 Value<double?> taxRate = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
+                Value<int?> templateId = const Value.absent(),
               }) => ProfilesCompanion.insert(
                 id: id,
                 name: name,
@@ -6539,6 +6260,7 @@ class $$ProfilesTableTableManager
                 taxLabel: taxLabel,
                 taxRate: taxRate,
                 isDefault: isDefault,
+                templateId: templateId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -6548,379 +6270,7 @@ class $$ProfilesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({templatesRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (templatesRefs) db.templates],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (templatesRefs)
-                    await $_getPrefetchedData<
-                      InvoiceProfile,
-                      $ProfilesTable,
-                      InvoiceTemplate
-                    >(
-                      currentTable: table,
-                      referencedTable: $$ProfilesTableReferences
-                          ._templatesRefsTable(db),
-                      managerFromTypedResult: (p0) => $$ProfilesTableReferences(
-                        db,
-                        table,
-                        p0,
-                      ).templatesRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.profileId == item.id),
-                      typedResults: items,
-                    ),
-                ];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$ProfilesTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $ProfilesTable,
-      InvoiceProfile,
-      $$ProfilesTableFilterComposer,
-      $$ProfilesTableOrderingComposer,
-      $$ProfilesTableAnnotationComposer,
-      $$ProfilesTableCreateCompanionBuilder,
-      $$ProfilesTableUpdateCompanionBuilder,
-      (InvoiceProfile, $$ProfilesTableReferences),
-      InvoiceProfile,
-      PrefetchHooks Function({bool templatesRefs})
-    >;
-typedef $$TemplatesTableCreateCompanionBuilder =
-    TemplatesCompanion Function({
-      Value<int> id,
-      required String name,
-      required int themeId,
-      required int profileId,
-      Value<bool> isDefault,
-    });
-typedef $$TemplatesTableUpdateCompanionBuilder =
-    TemplatesCompanion Function({
-      Value<int> id,
-      Value<String> name,
-      Value<int> themeId,
-      Value<int> profileId,
-      Value<bool> isDefault,
-    });
-
-final class $$TemplatesTableReferences
-    extends BaseReferences<_$AppDatabase, $TemplatesTable, InvoiceTemplate> {
-  $$TemplatesTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $ThemesTable _themeIdTable(_$AppDatabase db) =>
-      db.themes.createAlias('templates__theme_id__themes__id');
-
-  $$ThemesTableProcessedTableManager get themeId {
-    final $_column = $_itemColumn<int>('theme_id')!;
-
-    final manager = $$ThemesTableTableManager(
-      $_db,
-      $_db.themes,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_themeIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-
-  static $ProfilesTable _profileIdTable(_$AppDatabase db) =>
-      db.profiles.createAlias('templates__profile_id__profiles__id');
-
-  $$ProfilesTableProcessedTableManager get profileId {
-    final $_column = $_itemColumn<int>('profile_id')!;
-
-    final manager = $$ProfilesTableTableManager(
-      $_db,
-      $_db.profiles,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$TemplatesTableFilterComposer
-    extends Composer<_$AppDatabase, $TemplatesTable> {
-  $$TemplatesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isDefault => $composableBuilder(
-    column: $table.isDefault,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$ThemesTableFilterComposer get themeId {
-    final $$ThemesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.themeId,
-      referencedTable: $db.themes,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ThemesTableFilterComposer(
-            $db: $db,
-            $table: $db.themes,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$ProfilesTableFilterComposer get profileId {
-    final $$ProfilesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.profileId,
-      referencedTable: $db.profiles,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ProfilesTableFilterComposer(
-            $db: $db,
-            $table: $db.profiles,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$TemplatesTableOrderingComposer
-    extends Composer<_$AppDatabase, $TemplatesTable> {
-  $$TemplatesTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isDefault => $composableBuilder(
-    column: $table.isDefault,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$ThemesTableOrderingComposer get themeId {
-    final $$ThemesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.themeId,
-      referencedTable: $db.themes,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ThemesTableOrderingComposer(
-            $db: $db,
-            $table: $db.themes,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$ProfilesTableOrderingComposer get profileId {
-    final $$ProfilesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.profileId,
-      referencedTable: $db.profiles,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ProfilesTableOrderingComposer(
-            $db: $db,
-            $table: $db.profiles,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$TemplatesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TemplatesTable> {
-  $$TemplatesTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<bool> get isDefault =>
-      $composableBuilder(column: $table.isDefault, builder: (column) => column);
-
-  $$ThemesTableAnnotationComposer get themeId {
-    final $$ThemesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.themeId,
-      referencedTable: $db.themes,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ThemesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.themes,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$ProfilesTableAnnotationComposer get profileId {
-    final $$ProfilesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.profileId,
-      referencedTable: $db.profiles,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ProfilesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.profiles,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$TemplatesTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $TemplatesTable,
-          InvoiceTemplate,
-          $$TemplatesTableFilterComposer,
-          $$TemplatesTableOrderingComposer,
-          $$TemplatesTableAnnotationComposer,
-          $$TemplatesTableCreateCompanionBuilder,
-          $$TemplatesTableUpdateCompanionBuilder,
-          (InvoiceTemplate, $$TemplatesTableReferences),
-          InvoiceTemplate,
-          PrefetchHooks Function({bool themeId, bool profileId})
-        > {
-  $$TemplatesTableTableManager(_$AppDatabase db, $TemplatesTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$TemplatesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$TemplatesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$TemplatesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<int> themeId = const Value.absent(),
-                Value<int> profileId = const Value.absent(),
-                Value<bool> isDefault = const Value.absent(),
-              }) => TemplatesCompanion(
-                id: id,
-                name: name,
-                themeId: themeId,
-                profileId: profileId,
-                isDefault: isDefault,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                required String name,
-                required int themeId,
-                required int profileId,
-                Value<bool> isDefault = const Value.absent(),
-              }) => TemplatesCompanion.insert(
-                id: id,
-                name: name,
-                themeId: themeId,
-                profileId: profileId,
-                isDefault: isDefault,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$TemplatesTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({themeId = false, profileId = false}) {
+          prefetchHooksCallback: ({templateId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -6940,28 +6290,15 @@ class $$TemplatesTableTableManager
                       dynamic
                     >
                   >(state) {
-                    if (themeId) {
+                    if (templateId) {
                       state =
                           state.withJoin(
                                 currentTable: table,
-                                currentColumn: table.themeId,
-                                referencedTable: $$TemplatesTableReferences
-                                    ._themeIdTable(db),
-                                referencedColumn: $$TemplatesTableReferences
-                                    ._themeIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (profileId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.profileId,
-                                referencedTable: $$TemplatesTableReferences
-                                    ._profileIdTable(db),
-                                referencedColumn: $$TemplatesTableReferences
-                                    ._profileIdTable(db)
+                                currentColumn: table.templateId,
+                                referencedTable: $$ProfilesTableReferences
+                                    ._templateIdTable(db),
+                                referencedColumn: $$ProfilesTableReferences
+                                    ._templateIdTable(db)
                                     .id,
                               )
                               as T;
@@ -6978,19 +6315,19 @@ class $$TemplatesTableTableManager
       );
 }
 
-typedef $$TemplatesTableProcessedTableManager =
+typedef $$ProfilesTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
-      $TemplatesTable,
-      InvoiceTemplate,
-      $$TemplatesTableFilterComposer,
-      $$TemplatesTableOrderingComposer,
-      $$TemplatesTableAnnotationComposer,
-      $$TemplatesTableCreateCompanionBuilder,
-      $$TemplatesTableUpdateCompanionBuilder,
-      (InvoiceTemplate, $$TemplatesTableReferences),
-      InvoiceTemplate,
-      PrefetchHooks Function({bool themeId, bool profileId})
+      $ProfilesTable,
+      InvoiceProfile,
+      $$ProfilesTableFilterComposer,
+      $$ProfilesTableOrderingComposer,
+      $$ProfilesTableAnnotationComposer,
+      $$ProfilesTableCreateCompanionBuilder,
+      $$ProfilesTableUpdateCompanionBuilder,
+      (InvoiceProfile, $$ProfilesTableReferences),
+      InvoiceProfile,
+      PrefetchHooks Function({bool templateId})
     >;
 
 class $AppDatabaseManager {
@@ -7003,10 +6340,8 @@ class $AppDatabaseManager {
       $$TasksTableTableManager(_db, _db.tasks);
   $$TimeEntriesTableTableManager get timeEntries =>
       $$TimeEntriesTableTableManager(_db, _db.timeEntries);
-  $$ThemesTableTableManager get themes =>
-      $$ThemesTableTableManager(_db, _db.themes);
-  $$ProfilesTableTableManager get profiles =>
-      $$ProfilesTableTableManager(_db, _db.profiles);
   $$TemplatesTableTableManager get templates =>
       $$TemplatesTableTableManager(_db, _db.templates);
+  $$ProfilesTableTableManager get profiles =>
+      $$ProfilesTableTableManager(_db, _db.profiles);
 }

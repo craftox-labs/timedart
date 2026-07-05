@@ -37,6 +37,7 @@ const List<_Group> _keymap = [
     _Shortcut(['Ctrl+←', 'Ctrl+→'], 'Focus tracker / panel'),
     _Shortcut(['Ctrl+W', 'H', 'L'], 'Switch pane (vim)'),
     _Shortcut(['/'], 'Search'),
+    _Shortcut(['Ctrl+,'], 'Settings'),
     _Shortcut(['?'], 'This help'),
   ]),
   _Group('Side panel', [
@@ -52,7 +53,7 @@ const List<_Group> _keymap = [
     _Shortcut(['i'], 'Focus description'),
   ]),
   _Group('Editors', [
-    _Shortcut(['Enter'], 'Save'),
+    _Shortcut(['Enter', 'Ctrl+S'], 'Save'),
     _Shortcut(['d'], 'Delete (in an edit modal)'),
     _Shortcut(['Esc'], 'Cancel / close'),
   ]),

@@ -57,10 +57,12 @@ class TimeEntries extends Table {
 // data layer stays UI-free — the UI/PDF convert to Color/PdfColor. A logo is
 // raw PNG/JPG bytes so it travels with the DB (no orphaned files).
 
-/// The *look* of an invoice: logo + colour scheme + font. Reusable across
-/// templates. Exactly one row is the default (see [AppDatabase.setDefaultTheme]).
-@DataClassName('InvoiceTheme') // 'Theme' would clash with Flutter's Theme
-class Themes extends Table {
+/// An invoice *template*: logo + colour scheme + font — the visual style a
+/// profile is rendered with. Named "template" (not "theme") to leave "theme"
+/// free for future app-wide UI theming. Exactly one row is the default (see
+/// [AppDatabase.setDefaultTemplate]).
+@DataClassName('InvoiceTemplate')
+class Templates extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 100)();
   BlobColumn get logo => blob().nullable()(); // PNG/JPG bytes; null = no logo
@@ -97,17 +99,10 @@ class Profiles extends Table {
   TextColumn get taxLabel => text().nullable()(); // e.g. GST, VAT; null = no tax
   RealColumn get taxRate => real().nullable()(); // percent, e.g. 10.0
   BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
-}
-
-/// A named pairing of one [Themes] + one [Profiles] — the single thing chosen in
-/// the invoicing flow. One row is the default.
-@DataClassName('InvoiceTemplate')
-class Templates extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get name => text().withLength(min: 1, max: 100)();
-  IntColumn get themeId => integer().references(Themes, #id)();
-  IntColumn get profileId => integer().references(Profiles, #id)();
-  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+  // The template (visual style) this profile is rendered with. Null → the
+  // default template. Replaces the old Theme+Profile pairing table.
+  IntColumn get templateId =>
+      integer().nullable().references(Templates, #id)();
 }
 
 /// One itemised line of a [JobInvoice]: an entry with its hours and amount.
@@ -168,14 +163,14 @@ class JobInvoice {
 }
 
 @DriftDatabase(
-  tables: [Clients, Jobs, Tasks, TimeEntries, Themes, Profiles, Templates],
+  tables: [Clients, Jobs, Tasks, TimeEntries, Templates, Profiles],
 )
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a job that has time entries (or a client
@@ -234,20 +229,36 @@ class AppDatabase extends _$AppDatabase {
           ),
         );
       }
-      // v4 → v5: invoice branding. Add the three branding tables and the two
-      // new Client columns (person + phone, for the invoice TO/PHONE split).
-      // Seeding the timedart default happens idempotently at startup via
-      // ensureInvoiceDefaults(), so it covers fresh installs too.
+      // v4 → v5: invoice branding. Originally added three tables (themes,
+      // profiles, a theme+profile pairing "templates"). v6 dropped the pairing
+      // and renamed themes→templates, so for a pre-v5 DB we build the CURRENT
+      // shape directly: the visual `templates` table + `profiles` (which already
+      // carries templateId). The v5→v6 rename block below is skipped for these.
       if (from < 5) {
-        await m.createTable(themes);
-        await m.createTable(profiles);
         await m.createTable(templates);
+        await m.createTable(profiles);
         // Only for a DB coming straight from v4: a from<4 upgrade already got
         // these columns via the v3→v4 clients rebuild above (current schema).
         if (from >= 4) {
           await m.addColumn(clients, clients.contactName);
           await m.addColumn(clients, clients.phone);
         }
+      }
+      // v5 → v6: fold the Theme+Profile pairing into the profile. A v5 DB has
+      // `themes`, a pairing `templates`, and `profiles` without templateId.
+      // Rename themes→templates (the visual style), give profiles a templateId,
+      // backfill it from each profile's pairing, then drop the pairing table.
+      // Guarded to from==5 so pre-v5 upgrades (handled above) don't reach it.
+      if (from == 5) {
+        await customStatement('ALTER TABLE templates RENAME TO _pairing_old');
+        await customStatement('ALTER TABLE themes RENAME TO templates');
+        await m.addColumn(profiles, profiles.templateId);
+        await customStatement(
+          'UPDATE profiles SET template_id = ('
+          'SELECT theme_id FROM _pairing_old '
+          'WHERE _pairing_old.profile_id = profiles.id LIMIT 1)',
+        );
+        await customStatement('DROP TABLE _pairing_old');
       }
     },
     beforeOpen: (details) async {
@@ -459,15 +470,15 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Invoice branding: seed + DAOs (PRD #79) ──────────────────────────────
 
-  /// Seed a timedart Theme, an example Profile, and a default Template on first
-  /// run. Idempotent — a no-op once any Template exists — so it's safe to call
-  /// at every startup (mirrors [ensureDefaultJob]). Colours are the brand tokens
-  /// as ARGB ints; the user edits them in the theme editor.
+  /// Seed a timedart Template (visual style) and an example Profile pointed at
+  /// it on first run. Idempotent — a no-op once any Template exists — so it's
+  /// safe to call at every startup (mirrors [ensureDefaultJob]). Colours are the
+  /// brand tokens as ARGB ints; the user edits them in the template editor.
   Future<void> ensureInvoiceDefaults() async {
     final existing = await (select(templates)..limit(1)).getSingleOrNull();
     if (existing != null) return;
-    final themeId = await into(themes).insert(
-      ThemesCompanion.insert(
+    final templateId = await into(templates).insert(
+      TemplatesCompanion.insert(
         name: 'timedart',
         colorBackground: 0xFF11140E, // brand dark surface
         colorSurface: 0xFF23241F, // neutral dark card (was green-tinted)
@@ -477,47 +488,49 @@ class AppDatabase extends _$AppDatabase {
         isDefault: const Value(true),
       ),
     );
-    final profileId = await into(profiles).insert(
+    await into(profiles).insert(
       ProfilesCompanion.insert(
         name: 'Default',
         businessName: const Value('Your Business'),
         currency: const Value('USD'),
-        isDefault: const Value(true),
-      ),
-    );
-    await into(templates).insert(
-      TemplatesCompanion.insert(
-        name: 'timedart',
-        themeId: themeId,
-        profileId: profileId,
+        templateId: Value(templateId),
         isDefault: const Value(true),
       ),
     );
   }
 
-  // Themes
-  Stream<List<InvoiceTheme>> watchThemes() =>
-      (select(themes)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
-  Future<InvoiceTheme> themeById(int id) =>
-      (select(themes)..where((t) => t.id.equals(id))).getSingle();
-  Future<int> insertTheme(ThemesCompanion t) => into(themes).insert(t);
-  Future<void> updateThemeById(int id, ThemesCompanion t) =>
-      (update(themes)..where((x) => x.id.equals(id))).write(t);
-  // FK pragma is on, so this throws if a template still references the theme.
-  Future<void> deleteTheme(int id) =>
-      (delete(themes)..where((x) => x.id.equals(id))).go();
-  Future<void> setDefaultTheme(int id) => transaction(() async {
-    await update(themes).write(const ThemesCompanion(isDefault: Value(false)));
-    await (update(themes)..where((x) => x.id.equals(id))).write(
-      const ThemesCompanion(isDefault: Value(true)),
+  // Templates (the visual style: colours, logo, font)
+  Stream<List<InvoiceTemplate>> watchTemplates() =>
+      (select(templates)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+  Future<InvoiceTemplate> templateById(int id) =>
+      (select(templates)..where((t) => t.id.equals(id))).getSingle();
+  Future<InvoiceTemplate?> defaultTemplate() =>
+      (select(templates)..where((t) => t.isDefault.equals(true)))
+          .getSingleOrNull();
+  Future<int> insertTemplate(TemplatesCompanion t) =>
+      into(templates).insert(t);
+  Future<void> updateTemplateById(int id, TemplatesCompanion t) =>
+      (update(templates)..where((x) => x.id.equals(id))).write(t);
+  // FK pragma is on, so this throws if a profile still references the template.
+  Future<void> deleteTemplate(int id) =>
+      (delete(templates)..where((x) => x.id.equals(id))).go();
+  Future<void> setDefaultTemplate(int id) => transaction(() async {
+    await update(
+      templates,
+    ).write(const TemplatesCompanion(isDefault: Value(false)));
+    await (update(templates)..where((x) => x.id.equals(id))).write(
+      const TemplatesCompanion(isDefault: Value(true)),
     );
   });
 
-  // Profiles
+  // Profiles (business identity + payment; each points at a Template)
   Stream<List<InvoiceProfile>> watchProfiles() =>
       (select(profiles)..orderBy([(p) => OrderingTerm.asc(p.name)])).watch();
   Future<InvoiceProfile> profileById(int id) =>
       (select(profiles)..where((p) => p.id.equals(id))).getSingle();
+  Future<InvoiceProfile?> defaultProfile() =>
+      (select(profiles)..where((p) => p.isDefault.equals(true)))
+          .getSingleOrNull();
   Future<int> insertProfile(ProfilesCompanion p) => into(profiles).insert(p);
   Future<void> updateProfileById(int id, ProfilesCompanion p) =>
       (update(profiles)..where((x) => x.id.equals(id))).write(p);
@@ -529,27 +542,6 @@ class AppDatabase extends _$AppDatabase {
     ).write(const ProfilesCompanion(isDefault: Value(false)));
     await (update(profiles)..where((x) => x.id.equals(id))).write(
       const ProfilesCompanion(isDefault: Value(true)),
-    );
-  });
-
-  // Templates
-  Stream<List<InvoiceTemplate>> watchTemplates() =>
-      (select(templates)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
-  Future<InvoiceTemplate?> defaultTemplate() =>
-      (select(templates)..where((t) => t.isDefault.equals(true)))
-          .getSingleOrNull();
-  Future<int> insertTemplate(TemplatesCompanion t) =>
-      into(templates).insert(t);
-  Future<void> updateTemplateById(int id, TemplatesCompanion t) =>
-      (update(templates)..where((x) => x.id.equals(id))).write(t);
-  Future<void> deleteTemplate(int id) =>
-      (delete(templates)..where((x) => x.id.equals(id))).go();
-  Future<void> setDefaultTemplate(int id) => transaction(() async {
-    await update(
-      templates,
-    ).write(const TemplatesCompanion(isDefault: Value(false)));
-    await (update(templates)..where((x) => x.id.equals(id))).write(
-      const TemplatesCompanion(isDefault: Value(true)),
     );
   });
 

@@ -27,7 +27,7 @@ class InvoiceView extends StatefulWidget {
 
 class _InvoiceViewState extends State<InvoiceView> {
   late DateTimeRange _range;
-  late Future<({InvoiceDocument doc, InvoiceTheme theme})?> _future;
+  late Future<({InvoiceDocument doc, InvoiceTemplate template})?> _future;
 
   @override
   void initState() {
@@ -108,7 +108,7 @@ class _InvoiceViewState extends State<InvoiceView> {
 
       final bytes = await buildBrandedInvoicePdf(
         doc: loaded.doc,
-        theme: loaded.theme,
+        template: loaded.template,
       );
       await File(location.path).writeAsBytes(bytes);
       if (mounted) {
@@ -158,7 +158,7 @@ class _InvoiceViewState extends State<InvoiceView> {
         ),
         const SizedBox(height: AppTokens.spaceSm),
         Expanded(
-          child: FutureBuilder<({InvoiceDocument doc, InvoiceTheme theme})?>(
+          child: FutureBuilder<({InvoiceDocument doc, InvoiceTemplate template})?>(
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
@@ -184,7 +184,10 @@ class _InvoiceViewState extends State<InvoiceView> {
                           ? const Center(
                               child: Text('No tracked time in this period.'),
                             )
-                          : invoicePreviewPage(doc: doc, theme: loaded.theme),
+                          : invoicePreviewPage(
+                              doc: doc,
+                              template: loaded.template,
+                            ),
                     ),
                   ),
                   const SizedBox(height: AppTokens.spaceSm),

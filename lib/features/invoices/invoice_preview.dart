@@ -45,7 +45,7 @@ enum InvoicePageSize {
 /// owns scrolling, avoiding nested scrollables.
 Widget invoicePreviewPage({
   required InvoiceDocument doc,
-  required InvoiceTheme theme,
+  required InvoiceTemplate template,
   InvoicePageSize size = InvoicePageSize.a4,
   bool scrollable = true,
 }) {
@@ -62,8 +62,8 @@ Widget invoicePreviewPage({
       final sheet = Container(
         width: designWidth,
         constraints: BoxConstraints(minHeight: designWidth * size.ratio),
-        color: Color(theme.colorBackground),
-        child: InvoicePreview(doc: doc, theme: theme),
+        color: Color(template.colorBackground),
+        child: InvoicePreview(doc: doc, template: template),
       );
       final page = Padding(
         padding: const EdgeInsets.all(gutter),
@@ -83,20 +83,20 @@ Widget invoicePreviewPage({
 }
 
 /// On-screen, WYSIWYG preview of an [InvoiceDocument] rendered with an
-/// [InvoiceTheme]. Presentational — reads resolved values from the document and
-/// applies the theme, mirroring the PDF renderer (invoice_pdf.dart) so what you
-/// see matches the export. Both read the same view-model; the two renderers are
-/// kept in visual parity by hand (printing's PdfPreview is unusable on Linux —
-/// see PRD #79).
+/// [InvoiceTemplate]. Presentational — reads resolved values from the document
+/// and applies the template, mirroring the PDF renderer (invoice_pdf.dart) so
+/// what you see matches the export. Both read the same view-model; the two
+/// renderers are kept in visual parity by hand (printing's PdfPreview is
+/// unusable on Linux — see PRD #79).
 class InvoicePreview extends StatelessWidget {
   final InvoiceDocument doc;
-  final InvoiceTheme theme;
-  const InvoicePreview({super.key, required this.doc, required this.theme});
+  final InvoiceTemplate template;
+  const InvoicePreview({super.key, required this.doc, required this.template});
 
-  Color get _bg => Color(theme.colorBackground);
-  Color get _surface => Color(theme.colorSurface);
-  Color get _primary => Color(theme.colorPrimary);
-  Color get _muted => Color(theme.colorText).withValues(alpha: 0.55);
+  Color get _bg => Color(template.colorBackground);
+  Color get _surface => Color(template.colorSurface);
+  Color get _primary => Color(template.colorPrimary);
+  Color get _muted => Color(template.colorText).withValues(alpha: 0.55);
 
   String _money(double a) => formatCurrency(a, doc.currency);
   String _iso(DateTime d) =>
@@ -154,9 +154,9 @@ class InvoicePreview extends StatelessWidget {
       Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // theme.logo (user upload) wins; else the bundled timedart mark.
-          theme.logo != null
-              ? Image.memory(theme.logo!, height: 28)
+          // template.logo (user upload) wins; else the bundled timedart mark.
+          template.logo != null
+              ? Image.memory(template.logo!, height: 28)
               : Image.asset(
                   'assets/logo/timedart_logo_horizontal.png',
                   height: 28,

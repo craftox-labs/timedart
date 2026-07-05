@@ -6,60 +6,55 @@ import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/widgets/focus_ring.dart';
 import 'package:time_tracker/widgets/panel_title_bar.dart';
 
-/// The side panel while in Branding (Settings) mode: three flat collapsible
-/// sections — Themes, Profiles, Templates — listing the configured rows.
-/// Selecting a row drives the content-pane preview. Mirrors [SidePanel]'s look
-/// and keyboard nav (j/k move, Enter/l expand-or-select, h collapse, Esc back)
-/// but is a separate widget so the client/job panel's tuned navigation is
-/// untouched. Editing/adding rows arrives with the editors (a later PR).
+/// The side panel while in Branding (Settings) mode: two flat collapsible
+/// sections — Templates (the visual style) and Profiles — listing the
+/// configured rows. Selecting a row drives the content-pane preview. Mirrors
+/// [SidePanel]'s look and keyboard nav (j/k move, Enter/l expand-or-select,
+/// h collapse, Esc back) but is a separate widget so the client/job panel's
+/// tuned navigation is untouched.
 class BrandingPanel extends StatefulWidget {
   const BrandingPanel({
     super.key,
     required this.db,
-    required this.onSelectTheme,
-    required this.onSelectProfile,
     required this.onSelectTemplate,
+    required this.onSelectProfile,
     required this.onBack,
-    this.onAddTheme,
-    this.onEditTheme,
-    this.onAddProfile,
-    this.onEditProfile,
     this.onAddTemplate,
     this.onEditTemplate,
+    this.onAddProfile,
+    this.onEditProfile,
     this.onShowHelp,
     this.onOpenSettings,
+    this.showFooter = true,
     this.autofocus = false,
   });
 
   final AppDatabase db;
-  final void Function(int themeId) onSelectTheme;
+  final void Function(int templateId) onSelectTemplate;
   final void Function(int profileId) onSelectProfile;
-  final void Function(InvoiceTemplate template) onSelectTemplate;
   final VoidCallback onBack; // leave Branding mode (Esc / the back arrow)
   // Add/edit affordances per section — an add `+` on the header and an edit
-  // icon on each row appear only where the matching callback is wired. (Themes
-  // land first; profiles/templates follow.)
-  final VoidCallback? onAddTheme;
-  final void Function(InvoiceTheme)? onEditTheme;
-  final VoidCallback? onAddProfile;
-  final void Function(InvoiceProfile)? onEditProfile;
+  // icon on each row appear only where the matching callback is wired.
   final VoidCallback? onAddTemplate;
   final void Function(InvoiceTemplate)? onEditTemplate;
+  final VoidCallback? onAddProfile;
+  final void Function(InvoiceProfile)? onEditProfile;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
+  // Suppressed in the wide layout — the header carries those actions there.
+  final bool showFooter;
   final bool autofocus;
 
   @override
   State<BrandingPanel> createState() => _BrandingPanelState();
 }
 
-enum _Section { themes, profiles, templates }
+enum _Section { templates, profiles }
 
 String _sectionLabel(_Section s) => switch (s) {
-      _Section.themes => 'Themes',
-      _Section.profiles => 'Profiles',
       _Section.templates => 'Templates',
+      _Section.profiles => 'Profiles',
     };
 
 // A flattened visible row: a section header, or one entity under an open one.
@@ -83,9 +78,9 @@ class _EntityRow extends _BRow {
 }
 
 class _BrandingPanelState extends State<BrandingPanel> {
-  late final Stream<List<InvoiceTheme>> _themes = widget.db.watchThemes();
+  late final Stream<List<InvoiceTemplate>> _templates =
+      widget.db.watchTemplates();
   late final Stream<List<InvoiceProfile>> _profiles = widget.db.watchProfiles();
-  late final Stream<List<InvoiceTemplate>> _templates = widget.db.watchTemplates();
 
   // Sections start open — a settings surface reads best fully expanded.
   final Set<_Section> _expanded = {..._Section.values};
@@ -126,38 +121,30 @@ class _BrandingPanelState extends State<BrandingPanel> {
     });
   }
 
-  // _EntityRow carries only an id, so we keep the latest snapshots to resolve a
-  // tapped/edited row back to its full object (templates also need theme/profile
-  // ids to drive the preview).
-  List<InvoiceTheme> _latestThemes = const [];
-  List<InvoiceProfile> _latestProfiles = const [];
+  // _EntityRow carries only an id, so we keep the latest snapshots to resolve
+  // an edited row back to its full object.
   List<InvoiceTemplate> _latestTemplates = const [];
+  List<InvoiceProfile> _latestProfiles = const [];
 
   VoidCallback? _addFor(_Section s) => switch (s) {
-        _Section.themes => widget.onAddTheme,
-        _Section.profiles => widget.onAddProfile,
         _Section.templates => widget.onAddTemplate,
+        _Section.profiles => widget.onAddProfile,
       };
 
   bool _editableSection(_Section s) => switch (s) {
-        _Section.themes => widget.onEditTheme != null,
-        _Section.profiles => widget.onEditProfile != null,
         _Section.templates => widget.onEditTemplate != null,
+        _Section.profiles => widget.onEditProfile != null,
       };
 
   void _edit(_Section s, int id) {
     switch (s) {
-      case _Section.themes:
-        for (final x in _latestThemes) {
-          if (x.id == id) return widget.onEditTheme?.call(x);
+      case _Section.templates:
+        for (final x in _latestTemplates) {
+          if (x.id == id) return widget.onEditTemplate?.call(x);
         }
       case _Section.profiles:
         for (final x in _latestProfiles) {
           if (x.id == id) return widget.onEditProfile?.call(x);
-        }
-      case _Section.templates:
-        for (final x in _latestTemplates) {
-          if (x.id == id) return widget.onEditTemplate?.call(x);
         }
     }
   }
@@ -168,17 +155,10 @@ class _BrandingPanelState extends State<BrandingPanel> {
       _selId = row.id;
     });
     switch (row.section) {
-      case _Section.themes:
-        widget.onSelectTheme(row.id);
+      case _Section.templates:
+        widget.onSelectTemplate(row.id);
       case _Section.profiles:
         widget.onSelectProfile(row.id);
-      case _Section.templates:
-        for (final t in _latestTemplates) {
-          if (t.id == row.id) {
-            widget.onSelectTemplate(t);
-            break;
-          }
-        }
     }
   }
 
@@ -281,31 +261,25 @@ class _BrandingPanelState extends State<BrandingPanel> {
         children: [
           PanelTitleBar(title: 'Settings', onBack: widget.onBack),
           Expanded(
-            child: StreamBuilder<List<InvoiceTheme>>(
-              stream: _themes,
-              builder: (context, themeSnap) {
+            child: StreamBuilder<List<InvoiceTemplate>>(
+              stream: _templates,
+              builder: (context, templateSnap) {
                 return StreamBuilder<List<InvoiceProfile>>(
                   stream: _profiles,
                   builder: (context, profileSnap) {
-                    return StreamBuilder<List<InvoiceTemplate>>(
-                      stream: _templates,
-                      builder: (context, templateSnap) {
-                        _latestThemes = themeSnap.data ?? const [];
-                        _latestProfiles = profileSnap.data ?? const [];
-                        _latestTemplates = templateSnap.data ?? const [];
-                        return _buildList(
-                          themes: _latestThemes,
-                          profiles: _latestProfiles,
-                          templates: _latestTemplates,
-                        );
-                      },
+                    _latestTemplates = templateSnap.data ?? const [];
+                    _latestProfiles = profileSnap.data ?? const [];
+                    return _buildList(
+                      templates: _latestTemplates,
+                      profiles: _latestProfiles,
                     );
                   },
                 );
               },
             ),
           ),
-          if (widget.onShowHelp != null || widget.onOpenSettings != null)
+          if (widget.showFooter &&
+              (widget.onShowHelp != null || widget.onOpenSettings != null))
             PanelFooter(
               onShowHelp: widget.onShowHelp,
               onOpenSettings: widget.onOpenSettings,
@@ -316,21 +290,16 @@ class _BrandingPanelState extends State<BrandingPanel> {
   }
 
   Widget _buildList({
-    required List<InvoiceTheme> themes,
-    required List<InvoiceProfile> profiles,
     required List<InvoiceTemplate> templates,
+    required List<InvoiceProfile> profiles,
   }) {
     List<_EntityRow> entities(_Section s) => switch (s) {
-          _Section.themes => [
-              for (final x in themes)
+          _Section.templates => [
+              for (final x in templates)
                 _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
             ],
           _Section.profiles => [
               for (final x in profiles)
-                _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
-            ],
-          _Section.templates => [
-              for (final x in templates)
                 _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
             ],
         };
@@ -443,16 +412,26 @@ class _SectionHeaderTile extends StatelessWidget {
           color: t.colorScheme.onSurface,
         ),
       ),
+      // Add `+` in the same column as the client header's add in the tracker
+      // panel, with the rightmost (edit) column reserved but empty — so the `+`
+      // and the rows' edit icons line up across both panels.
       trailing: onAdd == null
           ? null
-          : IconButton(
-              icon: const Icon(Icons.add),
-              iconSize: AppTokens.iconMd,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: 'Add $label (a)',
-              onPressed: onAdd,
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  iconSize: AppTokens.iconMd,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Add $label (a)',
+                  onPressed: onAdd,
+                ),
+                const SizedBox(width: AppTokens.spaceSm),
+                const SizedBox(width: AppTokens.iconMd), // empty edit column
+              ],
             ),
     );
   }

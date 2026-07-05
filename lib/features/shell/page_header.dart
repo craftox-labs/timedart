@@ -14,12 +14,24 @@ import 'package:time_tracker/constants/tokens.dart';
 /// header matches them. The logo is centred to the pane, which (because the
 /// content column is itself centred) is the same as centring it over the column.
 class PageHeader extends StatelessWidget {
-  const PageHeader({super.key, this.alignLogoStart = false});
+  const PageHeader({
+    super.key,
+    this.alignLogoStart = false,
+    this.onShowHelp,
+    this.onOpenSettings,
+  });
 
   /// Left-align the logo inside the bar (instead of centring it over the content
   /// column). Used on settings/branding pages, whose content stretches wider so
   /// a centred logo would drift off the reading column.
   final bool alignLogoStart;
+
+  /// Open the keyboard-shortcuts help. When set, a `?` action shows at the bar's
+  /// right edge (just left of the panel divider).
+  final VoidCallback? onShowHelp;
+
+  /// Open App Settings (Branding). When set, a gear shows beside the `?`.
+  final VoidCallback? onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +93,31 @@ class PageHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Shortcuts + Settings at the bar's right edge — just left of the
+                // panel divider. Icon-only; the tooltip carries the label + key.
+                if (onShowHelp != null || onOpenSettings != null)
+                  Positioned(
+                    right: AppTokens.spaceMd,
+                    top: 0,
+                    bottom: 0,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (onShowHelp != null)
+                          _HeaderAction(
+                            icon: Icons.help_outline,
+                            tooltip: 'Shortcuts  (?)',
+                            onPressed: onShowHelp!,
+                          ),
+                        if (onOpenSettings != null)
+                          _HeaderAction(
+                            icon: Icons.settings,
+                            tooltip: 'Settings  (Ctrl+,)',
+                            onPressed: onOpenSettings!,
+                          ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -88,4 +125,26 @@ class PageHeader extends StatelessWidget {
       },
     );
   }
+}
+
+/// A compact icon button sized to sit inside the 36px header bar.
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    icon: Icon(icon, size: AppTokens.iconMd),
+    tooltip: tooltip,
+    visualDensity: VisualDensity.compact,
+    padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceXs),
+    constraints: const BoxConstraints(),
+    onPressed: onPressed,
+  );
 }
