@@ -21,8 +21,8 @@ timedart is a fast, local-first time tracker for people who bill by the hour. Yo
 - **Timer** — `hh:mm:ss` count-up bound to a task, with start / pause / resume / finish. Name a session or let it inherit the task title.
 - **Clients, jobs & tasks** — full create / edit / delete for each, in quick modal editors. Deletes are guarded so you can't accidentally erase billable history.
 - **Entries** — adjust the task, note, start time, and duration of any recorded segment after the fact.
-- **Invoicing** — per-job, date-ranged, itemised at the effective rate, exported to a branded PDF.
-- **Invoice branding** — design how invoices look and read: reusable **themes** (colours, logo, font), **profiles** (business identity, bank / payment details, currency, optional tax), and **templates** that pair a theme with a profile. Edit them under **App Settings → Branding** with a live, A4-proportioned preview beside the form.
+- **Invoicing** — per-job, date-ranged, itemised at the effective rate, exported to a branded PDF. Pick the profile and set an invoice number at export; the date range is chosen in a compact modal.
+- **Invoice branding** — design how invoices look and read: reusable **templates** (colours, logo, font) and **profiles** (business identity, bank / payment details, currency, optional tax) that each carry a template. Edit them under **App Settings → Branding** with a live, A4-proportioned preview beside the form.
 - **Adaptive UI** — persistent side panel + content pane when there's room; a drawer when there isn't.
 - **Design** — a considered Material 3 theme in the timedart green, Urbanist throughout, and a single design-token source so it stays consistent.
 
@@ -40,11 +40,12 @@ timedart is built to be flown from the keyboard. Navigation is identical across 
 | `e` | edit the focused item |
 | `Tab` · `Ctrl`+`←`/`→` · `Ctrl-w` `h`/`l` | switch panes |
 | `/` | search |
+| `Ctrl`+`,` | open Settings (branding) |
 | `Space` | start / pause / resume the timer (from any pane) |
 | `f` · `i` | finish · focus the description |
 | `a` / `A` | add (job / client in the panel · task / entry in the tracker) |
 | `d` | delete, from inside an edit modal |
-| `Enter` / `Esc` | save / cancel in any editor |
+| `Enter` / `Ctrl`+`S` · `Esc` | save · cancel in any editor |
 | `?` | show the full shortcut overlay |
 
 ## Running it
@@ -77,13 +78,13 @@ lib/
 ├── main.dart              wires the database into the adaptive shell
 ├── constants/             design tokens, Material 3 theme, formatting helpers
 ├── data/database.dart     drift tables + queries (Clients / Jobs / Tasks / TimeEntries
-│                          · invoice Themes / Profiles / Templates)
+│                          · invoice Templates / Profiles)
 ├── features/
 │   ├── shell/             adaptive master–detail shell, side panel, branding-mode panel, shortcut overlay
 │   ├── tracker/           timer, task list, task/entry editors
 │   ├── clients/ · jobs/   client & job editors
 │   ├── invoices/          per-job PDF invoicing + invoice branding
-│   │                      (theme / profile / template editors, shared live A4 preview)
+│   │                      (template / profile editors, shared live A4 preview)
 │   └── deletions.dart     shared, guarded delete flows
 └── widgets/               shared UI primitives
 ```
@@ -91,7 +92,7 @@ lib/
 The shell holds the selected job (what the timer records against) and the content pane's state.
 Client / job / task / entry editing happens in adaptive modals over the pane; invoicing and the
 branding editors live in the content pane itself — a settings mode that swaps the side panel for
-Themes / Profiles / Templates sections, driven by the same keyboard navigation.
+Templates / Profiles sections, driven by the same keyboard navigation.
 
 ## Roadmap
 
@@ -99,7 +100,6 @@ Core is complete and in daily-driver shape: persistent tracking across clients, 
 full editing everywhere; per-job PDF invoices with customisable branding; and end-to-end keyboard
 control. Next on the horizon:
 
-- Invoicing flow — pick a template and set the invoice number at export time.
 - PDF polish — print-safe margins, and A4 / Letter as a page-size setting.
 - Stored, immutable invoice snapshots.
 - Bulk actions to clear out old clients and jobs in one deliberate step.

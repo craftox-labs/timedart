@@ -7,6 +7,7 @@ import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_pdf.dart';
 import 'package:time_tracker/features/invoices/invoice_preview.dart';
 import 'package:time_tracker/features/invoices/invoice_repository.dart';
+import 'package:time_tracker/widgets/dropdown_field.dart';
 
 /// Read-only invoice builder for one job: pick a date range, preview the
 /// itemised entries, export a PDF. Generates on demand — stores nothing.
@@ -28,6 +29,14 @@ class InvoiceView extends StatefulWidget {
 class _InvoiceViewState extends State<InvoiceView> {
   late DateTimeRange _range;
   late Future<({InvoiceDocument doc, InvoiceTemplate template})?> _future;
+  // Export-time profile chosen on the fly (its details + template), no need to
+  // change settings.
+  List<InvoiceProfile> _profiles = const [];
+  int? _profileId; // null → the default profile
+  final _invoiceNumber = TextEditingController();
+  // Last resolved doc+template, kept so a reload (e.g. typing an invoice number)
+  // shows the previous preview instead of a spinner while the new one loads.
+  ({InvoiceDocument doc, InvoiceTemplate template})? _last;
 
   @override
   void initState() {
@@ -35,7 +44,33 @@ class _InvoiceViewState extends State<InvoiceView> {
     final now = DateTime.now();
     _range = DateTimeRange(start: DateTime(now.year, now.month), end: now);
     _load();
+    // Populate the profile picker; default it to the default profile so the
+    // dropdown reflects what renders, then reload so the preview matches.
+    widget.db.watchProfiles().first.then((list) {
+      if (!mounted) return;
+      setState(() {
+        _profiles = list;
+        _profileId ??= _defaultProfileId(list);
+        _load();
+      });
+    });
   }
+
+  @override
+  void dispose() {
+    _invoiceNumber.dispose();
+    super.dispose();
+  }
+
+  int? _defaultProfileId(List<InvoiceProfile> list) {
+    for (final p in list) {
+      if (p.isDefault) return p.id;
+    }
+    return list.isEmpty ? null : list.first.id;
+  }
+
+  String? get _invoiceNumberValue =>
+      _invoiceNumber.text.trim().isEmpty ? null : _invoiceNumber.text.trim();
 
   void _load() {
     _future = loadInvoiceDocument(
@@ -51,15 +86,81 @@ class _InvoiceViewState extends State<InvoiceView> {
         59,
       ),
       issueDate: DateTime.now(),
+      profileId: _profileId,
+      invoiceNumber: _invoiceNumberValue,
     );
   }
 
+  // A self-contained range modal: two calendars (From / To) live in the dialog
+  // itself, so the interactive picker never opens a separate full-screen page.
   Future<void> _pickRange() async {
-    final picked = await showDateRangePicker(
+    var start = _range.start;
+    var end = _range.end;
+    final first = DateTime(2000);
+    final last = DateTime(2100);
+    final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
+
+    Widget cal(String label, DateTime initial, ValueChanged<DateTime> onPick) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelLarge),
+          SizedBox(
+            width: 300,
+            height: 320,
+            child: CalendarDatePicker(
+              initialDate: initial,
+              firstDate: first,
+              lastDate: last,
+              onDateChanged: onPick,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final picked = await showDialog<DateTimeRange>(
       context: context,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      initialDateRange: _range,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Invoice period'),
+        content: SingleChildScrollView(
+          child: wide
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    cal('From', start, (d) => start = d),
+                    const SizedBox(width: AppTokens.spaceLg),
+                    cal('To', end, (d) => end = d),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    cal('From', start, (d) => start = d),
+                    const SizedBox(height: AppTokens.spaceMd),
+                    cal('To', end, (d) => end = d),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              ctx,
+              // Normalise so From is never after To.
+              start.isAfter(end)
+                  ? DateTimeRange(start: end, end: start)
+                  : DateTimeRange(start: start, end: end),
+            ),
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
     );
     if (picked != null) {
       setState(() {
@@ -81,8 +182,8 @@ class _InvoiceViewState extends State<InvoiceView> {
       );
       if (location == null) return; // cancelled
 
-      // Build the branded document from the default template (#84 adds template
-      // selection + a manual invoice number; issue date is today for now).
+      // Build the branded document with the on-the-fly profile + invoice
+      // number chosen above (issue date is today for now).
       final loaded = await loadInvoiceDocument(
         widget.db,
         jobId: widget.job.id,
@@ -96,6 +197,8 @@ class _InvoiceViewState extends State<InvoiceView> {
           59,
         ),
         issueDate: DateTime.now(),
+        profileId: _profileId,
+        invoiceNumber: _invoiceNumberValue,
       );
       if (loaded == null) {
         if (mounted) {
@@ -127,6 +230,86 @@ class _InvoiceViewState extends State<InvoiceView> {
 
   String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
+  // Date range + Change dates, and the on-the-fly Profile + Invoice #. On
+  // desktop they share one row with the branding right-aligned; on a narrow
+  // pane they stack (date row above, template/number wrapping below).
+  Widget _controls() {
+    final dateText = Text(
+      '${_fmtDate(_range.start)} – ${_fmtDate(_range.end)}',
+      overflow: TextOverflow.ellipsis,
+    );
+    final changeDates = TextButton.icon(
+      onPressed: _pickRange,
+      icon: const Icon(Icons.date_range, size: AppTokens.iconSm),
+      label: const Text('Change dates'),
+    );
+    final profileField = SizedBox(
+      width: 220,
+      child: DropdownButtonFormField<int>(
+        initialValue: _profileId,
+        isExpanded: true,
+        icon: kDropdownChevron,
+        decoration: const InputDecoration(labelText: 'Profile'),
+        items: [
+          for (final p in _profiles)
+            DropdownMenuItem(value: p.id, child: Text(p.name)),
+        ],
+        onChanged: (v) => setState(() {
+          _profileId = v;
+          _load();
+        }),
+      ),
+    );
+    final invoiceField = SizedBox(
+      width: 180,
+      child: TextField(
+        controller: _invoiceNumber,
+        decoration: const InputDecoration(labelText: 'Invoice #'),
+        // Live in the preview; _last keeps it flicker-free while loading.
+        onChanged: (_) => setState(_load),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= AppTokens.breakpointMd) {
+          // Plain (not Flexible) date text: with only the Spacer taking the
+          // slack, the branding fields sit flush against the right edge.
+          return Row(
+            children: [
+              dateText,
+              const SizedBox(width: AppTokens.spaceSm),
+              changeDates,
+              const Spacer(),
+              profileField,
+              const SizedBox(width: AppTokens.spaceSm),
+              invoiceField,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Flexible(child: dateText),
+                const SizedBox(width: AppTokens.spaceSm),
+                changeDates,
+              ],
+            ),
+            const SizedBox(height: AppTokens.spaceSm),
+            Wrap(
+              spacing: AppTokens.spaceSm,
+              runSpacing: AppTokens.spaceSm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [profileField, invoiceField],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -138,40 +321,24 @@ class _InvoiceViewState extends State<InvoiceView> {
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: AppTokens.spaceXs),
-        Row(
-          children: [
-            // Flexible so a narrow content pane ellipsizes the date range
-            // instead of overflowing the row.
-            Flexible(
-              child: Text(
-                '${_fmtDate(_range.start)} – ${_fmtDate(_range.end)}',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
-            TextButton.icon(
-              onPressed: _pickRange,
-              icon: const Icon(Icons.date_range, size: AppTokens.iconSm),
-              label: const Text('Change dates'),
-            ),
-          ],
-        ),
+        _controls(),
         const SizedBox(height: AppTokens.spaceSm),
         Expanded(
           child: FutureBuilder<({InvoiceDocument doc, InvoiceTemplate template})?>(
             future: _future,
             builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
               if (snap.hasError) {
                 return Center(child: Text('Error: ${snap.error}'));
               }
-              final loaded = snap.data;
+              if (snap.data != null) _last = snap.data;
+              // Keep the previous preview visible while a reload is in flight.
+              final loaded = snap.data ?? _last;
               if (loaded == null) {
-                return const Center(
-                  child: Text('No invoice template configured.'),
-                );
+                return snap.connectionState == ConnectionState.done
+                    ? const Center(
+                        child: Text('No invoice template configured.'),
+                      )
+                    : const Center(child: CircularProgressIndicator());
               }
               final doc = loaded.doc;
               final empty = doc.lines.isEmpty;
