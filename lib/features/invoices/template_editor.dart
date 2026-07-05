@@ -9,13 +9,13 @@ import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_preview.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
 
-/// Content-pane editor for an invoice [InvoiceTheme] — colours, logo, font —
+/// Content-pane editor for an invoice [InvoiceTemplate] — colours, logo, font —
 /// as a compact settings block above a full-width live [InvoicePreview] (the
 /// controls run horizontally so the preview gets the height). Creates when
 /// [initial] is null, otherwise edits. Mirrors [InvoiceView]'s shape: a State
 /// that talks to the db and calls [onDone] to return to the previous pane.
-class ThemeEditor extends StatefulWidget {
-  const ThemeEditor({
+class TemplateEditor extends StatefulWidget {
+  const TemplateEditor({
     super.key,
     required this.db,
     required this.onDone,
@@ -23,14 +23,14 @@ class ThemeEditor extends StatefulWidget {
   });
   final AppDatabase db;
   final VoidCallback onDone;
-  final InvoiceTheme? initial;
+  final InvoiceTemplate? initial;
 
   @override
-  State<ThemeEditor> createState() => _ThemeEditorState();
+  State<TemplateEditor> createState() => _TemplateEditorState();
 }
 
-class _ThemeEditorState extends State<ThemeEditor> {
-  // Seed defaults for a new theme mirror the timedart look (neutral surface).
+class _TemplateEditorState extends State<TemplateEditor> {
+  // Seed defaults for a new template mirror the timedart look (neutral surface).
   static const _defaults = (
     bg: 0xFF11140E,
     surface: 0xFF23241F,
@@ -80,7 +80,7 @@ class _ThemeEditorState extends State<ThemeEditor> {
     super.dispose();
   }
 
-  InvoiceTheme _draft() => InvoiceTheme(
+  InvoiceTemplate _draft() => InvoiceTemplate(
     id: widget.initial?.id ?? 0,
     name: _name.text.trim().isEmpty ? 'Untitled' : _name.text.trim(),
     logo: _logo,
@@ -94,7 +94,7 @@ class _ThemeEditorState extends State<ThemeEditor> {
     isDefault: _isDefault,
   );
 
-  ThemesCompanion _companion() => ThemesCompanion(
+  TemplatesCompanion _companion() => TemplatesCompanion(
     name: Value(_name.text.trim()),
     logo: Value(_logo),
     logoMime: Value(_logoMime),
@@ -104,8 +104,8 @@ class _ThemeEditorState extends State<ThemeEditor> {
     colorText: Value(_text),
     colorAccent: Value(_accent),
     fontFamily: Value(_fontFamily),
-    // isDefault is driven through setDefaultTheme (a transaction), not here, so
-    // we never end up with two defaults.
+    // isDefault is driven through setDefaultTemplate (a transaction), not here,
+    // so we never end up with two defaults.
   );
 
   Future<void> _pickLogo() async {
@@ -126,7 +126,7 @@ class _ThemeEditorState extends State<ThemeEditor> {
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A theme name is required.')),
+        const SnackBar(content: Text('A template name is required.')),
       );
       return;
     }
@@ -134,18 +134,18 @@ class _ThemeEditorState extends State<ThemeEditor> {
       int id;
       if (_isEdit) {
         id = widget.initial!.id;
-        await widget.db.updateThemeById(id, _companion());
+        await widget.db.updateTemplateById(id, _companion());
       } else {
-        id = await widget.db.insertTheme(_companion());
+        id = await widget.db.insertTemplate(_companion());
       }
       // Apply the default flag through the transaction that clears the others.
-      if (_isDefault) await widget.db.setDefaultTheme(id);
+      if (_isDefault) await widget.db.setDefaultTemplate(id);
       if (mounted) widget.onDone();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not save theme: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not save template: $e')));
       }
     }
   }
@@ -154,22 +154,22 @@ class _ThemeEditorState extends State<ThemeEditor> {
     final t = widget.initial!;
     final ok = await confirmDelete(
       context,
-      title: 'Delete theme?',
+      title: 'Delete template?',
       message: '"${t.name}" will be removed.',
     );
     if (!ok) return;
     try {
-      await widget.db.deleteTheme(t.id);
+      await widget.db.deleteTemplate(t.id);
       if (mounted) widget.onDone();
     } catch (_) {
-      // FK restrict: a template still references this theme.
+      // FK restrict: a profile still references this template.
       if (mounted) {
         await showInfoDialog(
           context,
-          title: "Can't delete theme",
+          title: "Can't delete template",
           message:
-              'A template still uses this theme. Point those templates at '
-              'another theme first.',
+              'A profile still uses this template. Point those profiles at '
+              'another template first.',
         );
       }
     }
@@ -180,7 +180,7 @@ class _ThemeEditorState extends State<ThemeEditor> {
     // Header pinned; settings block over a full-width live preview, the two
     // scrolling together as one content pane.
     return EditorShell(
-      title: _isEdit ? 'Edit theme' : 'New theme',
+      title: _isEdit ? 'Edit template' : 'New template',
       name: _isEdit ? _name.text : null,
       isEdit: _isEdit,
       onDelete: _delete,
@@ -314,7 +314,11 @@ class _ThemeEditorState extends State<ThemeEditor> {
         // A bordered frame holding an A4 page preview. scrollable: false — the
         // editor's outer scroll owns vertical scrolling.
         return brandingPreviewFrame(
-          child: invoicePreviewPage(doc: doc, theme: _draft(), scrollable: false),
+          child: invoicePreviewPage(
+            doc: doc,
+            template: _draft(),
+            scrollable: false,
+          ),
         );
       },
     );

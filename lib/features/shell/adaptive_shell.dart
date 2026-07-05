@@ -13,7 +13,6 @@ import 'package:time_tracker/features/jobs/job_form.dart';
 import 'package:time_tracker/features/clients/client_form.dart';
 import 'package:time_tracker/features/invoices/invoice_view.dart';
 import 'package:time_tracker/features/invoices/branding_home.dart';
-import 'package:time_tracker/features/invoices/theme_editor.dart';
 import 'package:time_tracker/features/invoices/profile_editor.dart';
 import 'package:time_tracker/features/invoices/template_editor.dart';
 import 'package:time_tracker/widgets/content_body.dart';
@@ -33,27 +32,22 @@ class _Invoice extends _Detail {
   const _Invoice(this.job);
 }
 
-// App Settings → Branding: the panel shows theme/profile/template sections and
-// the content pane previews the selected branding.
+// App Settings → Branding: the panel shows template/profile sections and the
+// content pane previews the selected branding.
 class _Branding extends _Detail {
   const _Branding();
 }
 
 // Editing (or creating, when the row is null) a branding entity in the content
 // pane, with the branding panel still alongside.
-class _ThemeEditorDetail extends _Detail {
-  final InvoiceTheme? theme;
-  const _ThemeEditorDetail(this.theme);
+class _TemplateEditorDetail extends _Detail {
+  final InvoiceTemplate? template;
+  const _TemplateEditorDetail(this.template);
 }
 
 class _ProfileEditorDetail extends _Detail {
   final InvoiceProfile? profile;
   const _ProfileEditorDetail(this.profile);
-}
-
-class _TemplateEditorDetail extends _Detail {
-  final InvoiceTemplate? template;
-  const _TemplateEditorDetail(this.template);
 }
 
 class AdaptiveShell extends StatefulWidget {
@@ -68,16 +62,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   _Detail _detail = const _Tracker();
   StreamSubscription<List<Job>>? _jobsSub;
 
-  // Branding-mode preview selection (null → the default theme/profile). Picking
-  // a template sets both at once.
-  int? _brandingThemeId;
+  // Branding-mode preview selection (null → the default template/profile).
+  int? _brandingTemplateId;
   int? _brandingProfileId;
   // Branding mode swaps the side panel for the branding sections.
   bool get _inBranding =>
       _detail is _Branding ||
-      _detail is _ThemeEditorDetail ||
-      _detail is _ProfileEditorDetail ||
-      _detail is _TemplateEditorDetail;
+      _detail is _TemplateEditorDetail ||
+      _detail is _ProfileEditorDetail;
   // Pages whose content stretches to the divider with a left-aligned header
   // logo — the branding pages plus the per-job invoice view (a preview page too).
   bool get _wideContentPage => _inBranding || _detail is _Invoice;
@@ -164,6 +156,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final right =
         key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
 
+    // Ctrl+, opens App Settings (Branding) from anywhere.
+    if (ctrl && key == LogicalKeyboardKey.comma) {
+      if (event is KeyDownEvent) _openBranding();
+      return KeyEventResult.handled;
+    }
+
     // Ctrl-w begins a window-motion chord.
     if (ctrl && key == LogicalKeyboardKey.keyW) {
       _pendingCtrlW = true;
@@ -221,31 +219,25 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _addClient() => showClientEditor(context, db: widget.db);
   void _invoiceJob(Job job) => setState(() => _detail = _Invoice(job));
 
-  // App Settings → Branding mode. Starts on the default theme/profile.
+  // App Settings → Branding mode. Starts on the default template/profile.
   void _openBranding() => setState(() {
-    _brandingThemeId = null;
+    _brandingTemplateId = null;
     _brandingProfileId = null;
     _detail = const _Branding();
   });
-  void _selectBrandingTheme(int id) => setState(() => _brandingThemeId = id);
+  void _selectBrandingTemplate(int id) =>
+      setState(() => _brandingTemplateId = id);
   void _selectBrandingProfile(int id) =>
       setState(() => _brandingProfileId = id);
-  void _selectBrandingTemplate(InvoiceTemplate t) => setState(() {
-    _brandingThemeId = t.themeId;
-    _brandingProfileId = t.profileId;
-  });
   void _showBrandingHome() => setState(() => _detail = const _Branding());
-  void _addTheme() => setState(() => _detail = const _ThemeEditorDetail(null));
-  void _editTheme(InvoiceTheme t) =>
-      setState(() => _detail = _ThemeEditorDetail(t));
-  void _addProfile() =>
-      setState(() => _detail = const _ProfileEditorDetail(null));
-  void _editProfile(InvoiceProfile p) =>
-      setState(() => _detail = _ProfileEditorDetail(p));
   void _addTemplate() =>
       setState(() => _detail = const _TemplateEditorDetail(null));
   void _editTemplate(InvoiceTemplate t) =>
       setState(() => _detail = _TemplateEditorDetail(t));
+  void _addProfile() =>
+      setState(() => _detail = const _ProfileEditorDetail(null));
+  void _editProfile(InvoiceProfile p) =>
+      setState(() => _detail = _ProfileEditorDetail(p));
 
   @override
   void initState() {
@@ -299,22 +291,17 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       ),
       _Branding() => BrandingHome(
         db: widget.db,
-        selectedThemeId: _brandingThemeId,
+        selectedTemplateId: _brandingTemplateId,
         selectedProfileId: _brandingProfileId,
       ),
-      _ThemeEditorDetail(:final theme) => ThemeEditor(
+      _TemplateEditorDetail(:final template) => TemplateEditor(
         db: widget.db,
-        initial: theme,
+        initial: template,
         onDone: _showBrandingHome,
       ),
       _ProfileEditorDetail(:final profile) => ProfileEditor(
         db: widget.db,
         initial: profile,
-        onDone: _showBrandingHome,
-      ),
-      _TemplateEditorDetail(:final template) => TemplateEditor(
-        db: widget.db,
-        initial: template,
         onDone: _showBrandingHome,
       ),
     };
@@ -343,7 +330,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     // In the narrow layout the panel lives in a drawer, so every action must
     // close the drawer first to reveal the content pane it just changed.
     // `before` runs that pop; in the wide layout it's null (panel is persistent).
-    Widget panel({VoidCallback? before, bool keyboardNav = false}) {
+    Widget panel({
+      VoidCallback? before,
+      bool keyboardNav = false,
+      bool showFooter = true,
+    }) {
       void run(VoidCallback action) {
         before?.call();
         action();
@@ -354,19 +345,17 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       if (_inBranding) {
         return BrandingPanel(
           db: widget.db,
-          onSelectTheme: (id) => run(() => _selectBrandingTheme(id)),
+          onSelectTemplate: (id) => run(() => _selectBrandingTemplate(id)),
           onSelectProfile: (id) => run(() => _selectBrandingProfile(id)),
-          onSelectTemplate: (t) => run(() => _selectBrandingTemplate(t)),
           onBack: () => run(_showTracker),
-          onAddTheme: () => run(_addTheme),
-          onEditTheme: (t) => run(() => _editTheme(t)),
-          onAddProfile: () => run(_addProfile),
-          onEditProfile: (p) => run(() => _editProfile(p)),
           onAddTemplate: () => run(_addTemplate),
           onEditTemplate: (t) => run(() => _editTemplate(t)),
+          onAddProfile: () => run(_addProfile),
+          onEditProfile: (p) => run(() => _editProfile(p)),
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openBranding),
+          showFooter: showFooter,
           autofocus: keyboardNav,
         );
       }
@@ -387,6 +376,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // it routes the help request back up rather than letting it bubble.
         onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
         onOpenSettings: () => run(_openBranding),
+        showFooter: showFooter,
         autofocus: keyboardNav,
       );
     }
@@ -411,7 +401,13 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          PageHeader(alignLogoStart: _wideContentPage),
+                          // Shortcuts + Settings live here (right of the bar,
+                          // left of the panel divider), not in the panel footer.
+                          PageHeader(
+                            alignLogoStart: _wideContentPage,
+                            onShowHelp: () => showShortcutsHelp(context),
+                            onOpenSettings: _openBranding,
+                          ),
                           Expanded(child: content),
                         ],
                       ),
@@ -423,7 +419,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                     color: AppTokens.colorBorder,
                   ),
 
-                  SizedBox(width: 320, child: panel(keyboardNav: true)),
+                  // Footer suppressed: Shortcuts/Settings are in the header now.
+                  SizedBox(
+                    width: 320,
+                    child: panel(keyboardNav: true, showFooter: false),
+                  ),
                 ],
               ),
             ),

@@ -29,7 +29,10 @@ class _ProfileEditorState extends State<ProfileEditor> {
   // One controller per text field, keyed for the draft + companion.
   late final Map<String, TextEditingController> _c;
   late bool _isDefault;
-  late final Future<InvoiceTheme?> _sampleTheme;
+  // The template (visual style) this profile renders with; null → default.
+  int? _templateId;
+  // Available templates for the picker + preview, loaded once.
+  List<InvoiceTemplate> _templates = const [];
 
   bool get _isEdit => widget.initial != null;
 
@@ -59,11 +62,16 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _c['currency']!.text = 'USD';
     }
     _isDefault = p?.isDefault ?? false;
-    _sampleTheme = widget.db.watchThemes().first.then((list) {
-      for (final t in list) {
-        if (t.isDefault) return t;
-      }
-      return list.isEmpty ? null : list.first;
+    _templateId = p?.templateId;
+    // Load templates for the picker + preview. Default the selection to the
+    // default template when the profile hasn't chosen one, so the picker always
+    // reflects what will render.
+    widget.db.watchTemplates().first.then((list) {
+      if (!mounted) return;
+      setState(() {
+        _templates = list;
+        _templateId ??= _defaultTemplate()?.id;
+      });
     });
   }
 
@@ -97,6 +105,22 @@ class _ProfileEditorState extends State<ProfileEditor> {
   String _t(String k) => _c[k]!.text.trim();
   String? _n(String k) => _t(k).isEmpty ? null : _t(k);
 
+  // The template the picker/preview resolve to: the chosen one, else the
+  // default, else the first (null when none exist yet).
+  InvoiceTemplate? _defaultTemplate() {
+    for (final t in _templates) {
+      if (t.isDefault) return t;
+    }
+    return _templates.isEmpty ? null : _templates.first;
+  }
+
+  InvoiceTemplate? _selectedTemplate() {
+    for (final t in _templates) {
+      if (t.id == _templateId) return t;
+    }
+    return _defaultTemplate();
+  }
+
   InvoiceProfile _draft() => InvoiceProfile(
     id: widget.initial?.id ?? 0,
     name: _t('name').isEmpty ? 'Untitled' : _t('name'),
@@ -116,6 +140,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     taxLabel: _n('taxLabel'),
     taxRate: double.tryParse(_t('taxRate')),
     isDefault: _isDefault,
+    templateId: _templateId,
   );
 
   ProfilesCompanion _companion() => ProfilesCompanion(
@@ -135,6 +160,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     currency: Value(_t('currency').isEmpty ? 'USD' : _t('currency')),
     taxLabel: Value(_n('taxLabel')),
     taxRate: Value(double.tryParse(_t('taxRate'))),
+    templateId: Value(_templateId),
     // isDefault flows through setDefaultProfile so there's only ever one.
   );
 
@@ -208,6 +234,21 @@ class _ProfileEditorState extends State<ProfileEditor> {
     return Column(
       spacing: AppTokens.spaceXl,
       children: [
+        FieldGroup('Template', [
+          FieldRow([
+            Field(
+              EditorDropdown<int>(
+                label: 'Template',
+                value: _templateId,
+                items: [
+                  for (final t in _templates)
+                    DropdownMenuItem(value: t.id, child: Text(t.name)),
+                ],
+                onChanged: (v) => setState(() => _templateId = v),
+              ),
+            ),
+          ]),
+        ]),
         FieldGroup('Business', [
           FieldRow([
             Field(_field('name', 'Name')),
@@ -265,31 +306,20 @@ class _ProfileEditorState extends State<ProfileEditor> {
       );
 
   Widget _preview() {
-    return FutureBuilder<InvoiceTheme?>(
-      future: _sampleTheme,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const SizedBox(
-            height: 240,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final theme = snap.data;
-        if (theme == null) {
-          return const SizedBox(
-            height: 240,
-            child: Center(child: Text('Add a theme to preview.')),
-          );
-        }
-        final doc = sampleInvoiceDocument(
-          profile: _draft(),
-          issueDate: DateTime.now(),
-        );
-        // scrollable: false — the editor's outer scroll owns vertical scrolling.
-        return brandingPreviewFrame(
-          child: invoicePreviewPage(doc: doc, theme: theme, scrollable: false),
-        );
-      },
+    final template = _selectedTemplate();
+    if (template == null) {
+      return const SizedBox(
+        height: 240,
+        child: Center(child: Text('Add a template to preview.')),
+      );
+    }
+    final doc = sampleInvoiceDocument(
+      profile: _draft(),
+      issueDate: DateTime.now(),
+    );
+    // scrollable: false — the editor's outer scroll owns vertical scrolling.
+    return brandingPreviewFrame(
+      child: invoicePreviewPage(doc: doc, template: template, scrollable: false),
     );
   }
 }

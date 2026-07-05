@@ -5,19 +5,19 @@ import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_preview.dart';
 
 /// The Branding-mode content pane: a live preview of how invoices look, driven
-/// by the theme/profile picked in the side panel. When nothing is picked it
-/// falls back to the default theme + profile. This is the preview surface the
-/// theme/profile/template editors build on (they add the form beside it).
+/// by the template/profile picked in the side panel. When nothing is picked it
+/// falls back to the default template + profile. This is the preview surface the
+/// template/profile editors build on (they add the form beside it).
 class BrandingHome extends StatelessWidget {
   const BrandingHome({
     super.key,
     required this.db,
-    this.selectedThemeId,
+    this.selectedTemplateId,
     this.selectedProfileId,
   });
 
   final AppDatabase db;
-  final int? selectedThemeId; // null → the default theme
+  final int? selectedTemplateId; // null → the default template
   final int? selectedProfileId; // null → the default profile
 
   static T? _pick<T>(
@@ -47,26 +47,25 @@ class BrandingHome extends StatelessWidget {
         Text('Branding', style: t.textTheme.titleLarge),
         const SizedBox(height: AppTokens.spaceXs),
         Text(
-          'Preview updates as you pick a theme, profile, or template. '
-          'Editing arrives next.',
+          'Preview updates as you pick a template or profile.',
           style: t.textTheme.bodySmall,
         ),
         const SizedBox(height: AppTokens.spaceSm),
         Expanded(
-          child: StreamBuilder<List<InvoiceTheme>>(
-            stream: db.watchThemes(),
-            builder: (context, themeSnap) {
+          child: StreamBuilder<List<InvoiceTemplate>>(
+            stream: db.watchTemplates(),
+            builder: (context, templateSnap) {
               return StreamBuilder<List<InvoiceProfile>>(
                 stream: db.watchProfiles(),
                 builder: (context, profileSnap) {
-                  final themes = themeSnap.data;
+                  final templates = templateSnap.data;
                   final profiles = profileSnap.data;
-                  if (themes == null || profiles == null) {
+                  if (templates == null || profiles == null) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  final theme = _pick(
-                    themes,
-                    selectedThemeId,
+                  final template = _pick(
+                    templates,
+                    selectedTemplateId,
                     (x) => x.id,
                     (x) => x.isDefault,
                   );
@@ -76,7 +75,7 @@ class BrandingHome extends StatelessWidget {
                     (x) => x.id,
                     (x) => x.isDefault,
                   );
-                  if (theme == null || profile == null) {
+                  if (template == null || profile == null) {
                     return const Center(
                       child: Text('No branding configured yet.'),
                     );
@@ -86,7 +85,7 @@ class BrandingHome extends StatelessWidget {
                     issueDate: DateTime.now(),
                   );
                   return brandingPreviewFrame(
-                    child: invoicePreviewPage(doc: doc, theme: theme),
+                    child: invoicePreviewPage(doc: doc, template: template),
                   );
                 },
               );

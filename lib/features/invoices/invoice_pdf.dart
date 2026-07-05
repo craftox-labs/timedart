@@ -7,9 +7,9 @@ import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
 
-// Renders an [InvoiceDocument] into a branded PDF using an [InvoiceTheme]
+// Renders an [InvoiceDocument] into a branded PDF using an [InvoiceTemplate]
 // (colours + optional logo). Presentational: it reads resolved values from the
-// document and applies the theme — no arithmetic here. Dark, brand-coloured,
+// document and applies the template — no arithmetic here. Dark, brand-coloured,
 // modelled on the reference invoice (PRD #79).
 
 String _isoDate(DateTime d) =>
@@ -19,7 +19,7 @@ String _isoDate(DateTime d) =>
 
 Future<Uint8List> buildBrandedInvoicePdf({
   required InvoiceDocument doc,
-  required InvoiceTheme theme,
+  required InvoiceTemplate template,
 }) async {
   final fontData = await rootBundle.load(
     'assets/fonts/Urbanist-VariableFont_wght.ttf',
@@ -29,19 +29,19 @@ Future<Uint8List> buildBrandedInvoicePdf({
   // bundled later if needed). Hierarchy leans on size/colour instead.
   final font = pw.Font.ttf(fontData);
 
-  // User logo (theme.logo) wins; fall back to the bundled timedart mark so the
-  // default template shows branding before a logo is uploaded (editor: #83).
+  // User logo (template.logo) wins; fall back to the bundled timedart mark so
+  // the default template shows branding before a logo is uploaded.
   final logoBytes =
-      theme.logo ??
+      template.logo ??
       (await rootBundle.load('assets/logo/timedart_logo_horizontal.png'))
           .buffer
           .asUint8List();
 
-  final bg = PdfColor.fromInt(theme.colorBackground);
-  final surface = PdfColor.fromInt(theme.colorSurface);
-  final primary = PdfColor.fromInt(theme.colorPrimary);
-  final text = PdfColor.fromInt(theme.colorText);
-  final muted = PdfColor.fromInt(theme.colorText).flatten(background: bg);
+  final bg = PdfColor.fromInt(template.colorBackground);
+  final surface = PdfColor.fromInt(template.colorSurface);
+  final primary = PdfColor.fromInt(template.colorPrimary);
+  final text = PdfColor.fromInt(template.colorText);
+  final muted = PdfColor.fromInt(template.colorText).flatten(background: bg);
 
   final labelStyle = pw.TextStyle(color: primary, fontSize: 8);
   final valueStyle = pw.TextStyle(
