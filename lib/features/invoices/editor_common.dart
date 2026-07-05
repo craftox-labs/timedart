@@ -6,8 +6,13 @@ import 'package:time_tracker/widgets/dropdown_field.dart';
 /// Shared bits for the branding content-pane editors (theme/profile/template):
 /// a uniform dense field decoration and the title + Delete/Cancel/Save header.
 
-/// The dense decoration shared by every branding input. Symmetric padding —
-/// selects get their trailing gap from [kDropdownChevron], not from here.
+/// The decoration shared by every branding input. Symmetric padding — selects
+/// get their trailing gap from [kDropdownChevron], not from here.
+///
+/// Deliberately NOT isDense: with an OutlineInputBorder, isDense drops the
+/// headroom the floating label needs, clipping the label's top on fields with
+/// no prefix (a prefix-less Name/Font/Theme). The explicit contentPadding keeps
+/// the field compact without that clipping.
 InputDecoration fieldDecoration(
   String? label, {
   String? hint,
@@ -18,7 +23,6 @@ InputDecoration fieldDecoration(
   labelText: label,
   hintText: hint,
   errorText: errorText,
-  isDense: true,
   prefixText: prefixText,
   prefixIcon: prefixIcon,
   prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
@@ -410,13 +414,17 @@ class _EditorShellState extends State<EditorShell> {
                 onCancel: widget.onCancel,
                 onSave: widget.onSave,
               ),
-              const SizedBox(height: AppTokens.spaceMd),
               Expanded(
-                // Right inset clears the desktop scrollbar so it doesn't overlay
-                // the fields' / preview's right border. The pinned header above
-                // keeps the full width, so its actions still reach the edge.
+                // Top inset lives inside the scroll (rather than a SizedBox
+                // above it) so the first row's floating label — which paints
+                // above the field box on an OutlineInputBorder — has room and
+                // isn't clipped by the scroll viewport's top edge. Right inset
+                // clears the desktop scrollbar off the fields'/preview's border.
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(right: AppTokens.spaceMd),
+                  padding: const EdgeInsets.only(
+                    top: AppTokens.spaceMd,
+                    right: AppTokens.spaceMd,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: widget.children,

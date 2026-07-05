@@ -20,6 +20,7 @@ class SidePanel extends StatefulWidget {
     this.onExitToTracker,
     this.onShowHelp,
     this.onOpenSettings,
+    this.showFooter = true,
     this.autofocus = false,
   });
   final AppDatabase db;
@@ -43,6 +44,10 @@ class SidePanel extends StatefulWidget {
   final VoidCallback? onShowHelp;
   // Open App Settings (Branding mode). Shown as a gear in the panel footer.
   final VoidCallback? onOpenSettings;
+  // Render the base-of-panel footer (Shortcuts/Settings). False in the wide
+  // layout, where those actions live in the header instead. onShowHelp is still
+  // honoured for `?`-key routing regardless.
+  final bool showFooter;
   // Take the row cursor on first build (wide layout, where keys are live).
   final bool autofocus;
 
@@ -412,9 +417,10 @@ class _SidePanelState extends State<SidePanel> {
               },
             ),
           ),
-          // A quiet footer at the base: the Shortcuts hint (wide layout, where
-          // keys are live) on the left, an App Settings gear on the right.
-          if (widget.onShowHelp != null || widget.onOpenSettings != null)
+          // A quiet footer at the base: an App Settings gear (drawer layout).
+          // In the wide layout it's suppressed — those actions sit in the header.
+          if (widget.showFooter &&
+              (widget.onShowHelp != null || widget.onOpenSettings != null))
             PanelFooter(
               onShowHelp: widget.onShowHelp,
               onOpenSettings: widget.onOpenSettings,
