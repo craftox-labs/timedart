@@ -114,7 +114,14 @@ class _InvoiceViewState extends State<InvoiceView> {
           const SizedBox(height: AppTokens.spaceXs),
           Row(
             children: [
-              Text('${_fmtDate(_range.start)} – ${_fmtDate(_range.end)}'),
+              // Flexible so a narrow content pane ellipsizes the date range
+              // instead of overflowing the row.
+              Flexible(
+                child: Text(
+                  '${_fmtDate(_range.start)} – ${_fmtDate(_range.end)}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               const SizedBox(width: AppTokens.spaceSm),
               TextButton.icon(
                 onPressed: _pickRange,
