@@ -14,6 +14,8 @@ import 'package:time_tracker/features/clients/client_form.dart';
 import 'package:time_tracker/features/invoices/invoice_view.dart';
 import 'package:time_tracker/features/invoices/branding_home.dart';
 import 'package:time_tracker/features/invoices/theme_editor.dart';
+import 'package:time_tracker/features/invoices/profile_editor.dart';
+import 'package:time_tracker/features/invoices/template_editor.dart';
 import 'package:time_tracker/widgets/content_body.dart';
 
 // What the detail pane is currently showing. One value instead of a pile of
@@ -37,11 +39,21 @@ class _Branding extends _Detail {
   const _Branding();
 }
 
-// Editing (or creating, when theme is null) an invoice theme in the content
+// Editing (or creating, when the row is null) a branding entity in the content
 // pane, with the branding panel still alongside.
 class _ThemeEditorDetail extends _Detail {
   final InvoiceTheme? theme;
   const _ThemeEditorDetail(this.theme);
+}
+
+class _ProfileEditorDetail extends _Detail {
+  final InvoiceProfile? profile;
+  const _ProfileEditorDetail(this.profile);
+}
+
+class _TemplateEditorDetail extends _Detail {
+  final InvoiceTemplate? template;
+  const _TemplateEditorDetail(this.template);
 }
 
 class AdaptiveShell extends StatefulWidget {
@@ -61,7 +73,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   int? _brandingThemeId;
   int? _brandingProfileId;
   // Branding mode swaps the side panel for the branding sections.
-  bool get _inBranding => _detail is _Branding || _detail is _ThemeEditorDetail;
+  bool get _inBranding =>
+      _detail is _Branding ||
+      _detail is _ThemeEditorDetail ||
+      _detail is _ProfileEditorDetail ||
+      _detail is _TemplateEditorDetail;
   // Pages whose content stretches to the divider with a left-aligned header
   // logo — the branding pages plus the per-job invoice view (a preview page too).
   bool get _wideContentPage => _inBranding || _detail is _Invoice;
@@ -222,6 +238,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _addTheme() => setState(() => _detail = const _ThemeEditorDetail(null));
   void _editTheme(InvoiceTheme t) =>
       setState(() => _detail = _ThemeEditorDetail(t));
+  void _addProfile() =>
+      setState(() => _detail = const _ProfileEditorDetail(null));
+  void _editProfile(InvoiceProfile p) =>
+      setState(() => _detail = _ProfileEditorDetail(p));
+  void _addTemplate() =>
+      setState(() => _detail = const _TemplateEditorDetail(null));
+  void _editTemplate(InvoiceTemplate t) =>
+      setState(() => _detail = _TemplateEditorDetail(t));
 
   @override
   void initState() {
@@ -283,6 +307,16 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         initial: theme,
         onDone: _showBrandingHome,
       ),
+      _ProfileEditorDetail(:final profile) => ProfileEditor(
+        db: widget.db,
+        initial: profile,
+        onDone: _showBrandingHome,
+      ),
+      _TemplateEditorDetail(:final template) => TemplateEditor(
+        db: widget.db,
+        initial: template,
+        onDone: _showBrandingHome,
+      ),
     };
     // Preview pages (branding + per-job invoice) keep the left edge aligned with
     // the page header (same inset as the centred content column) but stretch
@@ -326,6 +360,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onBack: () => run(_showTracker),
           onAddTheme: () => run(_addTheme),
           onEditTheme: (t) => run(() => _editTheme(t)),
+          onAddProfile: () => run(_addProfile),
+          onEditProfile: (p) => run(() => _editProfile(p)),
+          onAddTemplate: () => run(_addTemplate),
+          onEditTemplate: (t) => run(() => _editTemplate(t)),
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openBranding),

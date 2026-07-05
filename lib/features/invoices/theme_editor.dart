@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
+import 'package:time_tracker/features/invoices/editor_common.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_preview.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
@@ -231,22 +232,6 @@ class _ThemeEditorState extends State<ThemeEditor> {
   }
 
   // Shared decoration so every text/dropdown input is the same height.
-  InputDecoration _dec(
-    String label, {
-    String? prefixText,
-    Widget? prefixIcon,
-  }) => InputDecoration(
-    labelText: label,
-    isDense: true,
-    prefixText: prefixText,
-    prefixIcon: prefixIcon,
-    prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-    contentPadding: const EdgeInsets.symmetric(
-      horizontal: AppTokens.spaceSm,
-      vertical: AppTokens.spaceSm,
-    ),
-  );
-
   Widget _settings() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,13 +239,13 @@ class _ThemeEditorState extends State<ThemeEditor> {
         _gridRow([
           TextField(
             controller: _name,
-            decoration: _dec('Name'),
+            decoration: fieldDecoration('Name'),
             onChanged: (_) => setState(() {}),
           ),
           DropdownButtonFormField<String>(
             initialValue: _fontFamily,
             isDense: true,
-            decoration: _dec('Font'),
+            decoration: fieldDecoration('Font', dropdown: true),
             items: const [
               DropdownMenuItem(value: 'Urbanist', child: Text('Urbanist')),
             ],
@@ -278,17 +263,12 @@ class _ThemeEditorState extends State<ThemeEditor> {
           ),
           const SizedBox(), // spacer column
           // Default toggle at the right edge, under Save.
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              const Text('Default'),
-              const SizedBox(width: AppTokens.space2xs),
-              Switch(
-                value: _isDefault,
-                onChanged: (v) => setState(() => _isDefault = v),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: brandingDefaultToggle(
+              value: _isDefault,
+              onChanged: (v) => setState(() => _isDefault = v),
+            ),
           ),
         ]),
         const SizedBox(height: AppTokens.spaceSm),
@@ -306,7 +286,7 @@ class _ThemeEditorState extends State<ThemeEditor> {
   Widget _colorField(String label, int value, void Function(int) set) =>
       _ColorField(
         value: value,
-        decoration: _dec(
+        decoration: fieldDecoration(
           label,
           prefixText: '#',
           prefixIcon: Padding(
