@@ -181,6 +181,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         setState(() => _selectedJobId ??= id); // default only if unset
       }
     });
+    widget.db.ensureInvoiceDefaults(); // seed timedart theme/profile/template
+
+
 
     // Keep the selection honest when jobs change: if the selected job is
     // deleted, fall back to the first remaining job (or none).

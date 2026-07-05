@@ -6,8 +6,10 @@ part 'database.g.dart'; // generated — doesn't exist until you run build_runne
 
 class Clients extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get name => text().withLength(min: 1, max: 100)();
+  TextColumn get name => text().withLength(min: 1, max: 100)(); // organisation
+  TextColumn get contactName => text().nullable()(); // the person (invoice TO)
   TextColumn get email => text().nullable()(); // nullable column
+  TextColumn get phone => text().nullable()();
   TextColumn get address => text().nullable()();
   TextColumn get abn => text().nullable()();
   RealColumn get defaultRate => real()(); // $/hr fallback — required
@@ -48,6 +50,64 @@ class TimeEntries extends Table {
   DateTimeColumn get endedAt => dateTime()();
   IntColumn get seconds =>
       integer()(); // TRACKED time (excludes pauses) — see below
+}
+
+// ── Invoice branding (see PRD #79) ────────────────────────────────────────
+// Three data-only tables. Colours are stored as ARGB ints (0xAARRGGBB) so the
+// data layer stays UI-free — the UI/PDF convert to Color/PdfColor. A logo is
+// raw PNG/JPG bytes so it travels with the DB (no orphaned files).
+
+/// The *look* of an invoice: logo + colour scheme + font. Reusable across
+/// templates. Exactly one row is the default (see [AppDatabase.setDefaultTheme]).
+@DataClassName('InvoiceTheme') // 'Theme' would clash with Flutter's Theme
+class Themes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 100)();
+  BlobColumn get logo => blob().nullable()(); // PNG/JPG bytes; null = no logo
+  TextColumn get logoMime => text().nullable()(); // e.g. image/png
+  IntColumn get colorBackground => integer()();
+  IntColumn get colorSurface => integer()();
+  IntColumn get colorPrimary => integer()();
+  IntColumn get colorText => integer()();
+  IntColumn get colorAccent => integer()();
+  TextColumn get fontFamily => text().withDefault(const Constant('Urbanist'))();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+}
+
+/// The *details* of an invoice: sender identity + payment + currency + optional
+/// tax. Tax is null-by-default and international-neutral (a [taxLabel] + percent
+/// [taxRate], or nothing). Reusable across templates; one row is the default.
+@DataClassName('InvoiceProfile')
+class Profiles extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 100)(); // internal label
+  TextColumn get businessName => text().withDefault(const Constant(''))();
+  TextColumn get email => text().nullable()();
+  TextColumn get phone => text().nullable()();
+  TextColumn get website => text().nullable()();
+  TextColumn get address => text().nullable()();
+  TextColumn get abn => text().nullable()(); // ABN/ACN/company no.
+  TextColumn get payeeName => text().nullable()();
+  TextColumn get bankName => text().nullable()();
+  TextColumn get bankBsb => text().nullable()();
+  TextColumn get bankAccount => text().nullable()();
+  TextColumn get swift => text().nullable()(); // SWIFT/BIC
+  TextColumn get paymentLink => text().nullable()();
+  TextColumn get currency => text().withDefault(const Constant('USD'))();
+  TextColumn get taxLabel => text().nullable()(); // e.g. GST, VAT; null = no tax
+  RealColumn get taxRate => real().nullable()(); // percent, e.g. 10.0
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+}
+
+/// A named pairing of one [Themes] + one [Profiles] — the single thing chosen in
+/// the invoicing flow. One row is the default.
+@DataClassName('InvoiceTemplate')
+class Templates extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 100)();
+  IntColumn get themeId => integer().references(Themes, #id)();
+  IntColumn get profileId => integer().references(Profiles, #id)();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
 }
 
 /// One itemised line of a [JobInvoice]: an entry with its hours and amount.
@@ -107,13 +167,15 @@ class JobInvoice {
   double? get total => rate == null ? null : totalHours * rate!;
 }
 
-@DriftDatabase(tables: [Clients, Jobs, Tasks, TimeEntries])
+@DriftDatabase(
+  tables: [Clients, Jobs, Tasks, TimeEntries, Themes, Profiles, Templates],
+)
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a job that has time entries (or a client
@@ -155,9 +217,14 @@ class AppDatabase extends _$AppDatabase {
       // at least the client default). Rebuild clients with the non-null column,
       // backfilling any pre-existing null rate to 0 so the copy can't violate.
       if (from < 4) {
+        // TableMigration rebuilds `clients` to the CURRENT schema, which now
+        // also carries contactName/phone (added in v5). Declare them here as
+        // new nullable columns so this rebuild is self-consistent; the v4→v5
+        // step below then only adds them for a DB coming straight from v4.
         await m.alterTable(
           TableMigration(
             clients,
+            newColumns: [clients.contactName, clients.phone],
             columnTransformer: {
               clients.defaultRate: coalesce([
                 clients.defaultRate,
@@ -166,6 +233,21 @@ class AppDatabase extends _$AppDatabase {
             },
           ),
         );
+      }
+      // v4 → v5: invoice branding. Add the three branding tables and the two
+      // new Client columns (person + phone, for the invoice TO/PHONE split).
+      // Seeding the timedart default happens idempotently at startup via
+      // ensureInvoiceDefaults(), so it covers fresh installs too.
+      if (from < 5) {
+        await m.createTable(themes);
+        await m.createTable(profiles);
+        await m.createTable(templates);
+        // Only for a DB coming straight from v4: a from<4 upgrade already got
+        // these columns via the v3→v4 clients rebuild above (current schema).
+        if (from >= 4) {
+          await m.addColumn(clients, clients.contactName);
+          await m.addColumn(clients, clients.phone);
+        }
       }
     },
     beforeOpen: (details) async {
@@ -341,12 +423,16 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> addClient({
     required String name,
+    String? contactName,
     String? email,
+    String? phone,
     required double defaultRate,
   }) => into(clients).insert(
     ClientsCompanion.insert(
       name: name,
+      contactName: Value(contactName),
       email: email == null ? const Value.absent() : Value(email),
+      phone: Value(phone),
       defaultRate: defaultRate,
     ),
   );
@@ -354,18 +440,118 @@ class AppDatabase extends _$AppDatabase {
   Future<void> updateClient({
     required int id,
     required String name,
+    String? contactName,
     String? email,
+    String? phone,
     required double defaultRate,
   }) => (update(clients)..where((c) => c.id.equals(id))).write(
     ClientsCompanion(
       name: Value(name),
+      contactName: Value(contactName),
       email: Value(email),
+      phone: Value(phone),
       defaultRate: Value(defaultRate),
     ),
   );
 
   Future<void> deleteClient(int id) =>
       (delete(clients)..where((c) => c.id.equals(id))).go();
+
+  // ── Invoice branding: seed + DAOs (PRD #79) ──────────────────────────────
+
+  /// Seed a timedart Theme, an example Profile, and a default Template on first
+  /// run. Idempotent — a no-op once any Template exists — so it's safe to call
+  /// at every startup (mirrors [ensureDefaultJob]). Colours are the brand tokens
+  /// as ARGB ints; the user edits them in the theme editor.
+  Future<void> ensureInvoiceDefaults() async {
+    final existing = await (select(templates)..limit(1)).getSingleOrNull();
+    if (existing != null) return;
+    final themeId = await into(themes).insert(
+      ThemesCompanion.insert(
+        name: 'timedart',
+        colorBackground: 0xFF11140E, // brand dark surface
+        colorSurface: 0xFF1C2113,
+        colorPrimary: 0xFF69E228, // brand green
+        colorText: 0xFFE8F5E0,
+        colorAccent: 0xFF2E6C0F, // brand secondary
+        isDefault: const Value(true),
+      ),
+    );
+    final profileId = await into(profiles).insert(
+      ProfilesCompanion.insert(
+        name: 'Default',
+        businessName: const Value('Your Business'),
+        currency: const Value('USD'),
+        isDefault: const Value(true),
+      ),
+    );
+    await into(templates).insert(
+      TemplatesCompanion.insert(
+        name: 'timedart',
+        themeId: themeId,
+        profileId: profileId,
+        isDefault: const Value(true),
+      ),
+    );
+  }
+
+  // Themes
+  Stream<List<InvoiceTheme>> watchThemes() =>
+      (select(themes)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+  Future<InvoiceTheme> themeById(int id) =>
+      (select(themes)..where((t) => t.id.equals(id))).getSingle();
+  Future<int> insertTheme(ThemesCompanion t) => into(themes).insert(t);
+  Future<void> updateThemeById(int id, ThemesCompanion t) =>
+      (update(themes)..where((x) => x.id.equals(id))).write(t);
+  // FK pragma is on, so this throws if a template still references the theme.
+  Future<void> deleteTheme(int id) =>
+      (delete(themes)..where((x) => x.id.equals(id))).go();
+  Future<void> setDefaultTheme(int id) => transaction(() async {
+    await update(themes).write(const ThemesCompanion(isDefault: Value(false)));
+    await (update(themes)..where((x) => x.id.equals(id))).write(
+      const ThemesCompanion(isDefault: Value(true)),
+    );
+  });
+
+  // Profiles
+  Stream<List<InvoiceProfile>> watchProfiles() =>
+      (select(profiles)..orderBy([(p) => OrderingTerm.asc(p.name)])).watch();
+  Future<InvoiceProfile> profileById(int id) =>
+      (select(profiles)..where((p) => p.id.equals(id))).getSingle();
+  Future<int> insertProfile(ProfilesCompanion p) => into(profiles).insert(p);
+  Future<void> updateProfileById(int id, ProfilesCompanion p) =>
+      (update(profiles)..where((x) => x.id.equals(id))).write(p);
+  Future<void> deleteProfile(int id) =>
+      (delete(profiles)..where((x) => x.id.equals(id))).go();
+  Future<void> setDefaultProfile(int id) => transaction(() async {
+    await update(
+      profiles,
+    ).write(const ProfilesCompanion(isDefault: Value(false)));
+    await (update(profiles)..where((x) => x.id.equals(id))).write(
+      const ProfilesCompanion(isDefault: Value(true)),
+    );
+  });
+
+  // Templates
+  Stream<List<InvoiceTemplate>> watchTemplates() =>
+      (select(templates)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+  Future<InvoiceTemplate?> defaultTemplate() =>
+      (select(templates)..where((t) => t.isDefault.equals(true)))
+          .getSingleOrNull();
+  Future<int> insertTemplate(TemplatesCompanion t) =>
+      into(templates).insert(t);
+  Future<void> updateTemplateById(int id, TemplatesCompanion t) =>
+      (update(templates)..where((x) => x.id.equals(id))).write(t);
+  Future<void> deleteTemplate(int id) =>
+      (delete(templates)..where((x) => x.id.equals(id))).go();
+  Future<void> setDefaultTemplate(int id) => transaction(() async {
+    await update(
+      templates,
+    ).write(const TemplatesCompanion(isDefault: Value(false)));
+    await (update(templates)..where((x) => x.id.equals(id))).write(
+      const TemplatesCompanion(isDefault: Value(true)),
+    );
+  });
 
   /// Build an on-demand invoice for a single job over [from]..[to] (inclusive):
   /// the job, its client, effective rate, and the itemised entries. Read-only —

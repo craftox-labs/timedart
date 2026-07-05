@@ -34,10 +34,30 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _contactNameMeta = const VerificationMeta(
+    'contactName',
+  );
+  @override
+  late final GeneratedColumn<String> contactName = GeneratedColumn<String>(
+    'contact_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _emailMeta = const VerificationMeta('email');
   @override
   late final GeneratedColumn<String> email = GeneratedColumn<String>(
     'email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _phoneMeta = const VerificationMeta('phone');
+  @override
+  late final GeneratedColumn<String> phone = GeneratedColumn<String>(
+    'phone',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -89,7 +109,9 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    contactName,
     email,
+    phone,
     address,
     abn,
     defaultRate,
@@ -118,10 +140,25 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('contact_name')) {
+      context.handle(
+        _contactNameMeta,
+        contactName.isAcceptableOrUnknown(
+          data['contact_name']!,
+          _contactNameMeta,
+        ),
+      );
+    }
     if (data.containsKey('email')) {
       context.handle(
         _emailMeta,
         email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    }
+    if (data.containsKey('phone')) {
+      context.handle(
+        _phoneMeta,
+        phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
       );
     }
     if (data.containsKey('address')) {
@@ -170,9 +207,17 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      contactName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_name'],
+      ),
       email: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}email'],
+      ),
+      phone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}phone'],
       ),
       address: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -202,7 +247,9 @@ class $ClientsTable extends Clients with TableInfo<$ClientsTable, Client> {
 class Client extends DataClass implements Insertable<Client> {
   final int id;
   final String name;
+  final String? contactName;
   final String? email;
+  final String? phone;
   final String? address;
   final String? abn;
   final double defaultRate;
@@ -210,7 +257,9 @@ class Client extends DataClass implements Insertable<Client> {
   const Client({
     required this.id,
     required this.name,
+    this.contactName,
     this.email,
+    this.phone,
     this.address,
     this.abn,
     required this.defaultRate,
@@ -221,8 +270,14 @@ class Client extends DataClass implements Insertable<Client> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || contactName != null) {
+      map['contact_name'] = Variable<String>(contactName);
+    }
     if (!nullToAbsent || email != null) {
       map['email'] = Variable<String>(email);
+    }
+    if (!nullToAbsent || phone != null) {
+      map['phone'] = Variable<String>(phone);
     }
     if (!nullToAbsent || address != null) {
       map['address'] = Variable<String>(address);
@@ -241,9 +296,15 @@ class Client extends DataClass implements Insertable<Client> {
     return ClientsCompanion(
       id: Value(id),
       name: Value(name),
+      contactName: contactName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contactName),
       email: email == null && nullToAbsent
           ? const Value.absent()
           : Value(email),
+      phone: phone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(phone),
       address: address == null && nullToAbsent
           ? const Value.absent()
           : Value(address),
@@ -263,7 +324,9 @@ class Client extends DataClass implements Insertable<Client> {
     return Client(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      contactName: serializer.fromJson<String?>(json['contactName']),
       email: serializer.fromJson<String?>(json['email']),
+      phone: serializer.fromJson<String?>(json['phone']),
       address: serializer.fromJson<String?>(json['address']),
       abn: serializer.fromJson<String?>(json['abn']),
       defaultRate: serializer.fromJson<double>(json['defaultRate']),
@@ -276,7 +339,9 @@ class Client extends DataClass implements Insertable<Client> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
+      'contactName': serializer.toJson<String?>(contactName),
       'email': serializer.toJson<String?>(email),
+      'phone': serializer.toJson<String?>(phone),
       'address': serializer.toJson<String?>(address),
       'abn': serializer.toJson<String?>(abn),
       'defaultRate': serializer.toJson<double>(defaultRate),
@@ -287,7 +352,9 @@ class Client extends DataClass implements Insertable<Client> {
   Client copyWith({
     int? id,
     String? name,
+    Value<String?> contactName = const Value.absent(),
     Value<String?> email = const Value.absent(),
+    Value<String?> phone = const Value.absent(),
     Value<String?> address = const Value.absent(),
     Value<String?> abn = const Value.absent(),
     double? defaultRate,
@@ -295,7 +362,9 @@ class Client extends DataClass implements Insertable<Client> {
   }) => Client(
     id: id ?? this.id,
     name: name ?? this.name,
+    contactName: contactName.present ? contactName.value : this.contactName,
     email: email.present ? email.value : this.email,
+    phone: phone.present ? phone.value : this.phone,
     address: address.present ? address.value : this.address,
     abn: abn.present ? abn.value : this.abn,
     defaultRate: defaultRate ?? this.defaultRate,
@@ -305,7 +374,11 @@ class Client extends DataClass implements Insertable<Client> {
     return Client(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      contactName: data.contactName.present
+          ? data.contactName.value
+          : this.contactName,
       email: data.email.present ? data.email.value : this.email,
+      phone: data.phone.present ? data.phone.value : this.phone,
       address: data.address.present ? data.address.value : this.address,
       abn: data.abn.present ? data.abn.value : this.abn,
       defaultRate: data.defaultRate.present
@@ -322,7 +395,9 @@ class Client extends DataClass implements Insertable<Client> {
     return (StringBuffer('Client(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('contactName: $contactName, ')
           ..write('email: $email, ')
+          ..write('phone: $phone, ')
           ..write('address: $address, ')
           ..write('abn: $abn, ')
           ..write('defaultRate: $defaultRate, ')
@@ -332,15 +407,26 @@ class Client extends DataClass implements Insertable<Client> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, email, address, abn, defaultRate, archivedAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    contactName,
+    email,
+    phone,
+    address,
+    abn,
+    defaultRate,
+    archivedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Client &&
           other.id == this.id &&
           other.name == this.name &&
+          other.contactName == this.contactName &&
           other.email == this.email &&
+          other.phone == this.phone &&
           other.address == this.address &&
           other.abn == this.abn &&
           other.defaultRate == this.defaultRate &&
@@ -350,7 +436,9 @@ class Client extends DataClass implements Insertable<Client> {
 class ClientsCompanion extends UpdateCompanion<Client> {
   final Value<int> id;
   final Value<String> name;
+  final Value<String?> contactName;
   final Value<String?> email;
+  final Value<String?> phone;
   final Value<String?> address;
   final Value<String?> abn;
   final Value<double> defaultRate;
@@ -358,7 +446,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
   const ClientsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.contactName = const Value.absent(),
     this.email = const Value.absent(),
+    this.phone = const Value.absent(),
     this.address = const Value.absent(),
     this.abn = const Value.absent(),
     this.defaultRate = const Value.absent(),
@@ -367,7 +457,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
   ClientsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
+    this.contactName = const Value.absent(),
     this.email = const Value.absent(),
+    this.phone = const Value.absent(),
     this.address = const Value.absent(),
     this.abn = const Value.absent(),
     required double defaultRate,
@@ -377,7 +469,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
   static Insertable<Client> custom({
     Expression<int>? id,
     Expression<String>? name,
+    Expression<String>? contactName,
     Expression<String>? email,
+    Expression<String>? phone,
     Expression<String>? address,
     Expression<String>? abn,
     Expression<double>? defaultRate,
@@ -386,7 +480,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (contactName != null) 'contact_name': contactName,
       if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
       if (address != null) 'address': address,
       if (abn != null) 'abn': abn,
       if (defaultRate != null) 'default_rate': defaultRate,
@@ -397,7 +493,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
   ClientsCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
+    Value<String?>? contactName,
     Value<String?>? email,
+    Value<String?>? phone,
     Value<String?>? address,
     Value<String?>? abn,
     Value<double>? defaultRate,
@@ -406,7 +504,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     return ClientsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      contactName: contactName ?? this.contactName,
       email: email ?? this.email,
+      phone: phone ?? this.phone,
       address: address ?? this.address,
       abn: abn ?? this.abn,
       defaultRate: defaultRate ?? this.defaultRate,
@@ -423,8 +523,14 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (contactName.present) {
+      map['contact_name'] = Variable<String>(contactName.value);
+    }
     if (email.present) {
       map['email'] = Variable<String>(email.value);
+    }
+    if (phone.present) {
+      map['phone'] = Variable<String>(phone.value);
     }
     if (address.present) {
       map['address'] = Variable<String>(address.value);
@@ -446,7 +552,9 @@ class ClientsCompanion extends UpdateCompanion<Client> {
     return (StringBuffer('ClientsCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('contactName: $contactName, ')
           ..write('email: $email, ')
+          ..write('phone: $phone, ')
           ..write('address: $address, ')
           ..write('abn: $abn, ')
           ..write('defaultRate: $defaultRate, ')
@@ -1737,6 +1845,2032 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   }
 }
 
+class $ThemesTable extends Themes with TableInfo<$ThemesTable, InvoiceTheme> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ThemesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 100,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _logoMeta = const VerificationMeta('logo');
+  @override
+  late final GeneratedColumn<Uint8List> logo = GeneratedColumn<Uint8List>(
+    'logo',
+    aliasedName,
+    true,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _logoMimeMeta = const VerificationMeta(
+    'logoMime',
+  );
+  @override
+  late final GeneratedColumn<String> logoMime = GeneratedColumn<String>(
+    'logo_mime',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorBackgroundMeta = const VerificationMeta(
+    'colorBackground',
+  );
+  @override
+  late final GeneratedColumn<int> colorBackground = GeneratedColumn<int>(
+    'color_background',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorSurfaceMeta = const VerificationMeta(
+    'colorSurface',
+  );
+  @override
+  late final GeneratedColumn<int> colorSurface = GeneratedColumn<int>(
+    'color_surface',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorPrimaryMeta = const VerificationMeta(
+    'colorPrimary',
+  );
+  @override
+  late final GeneratedColumn<int> colorPrimary = GeneratedColumn<int>(
+    'color_primary',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorTextMeta = const VerificationMeta(
+    'colorText',
+  );
+  @override
+  late final GeneratedColumn<int> colorText = GeneratedColumn<int>(
+    'color_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorAccentMeta = const VerificationMeta(
+    'colorAccent',
+  );
+  @override
+  late final GeneratedColumn<int> colorAccent = GeneratedColumn<int>(
+    'color_accent',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fontFamilyMeta = const VerificationMeta(
+    'fontFamily',
+  );
+  @override
+  late final GeneratedColumn<String> fontFamily = GeneratedColumn<String>(
+    'font_family',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Urbanist'),
+  );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
+    'isDefault',
+  );
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+    'is_default',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_default" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    logo,
+    logoMime,
+    colorBackground,
+    colorSurface,
+    colorPrimary,
+    colorText,
+    colorAccent,
+    fontFamily,
+    isDefault,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'themes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<InvoiceTheme> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('logo')) {
+      context.handle(
+        _logoMeta,
+        logo.isAcceptableOrUnknown(data['logo']!, _logoMeta),
+      );
+    }
+    if (data.containsKey('logo_mime')) {
+      context.handle(
+        _logoMimeMeta,
+        logoMime.isAcceptableOrUnknown(data['logo_mime']!, _logoMimeMeta),
+      );
+    }
+    if (data.containsKey('color_background')) {
+      context.handle(
+        _colorBackgroundMeta,
+        colorBackground.isAcceptableOrUnknown(
+          data['color_background']!,
+          _colorBackgroundMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_colorBackgroundMeta);
+    }
+    if (data.containsKey('color_surface')) {
+      context.handle(
+        _colorSurfaceMeta,
+        colorSurface.isAcceptableOrUnknown(
+          data['color_surface']!,
+          _colorSurfaceMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_colorSurfaceMeta);
+    }
+    if (data.containsKey('color_primary')) {
+      context.handle(
+        _colorPrimaryMeta,
+        colorPrimary.isAcceptableOrUnknown(
+          data['color_primary']!,
+          _colorPrimaryMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_colorPrimaryMeta);
+    }
+    if (data.containsKey('color_text')) {
+      context.handle(
+        _colorTextMeta,
+        colorText.isAcceptableOrUnknown(data['color_text']!, _colorTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_colorTextMeta);
+    }
+    if (data.containsKey('color_accent')) {
+      context.handle(
+        _colorAccentMeta,
+        colorAccent.isAcceptableOrUnknown(
+          data['color_accent']!,
+          _colorAccentMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_colorAccentMeta);
+    }
+    if (data.containsKey('font_family')) {
+      context.handle(
+        _fontFamilyMeta,
+        fontFamily.isAcceptableOrUnknown(data['font_family']!, _fontFamilyMeta),
+      );
+    }
+    if (data.containsKey('is_default')) {
+      context.handle(
+        _isDefaultMeta,
+        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  InvoiceTheme map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return InvoiceTheme(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      logo: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}logo'],
+      ),
+      logoMime: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logo_mime'],
+      ),
+      colorBackground: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_background'],
+      )!,
+      colorSurface: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_surface'],
+      )!,
+      colorPrimary: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_primary'],
+      )!,
+      colorText: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_text'],
+      )!,
+      colorAccent: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_accent'],
+      )!,
+      fontFamily: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}font_family'],
+      )!,
+      isDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_default'],
+      )!,
+    );
+  }
+
+  @override
+  $ThemesTable createAlias(String alias) {
+    return $ThemesTable(attachedDatabase, alias);
+  }
+}
+
+class InvoiceTheme extends DataClass implements Insertable<InvoiceTheme> {
+  final int id;
+  final String name;
+  final Uint8List? logo;
+  final String? logoMime;
+  final int colorBackground;
+  final int colorSurface;
+  final int colorPrimary;
+  final int colorText;
+  final int colorAccent;
+  final String fontFamily;
+  final bool isDefault;
+  const InvoiceTheme({
+    required this.id,
+    required this.name,
+    this.logo,
+    this.logoMime,
+    required this.colorBackground,
+    required this.colorSurface,
+    required this.colorPrimary,
+    required this.colorText,
+    required this.colorAccent,
+    required this.fontFamily,
+    required this.isDefault,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || logo != null) {
+      map['logo'] = Variable<Uint8List>(logo);
+    }
+    if (!nullToAbsent || logoMime != null) {
+      map['logo_mime'] = Variable<String>(logoMime);
+    }
+    map['color_background'] = Variable<int>(colorBackground);
+    map['color_surface'] = Variable<int>(colorSurface);
+    map['color_primary'] = Variable<int>(colorPrimary);
+    map['color_text'] = Variable<int>(colorText);
+    map['color_accent'] = Variable<int>(colorAccent);
+    map['font_family'] = Variable<String>(fontFamily);
+    map['is_default'] = Variable<bool>(isDefault);
+    return map;
+  }
+
+  ThemesCompanion toCompanion(bool nullToAbsent) {
+    return ThemesCompanion(
+      id: Value(id),
+      name: Value(name),
+      logo: logo == null && nullToAbsent ? const Value.absent() : Value(logo),
+      logoMime: logoMime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logoMime),
+      colorBackground: Value(colorBackground),
+      colorSurface: Value(colorSurface),
+      colorPrimary: Value(colorPrimary),
+      colorText: Value(colorText),
+      colorAccent: Value(colorAccent),
+      fontFamily: Value(fontFamily),
+      isDefault: Value(isDefault),
+    );
+  }
+
+  factory InvoiceTheme.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return InvoiceTheme(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      logo: serializer.fromJson<Uint8List?>(json['logo']),
+      logoMime: serializer.fromJson<String?>(json['logoMime']),
+      colorBackground: serializer.fromJson<int>(json['colorBackground']),
+      colorSurface: serializer.fromJson<int>(json['colorSurface']),
+      colorPrimary: serializer.fromJson<int>(json['colorPrimary']),
+      colorText: serializer.fromJson<int>(json['colorText']),
+      colorAccent: serializer.fromJson<int>(json['colorAccent']),
+      fontFamily: serializer.fromJson<String>(json['fontFamily']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'logo': serializer.toJson<Uint8List?>(logo),
+      'logoMime': serializer.toJson<String?>(logoMime),
+      'colorBackground': serializer.toJson<int>(colorBackground),
+      'colorSurface': serializer.toJson<int>(colorSurface),
+      'colorPrimary': serializer.toJson<int>(colorPrimary),
+      'colorText': serializer.toJson<int>(colorText),
+      'colorAccent': serializer.toJson<int>(colorAccent),
+      'fontFamily': serializer.toJson<String>(fontFamily),
+      'isDefault': serializer.toJson<bool>(isDefault),
+    };
+  }
+
+  InvoiceTheme copyWith({
+    int? id,
+    String? name,
+    Value<Uint8List?> logo = const Value.absent(),
+    Value<String?> logoMime = const Value.absent(),
+    int? colorBackground,
+    int? colorSurface,
+    int? colorPrimary,
+    int? colorText,
+    int? colorAccent,
+    String? fontFamily,
+    bool? isDefault,
+  }) => InvoiceTheme(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    logo: logo.present ? logo.value : this.logo,
+    logoMime: logoMime.present ? logoMime.value : this.logoMime,
+    colorBackground: colorBackground ?? this.colorBackground,
+    colorSurface: colorSurface ?? this.colorSurface,
+    colorPrimary: colorPrimary ?? this.colorPrimary,
+    colorText: colorText ?? this.colorText,
+    colorAccent: colorAccent ?? this.colorAccent,
+    fontFamily: fontFamily ?? this.fontFamily,
+    isDefault: isDefault ?? this.isDefault,
+  );
+  InvoiceTheme copyWithCompanion(ThemesCompanion data) {
+    return InvoiceTheme(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      logo: data.logo.present ? data.logo.value : this.logo,
+      logoMime: data.logoMime.present ? data.logoMime.value : this.logoMime,
+      colorBackground: data.colorBackground.present
+          ? data.colorBackground.value
+          : this.colorBackground,
+      colorSurface: data.colorSurface.present
+          ? data.colorSurface.value
+          : this.colorSurface,
+      colorPrimary: data.colorPrimary.present
+          ? data.colorPrimary.value
+          : this.colorPrimary,
+      colorText: data.colorText.present ? data.colorText.value : this.colorText,
+      colorAccent: data.colorAccent.present
+          ? data.colorAccent.value
+          : this.colorAccent,
+      fontFamily: data.fontFamily.present
+          ? data.fontFamily.value
+          : this.fontFamily,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InvoiceTheme(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('logo: $logo, ')
+          ..write('logoMime: $logoMime, ')
+          ..write('colorBackground: $colorBackground, ')
+          ..write('colorSurface: $colorSurface, ')
+          ..write('colorPrimary: $colorPrimary, ')
+          ..write('colorText: $colorText, ')
+          ..write('colorAccent: $colorAccent, ')
+          ..write('fontFamily: $fontFamily, ')
+          ..write('isDefault: $isDefault')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    $driftBlobEquality.hash(logo),
+    logoMime,
+    colorBackground,
+    colorSurface,
+    colorPrimary,
+    colorText,
+    colorAccent,
+    fontFamily,
+    isDefault,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InvoiceTheme &&
+          other.id == this.id &&
+          other.name == this.name &&
+          $driftBlobEquality.equals(other.logo, this.logo) &&
+          other.logoMime == this.logoMime &&
+          other.colorBackground == this.colorBackground &&
+          other.colorSurface == this.colorSurface &&
+          other.colorPrimary == this.colorPrimary &&
+          other.colorText == this.colorText &&
+          other.colorAccent == this.colorAccent &&
+          other.fontFamily == this.fontFamily &&
+          other.isDefault == this.isDefault);
+}
+
+class ThemesCompanion extends UpdateCompanion<InvoiceTheme> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<Uint8List?> logo;
+  final Value<String?> logoMime;
+  final Value<int> colorBackground;
+  final Value<int> colorSurface;
+  final Value<int> colorPrimary;
+  final Value<int> colorText;
+  final Value<int> colorAccent;
+  final Value<String> fontFamily;
+  final Value<bool> isDefault;
+  const ThemesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.logo = const Value.absent(),
+    this.logoMime = const Value.absent(),
+    this.colorBackground = const Value.absent(),
+    this.colorSurface = const Value.absent(),
+    this.colorPrimary = const Value.absent(),
+    this.colorText = const Value.absent(),
+    this.colorAccent = const Value.absent(),
+    this.fontFamily = const Value.absent(),
+    this.isDefault = const Value.absent(),
+  });
+  ThemesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.logo = const Value.absent(),
+    this.logoMime = const Value.absent(),
+    required int colorBackground,
+    required int colorSurface,
+    required int colorPrimary,
+    required int colorText,
+    required int colorAccent,
+    this.fontFamily = const Value.absent(),
+    this.isDefault = const Value.absent(),
+  }) : name = Value(name),
+       colorBackground = Value(colorBackground),
+       colorSurface = Value(colorSurface),
+       colorPrimary = Value(colorPrimary),
+       colorText = Value(colorText),
+       colorAccent = Value(colorAccent);
+  static Insertable<InvoiceTheme> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<Uint8List>? logo,
+    Expression<String>? logoMime,
+    Expression<int>? colorBackground,
+    Expression<int>? colorSurface,
+    Expression<int>? colorPrimary,
+    Expression<int>? colorText,
+    Expression<int>? colorAccent,
+    Expression<String>? fontFamily,
+    Expression<bool>? isDefault,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (logo != null) 'logo': logo,
+      if (logoMime != null) 'logo_mime': logoMime,
+      if (colorBackground != null) 'color_background': colorBackground,
+      if (colorSurface != null) 'color_surface': colorSurface,
+      if (colorPrimary != null) 'color_primary': colorPrimary,
+      if (colorText != null) 'color_text': colorText,
+      if (colorAccent != null) 'color_accent': colorAccent,
+      if (fontFamily != null) 'font_family': fontFamily,
+      if (isDefault != null) 'is_default': isDefault,
+    });
+  }
+
+  ThemesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<Uint8List?>? logo,
+    Value<String?>? logoMime,
+    Value<int>? colorBackground,
+    Value<int>? colorSurface,
+    Value<int>? colorPrimary,
+    Value<int>? colorText,
+    Value<int>? colorAccent,
+    Value<String>? fontFamily,
+    Value<bool>? isDefault,
+  }) {
+    return ThemesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      logo: logo ?? this.logo,
+      logoMime: logoMime ?? this.logoMime,
+      colorBackground: colorBackground ?? this.colorBackground,
+      colorSurface: colorSurface ?? this.colorSurface,
+      colorPrimary: colorPrimary ?? this.colorPrimary,
+      colorText: colorText ?? this.colorText,
+      colorAccent: colorAccent ?? this.colorAccent,
+      fontFamily: fontFamily ?? this.fontFamily,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (logo.present) {
+      map['logo'] = Variable<Uint8List>(logo.value);
+    }
+    if (logoMime.present) {
+      map['logo_mime'] = Variable<String>(logoMime.value);
+    }
+    if (colorBackground.present) {
+      map['color_background'] = Variable<int>(colorBackground.value);
+    }
+    if (colorSurface.present) {
+      map['color_surface'] = Variable<int>(colorSurface.value);
+    }
+    if (colorPrimary.present) {
+      map['color_primary'] = Variable<int>(colorPrimary.value);
+    }
+    if (colorText.present) {
+      map['color_text'] = Variable<int>(colorText.value);
+    }
+    if (colorAccent.present) {
+      map['color_accent'] = Variable<int>(colorAccent.value);
+    }
+    if (fontFamily.present) {
+      map['font_family'] = Variable<String>(fontFamily.value);
+    }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ThemesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('logo: $logo, ')
+          ..write('logoMime: $logoMime, ')
+          ..write('colorBackground: $colorBackground, ')
+          ..write('colorSurface: $colorSurface, ')
+          ..write('colorPrimary: $colorPrimary, ')
+          ..write('colorText: $colorText, ')
+          ..write('colorAccent: $colorAccent, ')
+          ..write('fontFamily: $fontFamily, ')
+          ..write('isDefault: $isDefault')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ProfilesTable extends Profiles
+    with TableInfo<$ProfilesTable, InvoiceProfile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 100,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _businessNameMeta = const VerificationMeta(
+    'businessName',
+  );
+  @override
+  late final GeneratedColumn<String> businessName = GeneratedColumn<String>(
+    'business_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _phoneMeta = const VerificationMeta('phone');
+  @override
+  late final GeneratedColumn<String> phone = GeneratedColumn<String>(
+    'phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _websiteMeta = const VerificationMeta(
+    'website',
+  );
+  @override
+  late final GeneratedColumn<String> website = GeneratedColumn<String>(
+    'website',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _abnMeta = const VerificationMeta('abn');
+  @override
+  late final GeneratedColumn<String> abn = GeneratedColumn<String>(
+    'abn',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _payeeNameMeta = const VerificationMeta(
+    'payeeName',
+  );
+  @override
+  late final GeneratedColumn<String> payeeName = GeneratedColumn<String>(
+    'payee_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bankNameMeta = const VerificationMeta(
+    'bankName',
+  );
+  @override
+  late final GeneratedColumn<String> bankName = GeneratedColumn<String>(
+    'bank_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bankBsbMeta = const VerificationMeta(
+    'bankBsb',
+  );
+  @override
+  late final GeneratedColumn<String> bankBsb = GeneratedColumn<String>(
+    'bank_bsb',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bankAccountMeta = const VerificationMeta(
+    'bankAccount',
+  );
+  @override
+  late final GeneratedColumn<String> bankAccount = GeneratedColumn<String>(
+    'bank_account',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _swiftMeta = const VerificationMeta('swift');
+  @override
+  late final GeneratedColumn<String> swift = GeneratedColumn<String>(
+    'swift',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _paymentLinkMeta = const VerificationMeta(
+    'paymentLink',
+  );
+  @override
+  late final GeneratedColumn<String> paymentLink = GeneratedColumn<String>(
+    'payment_link',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _currencyMeta = const VerificationMeta(
+    'currency',
+  );
+  @override
+  late final GeneratedColumn<String> currency = GeneratedColumn<String>(
+    'currency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('USD'),
+  );
+  static const VerificationMeta _taxLabelMeta = const VerificationMeta(
+    'taxLabel',
+  );
+  @override
+  late final GeneratedColumn<String> taxLabel = GeneratedColumn<String>(
+    'tax_label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _taxRateMeta = const VerificationMeta(
+    'taxRate',
+  );
+  @override
+  late final GeneratedColumn<double> taxRate = GeneratedColumn<double>(
+    'tax_rate',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
+    'isDefault',
+  );
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+    'is_default',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_default" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    businessName,
+    email,
+    phone,
+    website,
+    address,
+    abn,
+    payeeName,
+    bankName,
+    bankBsb,
+    bankAccount,
+    swift,
+    paymentLink,
+    currency,
+    taxLabel,
+    taxRate,
+    isDefault,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<InvoiceProfile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('business_name')) {
+      context.handle(
+        _businessNameMeta,
+        businessName.isAcceptableOrUnknown(
+          data['business_name']!,
+          _businessNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    }
+    if (data.containsKey('phone')) {
+      context.handle(
+        _phoneMeta,
+        phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
+      );
+    }
+    if (data.containsKey('website')) {
+      context.handle(
+        _websiteMeta,
+        website.isAcceptableOrUnknown(data['website']!, _websiteMeta),
+      );
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('abn')) {
+      context.handle(
+        _abnMeta,
+        abn.isAcceptableOrUnknown(data['abn']!, _abnMeta),
+      );
+    }
+    if (data.containsKey('payee_name')) {
+      context.handle(
+        _payeeNameMeta,
+        payeeName.isAcceptableOrUnknown(data['payee_name']!, _payeeNameMeta),
+      );
+    }
+    if (data.containsKey('bank_name')) {
+      context.handle(
+        _bankNameMeta,
+        bankName.isAcceptableOrUnknown(data['bank_name']!, _bankNameMeta),
+      );
+    }
+    if (data.containsKey('bank_bsb')) {
+      context.handle(
+        _bankBsbMeta,
+        bankBsb.isAcceptableOrUnknown(data['bank_bsb']!, _bankBsbMeta),
+      );
+    }
+    if (data.containsKey('bank_account')) {
+      context.handle(
+        _bankAccountMeta,
+        bankAccount.isAcceptableOrUnknown(
+          data['bank_account']!,
+          _bankAccountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('swift')) {
+      context.handle(
+        _swiftMeta,
+        swift.isAcceptableOrUnknown(data['swift']!, _swiftMeta),
+      );
+    }
+    if (data.containsKey('payment_link')) {
+      context.handle(
+        _paymentLinkMeta,
+        paymentLink.isAcceptableOrUnknown(
+          data['payment_link']!,
+          _paymentLinkMeta,
+        ),
+      );
+    }
+    if (data.containsKey('currency')) {
+      context.handle(
+        _currencyMeta,
+        currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
+      );
+    }
+    if (data.containsKey('tax_label')) {
+      context.handle(
+        _taxLabelMeta,
+        taxLabel.isAcceptableOrUnknown(data['tax_label']!, _taxLabelMeta),
+      );
+    }
+    if (data.containsKey('tax_rate')) {
+      context.handle(
+        _taxRateMeta,
+        taxRate.isAcceptableOrUnknown(data['tax_rate']!, _taxRateMeta),
+      );
+    }
+    if (data.containsKey('is_default')) {
+      context.handle(
+        _isDefaultMeta,
+        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  InvoiceProfile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return InvoiceProfile(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      businessName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}business_name'],
+      )!,
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      ),
+      phone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}phone'],
+      ),
+      website: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}website'],
+      ),
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
+      abn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}abn'],
+      ),
+      payeeName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payee_name'],
+      ),
+      bankName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bank_name'],
+      ),
+      bankBsb: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bank_bsb'],
+      ),
+      bankAccount: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bank_account'],
+      ),
+      swift: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}swift'],
+      ),
+      paymentLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_link'],
+      ),
+      currency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency'],
+      )!,
+      taxLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tax_label'],
+      ),
+      taxRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}tax_rate'],
+      ),
+      isDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_default'],
+      )!,
+    );
+  }
+
+  @override
+  $ProfilesTable createAlias(String alias) {
+    return $ProfilesTable(attachedDatabase, alias);
+  }
+}
+
+class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
+  final int id;
+  final String name;
+  final String businessName;
+  final String? email;
+  final String? phone;
+  final String? website;
+  final String? address;
+  final String? abn;
+  final String? payeeName;
+  final String? bankName;
+  final String? bankBsb;
+  final String? bankAccount;
+  final String? swift;
+  final String? paymentLink;
+  final String currency;
+  final String? taxLabel;
+  final double? taxRate;
+  final bool isDefault;
+  const InvoiceProfile({
+    required this.id,
+    required this.name,
+    required this.businessName,
+    this.email,
+    this.phone,
+    this.website,
+    this.address,
+    this.abn,
+    this.payeeName,
+    this.bankName,
+    this.bankBsb,
+    this.bankAccount,
+    this.swift,
+    this.paymentLink,
+    required this.currency,
+    this.taxLabel,
+    this.taxRate,
+    required this.isDefault,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['business_name'] = Variable<String>(businessName);
+    if (!nullToAbsent || email != null) {
+      map['email'] = Variable<String>(email);
+    }
+    if (!nullToAbsent || phone != null) {
+      map['phone'] = Variable<String>(phone);
+    }
+    if (!nullToAbsent || website != null) {
+      map['website'] = Variable<String>(website);
+    }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || abn != null) {
+      map['abn'] = Variable<String>(abn);
+    }
+    if (!nullToAbsent || payeeName != null) {
+      map['payee_name'] = Variable<String>(payeeName);
+    }
+    if (!nullToAbsent || bankName != null) {
+      map['bank_name'] = Variable<String>(bankName);
+    }
+    if (!nullToAbsent || bankBsb != null) {
+      map['bank_bsb'] = Variable<String>(bankBsb);
+    }
+    if (!nullToAbsent || bankAccount != null) {
+      map['bank_account'] = Variable<String>(bankAccount);
+    }
+    if (!nullToAbsent || swift != null) {
+      map['swift'] = Variable<String>(swift);
+    }
+    if (!nullToAbsent || paymentLink != null) {
+      map['payment_link'] = Variable<String>(paymentLink);
+    }
+    map['currency'] = Variable<String>(currency);
+    if (!nullToAbsent || taxLabel != null) {
+      map['tax_label'] = Variable<String>(taxLabel);
+    }
+    if (!nullToAbsent || taxRate != null) {
+      map['tax_rate'] = Variable<double>(taxRate);
+    }
+    map['is_default'] = Variable<bool>(isDefault);
+    return map;
+  }
+
+  ProfilesCompanion toCompanion(bool nullToAbsent) {
+    return ProfilesCompanion(
+      id: Value(id),
+      name: Value(name),
+      businessName: Value(businessName),
+      email: email == null && nullToAbsent
+          ? const Value.absent()
+          : Value(email),
+      phone: phone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(phone),
+      website: website == null && nullToAbsent
+          ? const Value.absent()
+          : Value(website),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      abn: abn == null && nullToAbsent ? const Value.absent() : Value(abn),
+      payeeName: payeeName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payeeName),
+      bankName: bankName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bankName),
+      bankBsb: bankBsb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bankBsb),
+      bankAccount: bankAccount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bankAccount),
+      swift: swift == null && nullToAbsent
+          ? const Value.absent()
+          : Value(swift),
+      paymentLink: paymentLink == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paymentLink),
+      currency: Value(currency),
+      taxLabel: taxLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(taxLabel),
+      taxRate: taxRate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(taxRate),
+      isDefault: Value(isDefault),
+    );
+  }
+
+  factory InvoiceProfile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return InvoiceProfile(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      businessName: serializer.fromJson<String>(json['businessName']),
+      email: serializer.fromJson<String?>(json['email']),
+      phone: serializer.fromJson<String?>(json['phone']),
+      website: serializer.fromJson<String?>(json['website']),
+      address: serializer.fromJson<String?>(json['address']),
+      abn: serializer.fromJson<String?>(json['abn']),
+      payeeName: serializer.fromJson<String?>(json['payeeName']),
+      bankName: serializer.fromJson<String?>(json['bankName']),
+      bankBsb: serializer.fromJson<String?>(json['bankBsb']),
+      bankAccount: serializer.fromJson<String?>(json['bankAccount']),
+      swift: serializer.fromJson<String?>(json['swift']),
+      paymentLink: serializer.fromJson<String?>(json['paymentLink']),
+      currency: serializer.fromJson<String>(json['currency']),
+      taxLabel: serializer.fromJson<String?>(json['taxLabel']),
+      taxRate: serializer.fromJson<double?>(json['taxRate']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'businessName': serializer.toJson<String>(businessName),
+      'email': serializer.toJson<String?>(email),
+      'phone': serializer.toJson<String?>(phone),
+      'website': serializer.toJson<String?>(website),
+      'address': serializer.toJson<String?>(address),
+      'abn': serializer.toJson<String?>(abn),
+      'payeeName': serializer.toJson<String?>(payeeName),
+      'bankName': serializer.toJson<String?>(bankName),
+      'bankBsb': serializer.toJson<String?>(bankBsb),
+      'bankAccount': serializer.toJson<String?>(bankAccount),
+      'swift': serializer.toJson<String?>(swift),
+      'paymentLink': serializer.toJson<String?>(paymentLink),
+      'currency': serializer.toJson<String>(currency),
+      'taxLabel': serializer.toJson<String?>(taxLabel),
+      'taxRate': serializer.toJson<double?>(taxRate),
+      'isDefault': serializer.toJson<bool>(isDefault),
+    };
+  }
+
+  InvoiceProfile copyWith({
+    int? id,
+    String? name,
+    String? businessName,
+    Value<String?> email = const Value.absent(),
+    Value<String?> phone = const Value.absent(),
+    Value<String?> website = const Value.absent(),
+    Value<String?> address = const Value.absent(),
+    Value<String?> abn = const Value.absent(),
+    Value<String?> payeeName = const Value.absent(),
+    Value<String?> bankName = const Value.absent(),
+    Value<String?> bankBsb = const Value.absent(),
+    Value<String?> bankAccount = const Value.absent(),
+    Value<String?> swift = const Value.absent(),
+    Value<String?> paymentLink = const Value.absent(),
+    String? currency,
+    Value<String?> taxLabel = const Value.absent(),
+    Value<double?> taxRate = const Value.absent(),
+    bool? isDefault,
+  }) => InvoiceProfile(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    businessName: businessName ?? this.businessName,
+    email: email.present ? email.value : this.email,
+    phone: phone.present ? phone.value : this.phone,
+    website: website.present ? website.value : this.website,
+    address: address.present ? address.value : this.address,
+    abn: abn.present ? abn.value : this.abn,
+    payeeName: payeeName.present ? payeeName.value : this.payeeName,
+    bankName: bankName.present ? bankName.value : this.bankName,
+    bankBsb: bankBsb.present ? bankBsb.value : this.bankBsb,
+    bankAccount: bankAccount.present ? bankAccount.value : this.bankAccount,
+    swift: swift.present ? swift.value : this.swift,
+    paymentLink: paymentLink.present ? paymentLink.value : this.paymentLink,
+    currency: currency ?? this.currency,
+    taxLabel: taxLabel.present ? taxLabel.value : this.taxLabel,
+    taxRate: taxRate.present ? taxRate.value : this.taxRate,
+    isDefault: isDefault ?? this.isDefault,
+  );
+  InvoiceProfile copyWithCompanion(ProfilesCompanion data) {
+    return InvoiceProfile(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      businessName: data.businessName.present
+          ? data.businessName.value
+          : this.businessName,
+      email: data.email.present ? data.email.value : this.email,
+      phone: data.phone.present ? data.phone.value : this.phone,
+      website: data.website.present ? data.website.value : this.website,
+      address: data.address.present ? data.address.value : this.address,
+      abn: data.abn.present ? data.abn.value : this.abn,
+      payeeName: data.payeeName.present ? data.payeeName.value : this.payeeName,
+      bankName: data.bankName.present ? data.bankName.value : this.bankName,
+      bankBsb: data.bankBsb.present ? data.bankBsb.value : this.bankBsb,
+      bankAccount: data.bankAccount.present
+          ? data.bankAccount.value
+          : this.bankAccount,
+      swift: data.swift.present ? data.swift.value : this.swift,
+      paymentLink: data.paymentLink.present
+          ? data.paymentLink.value
+          : this.paymentLink,
+      currency: data.currency.present ? data.currency.value : this.currency,
+      taxLabel: data.taxLabel.present ? data.taxLabel.value : this.taxLabel,
+      taxRate: data.taxRate.present ? data.taxRate.value : this.taxRate,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InvoiceProfile(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('businessName: $businessName, ')
+          ..write('email: $email, ')
+          ..write('phone: $phone, ')
+          ..write('website: $website, ')
+          ..write('address: $address, ')
+          ..write('abn: $abn, ')
+          ..write('payeeName: $payeeName, ')
+          ..write('bankName: $bankName, ')
+          ..write('bankBsb: $bankBsb, ')
+          ..write('bankAccount: $bankAccount, ')
+          ..write('swift: $swift, ')
+          ..write('paymentLink: $paymentLink, ')
+          ..write('currency: $currency, ')
+          ..write('taxLabel: $taxLabel, ')
+          ..write('taxRate: $taxRate, ')
+          ..write('isDefault: $isDefault')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    businessName,
+    email,
+    phone,
+    website,
+    address,
+    abn,
+    payeeName,
+    bankName,
+    bankBsb,
+    bankAccount,
+    swift,
+    paymentLink,
+    currency,
+    taxLabel,
+    taxRate,
+    isDefault,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InvoiceProfile &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.businessName == this.businessName &&
+          other.email == this.email &&
+          other.phone == this.phone &&
+          other.website == this.website &&
+          other.address == this.address &&
+          other.abn == this.abn &&
+          other.payeeName == this.payeeName &&
+          other.bankName == this.bankName &&
+          other.bankBsb == this.bankBsb &&
+          other.bankAccount == this.bankAccount &&
+          other.swift == this.swift &&
+          other.paymentLink == this.paymentLink &&
+          other.currency == this.currency &&
+          other.taxLabel == this.taxLabel &&
+          other.taxRate == this.taxRate &&
+          other.isDefault == this.isDefault);
+}
+
+class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String> businessName;
+  final Value<String?> email;
+  final Value<String?> phone;
+  final Value<String?> website;
+  final Value<String?> address;
+  final Value<String?> abn;
+  final Value<String?> payeeName;
+  final Value<String?> bankName;
+  final Value<String?> bankBsb;
+  final Value<String?> bankAccount;
+  final Value<String?> swift;
+  final Value<String?> paymentLink;
+  final Value<String> currency;
+  final Value<String?> taxLabel;
+  final Value<double?> taxRate;
+  final Value<bool> isDefault;
+  const ProfilesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.businessName = const Value.absent(),
+    this.email = const Value.absent(),
+    this.phone = const Value.absent(),
+    this.website = const Value.absent(),
+    this.address = const Value.absent(),
+    this.abn = const Value.absent(),
+    this.payeeName = const Value.absent(),
+    this.bankName = const Value.absent(),
+    this.bankBsb = const Value.absent(),
+    this.bankAccount = const Value.absent(),
+    this.swift = const Value.absent(),
+    this.paymentLink = const Value.absent(),
+    this.currency = const Value.absent(),
+    this.taxLabel = const Value.absent(),
+    this.taxRate = const Value.absent(),
+    this.isDefault = const Value.absent(),
+  });
+  ProfilesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.businessName = const Value.absent(),
+    this.email = const Value.absent(),
+    this.phone = const Value.absent(),
+    this.website = const Value.absent(),
+    this.address = const Value.absent(),
+    this.abn = const Value.absent(),
+    this.payeeName = const Value.absent(),
+    this.bankName = const Value.absent(),
+    this.bankBsb = const Value.absent(),
+    this.bankAccount = const Value.absent(),
+    this.swift = const Value.absent(),
+    this.paymentLink = const Value.absent(),
+    this.currency = const Value.absent(),
+    this.taxLabel = const Value.absent(),
+    this.taxRate = const Value.absent(),
+    this.isDefault = const Value.absent(),
+  }) : name = Value(name);
+  static Insertable<InvoiceProfile> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? businessName,
+    Expression<String>? email,
+    Expression<String>? phone,
+    Expression<String>? website,
+    Expression<String>? address,
+    Expression<String>? abn,
+    Expression<String>? payeeName,
+    Expression<String>? bankName,
+    Expression<String>? bankBsb,
+    Expression<String>? bankAccount,
+    Expression<String>? swift,
+    Expression<String>? paymentLink,
+    Expression<String>? currency,
+    Expression<String>? taxLabel,
+    Expression<double>? taxRate,
+    Expression<bool>? isDefault,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (businessName != null) 'business_name': businessName,
+      if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
+      if (website != null) 'website': website,
+      if (address != null) 'address': address,
+      if (abn != null) 'abn': abn,
+      if (payeeName != null) 'payee_name': payeeName,
+      if (bankName != null) 'bank_name': bankName,
+      if (bankBsb != null) 'bank_bsb': bankBsb,
+      if (bankAccount != null) 'bank_account': bankAccount,
+      if (swift != null) 'swift': swift,
+      if (paymentLink != null) 'payment_link': paymentLink,
+      if (currency != null) 'currency': currency,
+      if (taxLabel != null) 'tax_label': taxLabel,
+      if (taxRate != null) 'tax_rate': taxRate,
+      if (isDefault != null) 'is_default': isDefault,
+    });
+  }
+
+  ProfilesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String>? businessName,
+    Value<String?>? email,
+    Value<String?>? phone,
+    Value<String?>? website,
+    Value<String?>? address,
+    Value<String?>? abn,
+    Value<String?>? payeeName,
+    Value<String?>? bankName,
+    Value<String?>? bankBsb,
+    Value<String?>? bankAccount,
+    Value<String?>? swift,
+    Value<String?>? paymentLink,
+    Value<String>? currency,
+    Value<String?>? taxLabel,
+    Value<double?>? taxRate,
+    Value<bool>? isDefault,
+  }) {
+    return ProfilesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      businessName: businessName ?? this.businessName,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      website: website ?? this.website,
+      address: address ?? this.address,
+      abn: abn ?? this.abn,
+      payeeName: payeeName ?? this.payeeName,
+      bankName: bankName ?? this.bankName,
+      bankBsb: bankBsb ?? this.bankBsb,
+      bankAccount: bankAccount ?? this.bankAccount,
+      swift: swift ?? this.swift,
+      paymentLink: paymentLink ?? this.paymentLink,
+      currency: currency ?? this.currency,
+      taxLabel: taxLabel ?? this.taxLabel,
+      taxRate: taxRate ?? this.taxRate,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (businessName.present) {
+      map['business_name'] = Variable<String>(businessName.value);
+    }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (phone.present) {
+      map['phone'] = Variable<String>(phone.value);
+    }
+    if (website.present) {
+      map['website'] = Variable<String>(website.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (abn.present) {
+      map['abn'] = Variable<String>(abn.value);
+    }
+    if (payeeName.present) {
+      map['payee_name'] = Variable<String>(payeeName.value);
+    }
+    if (bankName.present) {
+      map['bank_name'] = Variable<String>(bankName.value);
+    }
+    if (bankBsb.present) {
+      map['bank_bsb'] = Variable<String>(bankBsb.value);
+    }
+    if (bankAccount.present) {
+      map['bank_account'] = Variable<String>(bankAccount.value);
+    }
+    if (swift.present) {
+      map['swift'] = Variable<String>(swift.value);
+    }
+    if (paymentLink.present) {
+      map['payment_link'] = Variable<String>(paymentLink.value);
+    }
+    if (currency.present) {
+      map['currency'] = Variable<String>(currency.value);
+    }
+    if (taxLabel.present) {
+      map['tax_label'] = Variable<String>(taxLabel.value);
+    }
+    if (taxRate.present) {
+      map['tax_rate'] = Variable<double>(taxRate.value);
+    }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProfilesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('businessName: $businessName, ')
+          ..write('email: $email, ')
+          ..write('phone: $phone, ')
+          ..write('website: $website, ')
+          ..write('address: $address, ')
+          ..write('abn: $abn, ')
+          ..write('payeeName: $payeeName, ')
+          ..write('bankName: $bankName, ')
+          ..write('bankBsb: $bankBsb, ')
+          ..write('bankAccount: $bankAccount, ')
+          ..write('swift: $swift, ')
+          ..write('paymentLink: $paymentLink, ')
+          ..write('currency: $currency, ')
+          ..write('taxLabel: $taxLabel, ')
+          ..write('taxRate: $taxRate, ')
+          ..write('isDefault: $isDefault')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TemplatesTable extends Templates
+    with TableInfo<$TemplatesTable, InvoiceTemplate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TemplatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 100,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _themeIdMeta = const VerificationMeta(
+    'themeId',
+  );
+  @override
+  late final GeneratedColumn<int> themeId = GeneratedColumn<int>(
+    'theme_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES themes (id)',
+    ),
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<int> profileId = GeneratedColumn<int>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES profiles (id)',
+    ),
+  );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
+    'isDefault',
+  );
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+    'is_default',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_default" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    themeId,
+    profileId,
+    isDefault,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'templates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<InvoiceTemplate> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('theme_id')) {
+      context.handle(
+        _themeIdMeta,
+        themeId.isAcceptableOrUnknown(data['theme_id']!, _themeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_themeIdMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('is_default')) {
+      context.handle(
+        _isDefaultMeta,
+        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  InvoiceTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return InvoiceTemplate(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      themeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}theme_id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      isDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_default'],
+      )!,
+    );
+  }
+
+  @override
+  $TemplatesTable createAlias(String alias) {
+    return $TemplatesTable(attachedDatabase, alias);
+  }
+}
+
+class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
+  final int id;
+  final String name;
+  final int themeId;
+  final int profileId;
+  final bool isDefault;
+  const InvoiceTemplate({
+    required this.id,
+    required this.name,
+    required this.themeId,
+    required this.profileId,
+    required this.isDefault,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['theme_id'] = Variable<int>(themeId);
+    map['profile_id'] = Variable<int>(profileId);
+    map['is_default'] = Variable<bool>(isDefault);
+    return map;
+  }
+
+  TemplatesCompanion toCompanion(bool nullToAbsent) {
+    return TemplatesCompanion(
+      id: Value(id),
+      name: Value(name),
+      themeId: Value(themeId),
+      profileId: Value(profileId),
+      isDefault: Value(isDefault),
+    );
+  }
+
+  factory InvoiceTemplate.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return InvoiceTemplate(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      themeId: serializer.fromJson<int>(json['themeId']),
+      profileId: serializer.fromJson<int>(json['profileId']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'themeId': serializer.toJson<int>(themeId),
+      'profileId': serializer.toJson<int>(profileId),
+      'isDefault': serializer.toJson<bool>(isDefault),
+    };
+  }
+
+  InvoiceTemplate copyWith({
+    int? id,
+    String? name,
+    int? themeId,
+    int? profileId,
+    bool? isDefault,
+  }) => InvoiceTemplate(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    themeId: themeId ?? this.themeId,
+    profileId: profileId ?? this.profileId,
+    isDefault: isDefault ?? this.isDefault,
+  );
+  InvoiceTemplate copyWithCompanion(TemplatesCompanion data) {
+    return InvoiceTemplate(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      themeId: data.themeId.present ? data.themeId.value : this.themeId,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InvoiceTemplate(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('themeId: $themeId, ')
+          ..write('profileId: $profileId, ')
+          ..write('isDefault: $isDefault')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, themeId, profileId, isDefault);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InvoiceTemplate &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.themeId == this.themeId &&
+          other.profileId == this.profileId &&
+          other.isDefault == this.isDefault);
+}
+
+class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<int> themeId;
+  final Value<int> profileId;
+  final Value<bool> isDefault;
+  const TemplatesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.themeId = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.isDefault = const Value.absent(),
+  });
+  TemplatesCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    required int themeId,
+    required int profileId,
+    this.isDefault = const Value.absent(),
+  }) : name = Value(name),
+       themeId = Value(themeId),
+       profileId = Value(profileId);
+  static Insertable<InvoiceTemplate> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<int>? themeId,
+    Expression<int>? profileId,
+    Expression<bool>? isDefault,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (themeId != null) 'theme_id': themeId,
+      if (profileId != null) 'profile_id': profileId,
+      if (isDefault != null) 'is_default': isDefault,
+    });
+  }
+
+  TemplatesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<int>? themeId,
+    Value<int>? profileId,
+    Value<bool>? isDefault,
+  }) {
+    return TemplatesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      themeId: themeId ?? this.themeId,
+      profileId: profileId ?? this.profileId,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (themeId.present) {
+      map['theme_id'] = Variable<int>(themeId.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<int>(profileId.value);
+    }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TemplatesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('themeId: $themeId, ')
+          ..write('profileId: $profileId, ')
+          ..write('isDefault: $isDefault')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1744,6 +3878,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $JobsTable jobs = $JobsTable(this);
   late final $TasksTable tasks = $TasksTable(this);
   late final $TimeEntriesTable timeEntries = $TimeEntriesTable(this);
+  late final $ThemesTable themes = $ThemesTable(this);
+  late final $ProfilesTable profiles = $ProfilesTable(this);
+  late final $TemplatesTable templates = $TemplatesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1753,6 +3890,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     jobs,
     tasks,
     timeEntries,
+    themes,
+    profiles,
+    templates,
   ];
 }
 
@@ -1760,7 +3900,9 @@ typedef $$ClientsTableCreateCompanionBuilder =
     ClientsCompanion Function({
       Value<int> id,
       required String name,
+      Value<String?> contactName,
       Value<String?> email,
+      Value<String?> phone,
       Value<String?> address,
       Value<String?> abn,
       required double defaultRate,
@@ -1770,7 +3912,9 @@ typedef $$ClientsTableUpdateCompanionBuilder =
     ClientsCompanion Function({
       Value<int> id,
       Value<String> name,
+      Value<String?> contactName,
       Value<String?> email,
+      Value<String?> phone,
       Value<String?> address,
       Value<String?> abn,
       Value<double> defaultRate,
@@ -1820,8 +3964,18 @@ class $$ClientsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get email => $composableBuilder(
     column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get phone => $composableBuilder(
+    column: $table.phone,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1890,8 +4044,18 @@ class $$ClientsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get email => $composableBuilder(
     column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get phone => $composableBuilder(
+    column: $table.phone,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1931,8 +4095,16 @@ class $$ClientsTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
+  GeneratedColumn<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get email =>
       $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get phone =>
+      $composableBuilder(column: $table.phone, builder: (column) => column);
 
   GeneratedColumn<String> get address =>
       $composableBuilder(column: $table.address, builder: (column) => column);
@@ -2006,7 +4178,9 @@ class $$ClientsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> contactName = const Value.absent(),
                 Value<String?> email = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> abn = const Value.absent(),
                 Value<double> defaultRate = const Value.absent(),
@@ -2014,7 +4188,9 @@ class $$ClientsTableTableManager
               }) => ClientsCompanion(
                 id: id,
                 name: name,
+                contactName: contactName,
                 email: email,
+                phone: phone,
                 address: address,
                 abn: abn,
                 defaultRate: defaultRate,
@@ -2024,7 +4200,9 @@ class $$ClientsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
+                Value<String?> contactName = const Value.absent(),
                 Value<String?> email = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
                 Value<String?> address = const Value.absent(),
                 Value<String?> abn = const Value.absent(),
                 required double defaultRate,
@@ -2032,7 +4210,9 @@ class $$ClientsTableTableManager
               }) => ClientsCompanion.insert(
                 id: id,
                 name: name,
+                contactName: contactName,
                 email: email,
+                phone: phone,
                 address: address,
                 abn: abn,
                 defaultRate: defaultRate,
@@ -3455,6 +5635,1363 @@ typedef $$TimeEntriesTableProcessedTableManager =
       TimeEntry,
       PrefetchHooks Function({bool jobId, bool taskId})
     >;
+typedef $$ThemesTableCreateCompanionBuilder =
+    ThemesCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<Uint8List?> logo,
+      Value<String?> logoMime,
+      required int colorBackground,
+      required int colorSurface,
+      required int colorPrimary,
+      required int colorText,
+      required int colorAccent,
+      Value<String> fontFamily,
+      Value<bool> isDefault,
+    });
+typedef $$ThemesTableUpdateCompanionBuilder =
+    ThemesCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<Uint8List?> logo,
+      Value<String?> logoMime,
+      Value<int> colorBackground,
+      Value<int> colorSurface,
+      Value<int> colorPrimary,
+      Value<int> colorText,
+      Value<int> colorAccent,
+      Value<String> fontFamily,
+      Value<bool> isDefault,
+    });
+
+final class $$ThemesTableReferences
+    extends BaseReferences<_$AppDatabase, $ThemesTable, InvoiceTheme> {
+  $$ThemesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$TemplatesTable, List<InvoiceTemplate>>
+  _templatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.templates,
+    aliasName: 'themes__id__templates__theme_id',
+  );
+
+  $$TemplatesTableProcessedTableManager get templatesRefs {
+    final manager = $$TemplatesTableTableManager(
+      $_db,
+      $_db.templates,
+    ).filter((f) => f.themeId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_templatesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ThemesTableFilterComposer
+    extends Composer<_$AppDatabase, $ThemesTable> {
+  $$ThemesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get logo => $composableBuilder(
+    column: $table.logo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logoMime => $composableBuilder(
+    column: $table.logoMime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorBackground => $composableBuilder(
+    column: $table.colorBackground,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorSurface => $composableBuilder(
+    column: $table.colorSurface,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorPrimary => $composableBuilder(
+    column: $table.colorPrimary,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorText => $composableBuilder(
+    column: $table.colorText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorAccent => $composableBuilder(
+    column: $table.colorAccent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> templatesRefs(
+    Expression<bool> Function($$TemplatesTableFilterComposer f) f,
+  ) {
+    final $$TemplatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.templates,
+      getReferencedColumn: (t) => t.themeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TemplatesTableFilterComposer(
+            $db: $db,
+            $table: $db.templates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ThemesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ThemesTable> {
+  $$ThemesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get logo => $composableBuilder(
+    column: $table.logo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logoMime => $composableBuilder(
+    column: $table.logoMime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorBackground => $composableBuilder(
+    column: $table.colorBackground,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorSurface => $composableBuilder(
+    column: $table.colorSurface,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorPrimary => $composableBuilder(
+    column: $table.colorPrimary,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorText => $composableBuilder(
+    column: $table.colorText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorAccent => $composableBuilder(
+    column: $table.colorAccent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ThemesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ThemesTable> {
+  $$ThemesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get logo =>
+      $composableBuilder(column: $table.logo, builder: (column) => column);
+
+  GeneratedColumn<String> get logoMime =>
+      $composableBuilder(column: $table.logoMime, builder: (column) => column);
+
+  GeneratedColumn<int> get colorBackground => $composableBuilder(
+    column: $table.colorBackground,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get colorSurface => $composableBuilder(
+    column: $table.colorSurface,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get colorPrimary => $composableBuilder(
+    column: $table.colorPrimary,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get colorText =>
+      $composableBuilder(column: $table.colorText, builder: (column) => column);
+
+  GeneratedColumn<int> get colorAccent => $composableBuilder(
+    column: $table.colorAccent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
+
+  Expression<T> templatesRefs<T extends Object>(
+    Expression<T> Function($$TemplatesTableAnnotationComposer a) f,
+  ) {
+    final $$TemplatesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.templates,
+      getReferencedColumn: (t) => t.themeId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TemplatesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.templates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ThemesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ThemesTable,
+          InvoiceTheme,
+          $$ThemesTableFilterComposer,
+          $$ThemesTableOrderingComposer,
+          $$ThemesTableAnnotationComposer,
+          $$ThemesTableCreateCompanionBuilder,
+          $$ThemesTableUpdateCompanionBuilder,
+          (InvoiceTheme, $$ThemesTableReferences),
+          InvoiceTheme,
+          PrefetchHooks Function({bool templatesRefs})
+        > {
+  $$ThemesTableTableManager(_$AppDatabase db, $ThemesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ThemesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ThemesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ThemesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<Uint8List?> logo = const Value.absent(),
+                Value<String?> logoMime = const Value.absent(),
+                Value<int> colorBackground = const Value.absent(),
+                Value<int> colorSurface = const Value.absent(),
+                Value<int> colorPrimary = const Value.absent(),
+                Value<int> colorText = const Value.absent(),
+                Value<int> colorAccent = const Value.absent(),
+                Value<String> fontFamily = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+              }) => ThemesCompanion(
+                id: id,
+                name: name,
+                logo: logo,
+                logoMime: logoMime,
+                colorBackground: colorBackground,
+                colorSurface: colorSurface,
+                colorPrimary: colorPrimary,
+                colorText: colorText,
+                colorAccent: colorAccent,
+                fontFamily: fontFamily,
+                isDefault: isDefault,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<Uint8List?> logo = const Value.absent(),
+                Value<String?> logoMime = const Value.absent(),
+                required int colorBackground,
+                required int colorSurface,
+                required int colorPrimary,
+                required int colorText,
+                required int colorAccent,
+                Value<String> fontFamily = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+              }) => ThemesCompanion.insert(
+                id: id,
+                name: name,
+                logo: logo,
+                logoMime: logoMime,
+                colorBackground: colorBackground,
+                colorSurface: colorSurface,
+                colorPrimary: colorPrimary,
+                colorText: colorText,
+                colorAccent: colorAccent,
+                fontFamily: fontFamily,
+                isDefault: isDefault,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $$ThemesTableReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback: ({templatesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (templatesRefs) db.templates],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (templatesRefs)
+                    await $_getPrefetchedData<
+                      InvoiceTheme,
+                      $ThemesTable,
+                      InvoiceTemplate
+                    >(
+                      currentTable: table,
+                      referencedTable: $$ThemesTableReferences
+                          ._templatesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$ThemesTableReferences(db, table, p0).templatesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.themeId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ThemesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ThemesTable,
+      InvoiceTheme,
+      $$ThemesTableFilterComposer,
+      $$ThemesTableOrderingComposer,
+      $$ThemesTableAnnotationComposer,
+      $$ThemesTableCreateCompanionBuilder,
+      $$ThemesTableUpdateCompanionBuilder,
+      (InvoiceTheme, $$ThemesTableReferences),
+      InvoiceTheme,
+      PrefetchHooks Function({bool templatesRefs})
+    >;
+typedef $$ProfilesTableCreateCompanionBuilder =
+    ProfilesCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<String> businessName,
+      Value<String?> email,
+      Value<String?> phone,
+      Value<String?> website,
+      Value<String?> address,
+      Value<String?> abn,
+      Value<String?> payeeName,
+      Value<String?> bankName,
+      Value<String?> bankBsb,
+      Value<String?> bankAccount,
+      Value<String?> swift,
+      Value<String?> paymentLink,
+      Value<String> currency,
+      Value<String?> taxLabel,
+      Value<double?> taxRate,
+      Value<bool> isDefault,
+    });
+typedef $$ProfilesTableUpdateCompanionBuilder =
+    ProfilesCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String> businessName,
+      Value<String?> email,
+      Value<String?> phone,
+      Value<String?> website,
+      Value<String?> address,
+      Value<String?> abn,
+      Value<String?> payeeName,
+      Value<String?> bankName,
+      Value<String?> bankBsb,
+      Value<String?> bankAccount,
+      Value<String?> swift,
+      Value<String?> paymentLink,
+      Value<String> currency,
+      Value<String?> taxLabel,
+      Value<double?> taxRate,
+      Value<bool> isDefault,
+    });
+
+final class $$ProfilesTableReferences
+    extends BaseReferences<_$AppDatabase, $ProfilesTable, InvoiceProfile> {
+  $$ProfilesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$TemplatesTable, List<InvoiceTemplate>>
+  _templatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.templates,
+    aliasName: 'profiles__id__templates__profile_id',
+  );
+
+  $$TemplatesTableProcessedTableManager get templatesRefs {
+    final manager = $$TemplatesTableTableManager(
+      $_db,
+      $_db.templates,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_templatesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ProfilesTableFilterComposer
+    extends Composer<_$AppDatabase, $ProfilesTable> {
+  $$ProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get businessName => $composableBuilder(
+    column: $table.businessName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get website => $composableBuilder(
+    column: $table.website,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get abn => $composableBuilder(
+    column: $table.abn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payeeName => $composableBuilder(
+    column: $table.payeeName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bankName => $composableBuilder(
+    column: $table.bankName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bankBsb => $composableBuilder(
+    column: $table.bankBsb,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bankAccount => $composableBuilder(
+    column: $table.bankAccount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get swift => $composableBuilder(
+    column: $table.swift,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paymentLink => $composableBuilder(
+    column: $table.paymentLink,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get taxLabel => $composableBuilder(
+    column: $table.taxLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get taxRate => $composableBuilder(
+    column: $table.taxRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> templatesRefs(
+    Expression<bool> Function($$TemplatesTableFilterComposer f) f,
+  ) {
+    final $$TemplatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.templates,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TemplatesTableFilterComposer(
+            $db: $db,
+            $table: $db.templates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ProfilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProfilesTable> {
+  $$ProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get businessName => $composableBuilder(
+    column: $table.businessName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get website => $composableBuilder(
+    column: $table.website,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get abn => $composableBuilder(
+    column: $table.abn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payeeName => $composableBuilder(
+    column: $table.payeeName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bankName => $composableBuilder(
+    column: $table.bankName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bankBsb => $composableBuilder(
+    column: $table.bankBsb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bankAccount => $composableBuilder(
+    column: $table.bankAccount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get swift => $composableBuilder(
+    column: $table.swift,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get paymentLink => $composableBuilder(
+    column: $table.paymentLink,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get taxLabel => $composableBuilder(
+    column: $table.taxLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get taxRate => $composableBuilder(
+    column: $table.taxRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProfilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProfilesTable> {
+  $$ProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get businessName => $composableBuilder(
+    column: $table.businessName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get email =>
+      $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get phone =>
+      $composableBuilder(column: $table.phone, builder: (column) => column);
+
+  GeneratedColumn<String> get website =>
+      $composableBuilder(column: $table.website, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get abn =>
+      $composableBuilder(column: $table.abn, builder: (column) => column);
+
+  GeneratedColumn<String> get payeeName =>
+      $composableBuilder(column: $table.payeeName, builder: (column) => column);
+
+  GeneratedColumn<String> get bankName =>
+      $composableBuilder(column: $table.bankName, builder: (column) => column);
+
+  GeneratedColumn<String> get bankBsb =>
+      $composableBuilder(column: $table.bankBsb, builder: (column) => column);
+
+  GeneratedColumn<String> get bankAccount => $composableBuilder(
+    column: $table.bankAccount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get swift =>
+      $composableBuilder(column: $table.swift, builder: (column) => column);
+
+  GeneratedColumn<String> get paymentLink => $composableBuilder(
+    column: $table.paymentLink,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get currency =>
+      $composableBuilder(column: $table.currency, builder: (column) => column);
+
+  GeneratedColumn<String> get taxLabel =>
+      $composableBuilder(column: $table.taxLabel, builder: (column) => column);
+
+  GeneratedColumn<double> get taxRate =>
+      $composableBuilder(column: $table.taxRate, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
+
+  Expression<T> templatesRefs<T extends Object>(
+    Expression<T> Function($$TemplatesTableAnnotationComposer a) f,
+  ) {
+    final $$TemplatesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.templates,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TemplatesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.templates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ProfilesTable,
+          InvoiceProfile,
+          $$ProfilesTableFilterComposer,
+          $$ProfilesTableOrderingComposer,
+          $$ProfilesTableAnnotationComposer,
+          $$ProfilesTableCreateCompanionBuilder,
+          $$ProfilesTableUpdateCompanionBuilder,
+          (InvoiceProfile, $$ProfilesTableReferences),
+          InvoiceProfile,
+          PrefetchHooks Function({bool templatesRefs})
+        > {
+  $$ProfilesTableTableManager(_$AppDatabase db, $ProfilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProfilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProfilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> businessName = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
+                Value<String?> website = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> abn = const Value.absent(),
+                Value<String?> payeeName = const Value.absent(),
+                Value<String?> bankName = const Value.absent(),
+                Value<String?> bankBsb = const Value.absent(),
+                Value<String?> bankAccount = const Value.absent(),
+                Value<String?> swift = const Value.absent(),
+                Value<String?> paymentLink = const Value.absent(),
+                Value<String> currency = const Value.absent(),
+                Value<String?> taxLabel = const Value.absent(),
+                Value<double?> taxRate = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+              }) => ProfilesCompanion(
+                id: id,
+                name: name,
+                businessName: businessName,
+                email: email,
+                phone: phone,
+                website: website,
+                address: address,
+                abn: abn,
+                payeeName: payeeName,
+                bankName: bankName,
+                bankBsb: bankBsb,
+                bankAccount: bankAccount,
+                swift: swift,
+                paymentLink: paymentLink,
+                currency: currency,
+                taxLabel: taxLabel,
+                taxRate: taxRate,
+                isDefault: isDefault,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<String> businessName = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
+                Value<String?> website = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> abn = const Value.absent(),
+                Value<String?> payeeName = const Value.absent(),
+                Value<String?> bankName = const Value.absent(),
+                Value<String?> bankBsb = const Value.absent(),
+                Value<String?> bankAccount = const Value.absent(),
+                Value<String?> swift = const Value.absent(),
+                Value<String?> paymentLink = const Value.absent(),
+                Value<String> currency = const Value.absent(),
+                Value<String?> taxLabel = const Value.absent(),
+                Value<double?> taxRate = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+              }) => ProfilesCompanion.insert(
+                id: id,
+                name: name,
+                businessName: businessName,
+                email: email,
+                phone: phone,
+                website: website,
+                address: address,
+                abn: abn,
+                payeeName: payeeName,
+                bankName: bankName,
+                bankBsb: bankBsb,
+                bankAccount: bankAccount,
+                swift: swift,
+                paymentLink: paymentLink,
+                currency: currency,
+                taxLabel: taxLabel,
+                taxRate: taxRate,
+                isDefault: isDefault,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ProfilesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({templatesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (templatesRefs) db.templates],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (templatesRefs)
+                    await $_getPrefetchedData<
+                      InvoiceProfile,
+                      $ProfilesTable,
+                      InvoiceTemplate
+                    >(
+                      currentTable: table,
+                      referencedTable: $$ProfilesTableReferences
+                          ._templatesRefsTable(db),
+                      managerFromTypedResult: (p0) => $$ProfilesTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).templatesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.profileId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ProfilesTable,
+      InvoiceProfile,
+      $$ProfilesTableFilterComposer,
+      $$ProfilesTableOrderingComposer,
+      $$ProfilesTableAnnotationComposer,
+      $$ProfilesTableCreateCompanionBuilder,
+      $$ProfilesTableUpdateCompanionBuilder,
+      (InvoiceProfile, $$ProfilesTableReferences),
+      InvoiceProfile,
+      PrefetchHooks Function({bool templatesRefs})
+    >;
+typedef $$TemplatesTableCreateCompanionBuilder =
+    TemplatesCompanion Function({
+      Value<int> id,
+      required String name,
+      required int themeId,
+      required int profileId,
+      Value<bool> isDefault,
+    });
+typedef $$TemplatesTableUpdateCompanionBuilder =
+    TemplatesCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<int> themeId,
+      Value<int> profileId,
+      Value<bool> isDefault,
+    });
+
+final class $$TemplatesTableReferences
+    extends BaseReferences<_$AppDatabase, $TemplatesTable, InvoiceTemplate> {
+  $$TemplatesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $ThemesTable _themeIdTable(_$AppDatabase db) =>
+      db.themes.createAlias('templates__theme_id__themes__id');
+
+  $$ThemesTableProcessedTableManager get themeId {
+    final $_column = $_itemColumn<int>('theme_id')!;
+
+    final manager = $$ThemesTableTableManager(
+      $_db,
+      $_db.themes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_themeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ProfilesTable _profileIdTable(_$AppDatabase db) =>
+      db.profiles.createAlias('templates__profile_id__profiles__id');
+
+  $$ProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<int>('profile_id')!;
+
+    final manager = $$ProfilesTableTableManager(
+      $_db,
+      $_db.profiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TemplatesTableFilterComposer
+    extends Composer<_$AppDatabase, $TemplatesTable> {
+  $$TemplatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ThemesTableFilterComposer get themeId {
+    final $$ThemesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.themeId,
+      referencedTable: $db.themes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ThemesTableFilterComposer(
+            $db: $db,
+            $table: $db.themes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ProfilesTableFilterComposer get profileId {
+    final $$ProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.profiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TemplatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $TemplatesTable> {
+  $$TemplatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ThemesTableOrderingComposer get themeId {
+    final $$ThemesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.themeId,
+      referencedTable: $db.themes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ThemesTableOrderingComposer(
+            $db: $db,
+            $table: $db.themes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ProfilesTableOrderingComposer get profileId {
+    final $$ProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.profiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TemplatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TemplatesTable> {
+  $$TemplatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
+
+  $$ThemesTableAnnotationComposer get themeId {
+    final $$ThemesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.themeId,
+      referencedTable: $db.themes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ThemesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.themes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ProfilesTableAnnotationComposer get profileId {
+    final $$ProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.profiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.profiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TemplatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TemplatesTable,
+          InvoiceTemplate,
+          $$TemplatesTableFilterComposer,
+          $$TemplatesTableOrderingComposer,
+          $$TemplatesTableAnnotationComposer,
+          $$TemplatesTableCreateCompanionBuilder,
+          $$TemplatesTableUpdateCompanionBuilder,
+          (InvoiceTemplate, $$TemplatesTableReferences),
+          InvoiceTemplate,
+          PrefetchHooks Function({bool themeId, bool profileId})
+        > {
+  $$TemplatesTableTableManager(_$AppDatabase db, $TemplatesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TemplatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TemplatesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TemplatesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> themeId = const Value.absent(),
+                Value<int> profileId = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+              }) => TemplatesCompanion(
+                id: id,
+                name: name,
+                themeId: themeId,
+                profileId: profileId,
+                isDefault: isDefault,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                required int themeId,
+                required int profileId,
+                Value<bool> isDefault = const Value.absent(),
+              }) => TemplatesCompanion.insert(
+                id: id,
+                name: name,
+                themeId: themeId,
+                profileId: profileId,
+                isDefault: isDefault,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TemplatesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({themeId = false, profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (themeId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.themeId,
+                                referencedTable: $$TemplatesTableReferences
+                                    ._themeIdTable(db),
+                                referencedColumn: $$TemplatesTableReferences
+                                    ._themeIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable: $$TemplatesTableReferences
+                                    ._profileIdTable(db),
+                                referencedColumn: $$TemplatesTableReferences
+                                    ._profileIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TemplatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TemplatesTable,
+      InvoiceTemplate,
+      $$TemplatesTableFilterComposer,
+      $$TemplatesTableOrderingComposer,
+      $$TemplatesTableAnnotationComposer,
+      $$TemplatesTableCreateCompanionBuilder,
+      $$TemplatesTableUpdateCompanionBuilder,
+      (InvoiceTemplate, $$TemplatesTableReferences),
+      InvoiceTemplate,
+      PrefetchHooks Function({bool themeId, bool profileId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3466,4 +7003,10 @@ class $AppDatabaseManager {
       $$TasksTableTableManager(_db, _db.tasks);
   $$TimeEntriesTableTableManager get timeEntries =>
       $$TimeEntriesTableTableManager(_db, _db.timeEntries);
+  $$ThemesTableTableManager get themes =>
+      $$ThemesTableTableManager(_db, _db.themes);
+  $$ProfilesTableTableManager get profiles =>
+      $$ProfilesTableTableManager(_db, _db.profiles);
+  $$TemplatesTableTableManager get templates =>
+      $$TemplatesTableTableManager(_db, _db.templates);
 }
