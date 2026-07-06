@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:time_tracker/constants/text_styles.dart';
 import 'package:time_tracker/constants/tokens.dart';
 
 ThemeData buildAppTheme(Brightness brightness) {
@@ -39,17 +40,18 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontFamily: AppTokens.fontFamily,
         color: AppTokens.colorBrandPrimary,
         fontWeight: FontWeight.w600,
-        letterSpacing: 1,
+        letterSpacing: 1.25,
       ),
       titleMedium: const TextStyle(
         fontFamily: AppTokens.fontFamily,
         fontWeight: FontWeight.w600,
+        letterSpacing: 1,
       ),
       bodyMedium: const TextStyle(
         fontFamily: AppTokens.fontFamily,
         height: AppTokens.fontHeightDefault,
         color: AppTokens.colorBrandPrimary,
-        letterSpacing: 1,
+        letterSpacing: 1.25,
       ),
       // Explainer / helper / empty-state text — muted throughout.
       bodySmall: TextStyle(
@@ -183,5 +185,10 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
 
     visualDensity: VisualDensity.comfortable, // desktop: a touch roomier
+
+    // App-specific chrome text styles that don't fit Material's fixed
+    // TextTheme roles without colliding with an existing role's meaning
+    // elsewhere — see AppTextStyles' doc comment.
+    extensions: [AppTextStyles.of(scheme)],
   );
 }

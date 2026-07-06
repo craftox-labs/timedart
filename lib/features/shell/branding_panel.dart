@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:time_tracker/constants/text_styles.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
@@ -416,11 +417,7 @@ class _SectionHeaderTile extends StatelessWidget {
       ),
       title: Text(
         label,
-        style: TextStyle(
-          fontSize: AppTokens.fontSizeSm,
-          fontWeight: FontWeight.w500,
-          color: t.colorScheme.onSurface,
-        ),
+        style: t.extension<AppTextStyles>()!.sectionHeader,
       ),
       // A lone trailing icon, same as an entity row's edit icon — both flush
       // to the tile's right inset, so the `+` lines up in the same column as
@@ -476,10 +473,7 @@ class _EntityTile extends StatelessWidget {
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: AppTokens.fontSizeXs,
-                fontWeight: FontWeight.w300,
-              ),
+              style: t.extension<AppTextStyles>()!.rowTitleSmall,
             ),
           ),
           if (isDefault) ...[

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/constants/format.dart';
+import 'package:time_tracker/constants/text_styles.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/tracker/task_rows.dart';
@@ -127,19 +128,11 @@ class TaskList extends StatelessWidget {
         row.task.title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: AppTokens.fontSizeSm,
-          fontWeight: FontWeight.w400,
-          color: theme.colorScheme.onSurface,
-        ),
+        style: theme.extension<AppTextStyles>()!.rowTitle,
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(
-          fontSize: AppTokens.fontSizeXs,
-          fontWeight: FontWeight.w300,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        style: theme.extension<AppTextStyles>()!.rowMeta,
       ),
       // Add-entry then edit sit to the LEFT of the fixed-width time so the time
       // column stays aligned and the action icons line up (like the panel caps).
@@ -170,8 +163,12 @@ class TaskList extends StatelessWidget {
           const SizedBox(width: AppTokens.spaceMd),
           Text(
             Duration(seconds: row.totalSeconds).hms,
-            style: const TextStyle(
-              fontFeatures: [FontFeature.tabularFigures()],
+            // rowTitle (not rowMeta) to match this row's title size — this
+            // trailing text previously had no explicit style of its own and
+            // inherited size/weight from the ListTile theme default.
+            style: theme.extension<AppTextStyles>()!.rowTitle.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -203,25 +200,25 @@ class TaskList extends StatelessWidget {
         hasName ? desc : when,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: AppTokens.fontSizeXs,
-          fontWeight: FontWeight.w300,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        style: theme.extension<AppTextStyles>()!.rowMeta,
       ),
       subtitle: hasName
           ? Text(
               when,
-              style: TextStyle(
-                fontSize: AppTokens.fontSizeXs,
-                fontWeight: FontWeight.w300,
+              style: theme.extension<AppTextStyles>()!.rowMeta.copyWith(
                 color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             )
           : null,
       trailing: Text(
         Duration(seconds: e.seconds).hms,
-        style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+        // rowTitle (not rowMeta) — like the task row's duration above, this
+        // previously had no explicit style and inherited the ListTile theme
+        // default's size, independent of this row's own (smaller) title.
+        style: theme.extension<AppTextStyles>()!.rowTitle.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }

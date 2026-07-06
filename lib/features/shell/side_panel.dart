@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:time_tracker/data/database.dart';
+import 'package:time_tracker/constants/text_styles.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/panel_rows.dart';
 import 'package:time_tracker/widgets/focus_ring.dart';
@@ -690,11 +691,7 @@ class _ClientHeaderTile extends StatelessWidget {
       ),
       title: Text(
         client.name,
-        style: TextStyle(
-          fontSize: AppTokens.fontSizeSm,
-          fontWeight: FontWeight.w400,
-          color: theme.colorScheme.onSurface,
-        ),
+        style: theme.extension<AppTextStyles>()!.rowTitle,
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -759,10 +756,7 @@ class JobRowItem extends StatelessWidget {
         '${job.code} - ${job.title}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontSize: AppTokens.fontSizeXs,
-          fontWeight: FontWeight.w300,
-        ),
+        style: Theme.of(context).extension<AppTextStyles>()!.rowTitleSmall,
       ),
       trailing: IconButton(
         icon: const Icon(Icons.edit_note),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:time_tracker/constants/text_styles.dart';
 import 'package:time_tracker/constants/tokens.dart';
 
 /// A panel title bar styled like the side-panel search field — a filled,
@@ -45,11 +46,7 @@ class PanelTitleBar extends StatelessWidget {
             const SizedBox(width: AppTokens.spaceSm),
             Text(
               title,
-              style: TextStyle(
-                fontSize: AppTokens.fontSizeSm,
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-              ),
+              style: theme.extension<AppTextStyles>()!.panelHeading,
             ),
           ],
         ),
