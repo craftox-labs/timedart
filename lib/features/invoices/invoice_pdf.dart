@@ -102,9 +102,15 @@ Future<Uint8List> buildBrandedInvoicePdf({
   final doc0 = pw.Document();
   doc0.addPage(
     pw.MultiPage(
-      pageFormat: PdfPageFormat.a4,
-      margin: pw.EdgeInsets.all(_p(InvoiceLayout.pageMargin)),
-      theme: pw.ThemeData.withFont(base: font, bold: bold),
+      pageTheme: pw.PageTheme(
+        pageFormat: PdfPageFormat.a4,
+        margin: pw.EdgeInsets.all(_p(InvoiceLayout.pageMargin)),
+        theme: pw.ThemeData.withFont(base: font, bold: bold),
+        buildBackground: (context) => pw.FullPage(
+          ignoreMargins: true,
+          child: pw.Container(color: bg),
+        ),
+      ),
       build: (context) => [
         // ── Masthead: logo right-aligned, contact line below ──
         pw.Row(

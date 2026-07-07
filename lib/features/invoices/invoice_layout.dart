@@ -13,33 +13,33 @@ abstract class InvoiceLayout {
   static const double pdfScale = pdfPageWidth / designWidth; // ≈ 0.726
 
   // ── Spacing ────────────────────────────────────────────────────────
-  static const double pageMargin = 50.0;
-  static const double sectionGap = 33.0;
-  static const double headlineGap = 11.0;
-  static const double partyBlockGap = 22.0;
-  static const double detailsBlockGap = 28.0;
-  static const double detailsHeadingGap = 8.0;
-  static const double tableHeaderGap = 6.0;
+  static const double pageMargin = 64.0;
+  static const double sectionGap = 32.0;
+  static const double headlineGap = 16.0;
+  static const double partyBlockGap = 24.0;
+  static const double detailsBlockGap = 24.0;
+  static const double detailsHeadingGap = 12.0;
+  static const double tableHeaderGap = 8.0;
   static const double totalsGap = 8.0;
-  static const double amountDueGap = 6.0;
+  static const double amountDueGap = 8.0;
   static const double paymentsHeadingGap = 8.0;
-  static const double paymentsFieldGap = 11.0;
-  static const double gridGutter = 11.0;
-  static const double fieldValueGap = 3.0;
-  static const double fieldPaddingH = 14.0;
-  static const double fieldPaddingV = 10.0;
-  static const double rowPaddingH = 17.0;
-  static const double rowPaddingV = 10.0;
-  static const double rowMarginBottom = 4.0;
+  static const double paymentsFieldGap = 8.0;
+  static const double gridGutter = 12.0;
+  static const double fieldValueGap = 4.0;
+  static const double fieldPaddingH = 12.0;
+  static const double fieldPaddingV = 8.0;
+  static const double rowPaddingH = 12.0;
+  static const double rowPaddingV = 4.0;
+  static const double rowMarginBottom = 12.0;
   static const double fieldRadius = 6.0;
 
   // ── Typography ─────────────────────────────────────────────────────
-  static const double fontLabel = 11.0;
+  static const double fontLabel = 10.0;
   static const double fontCell = 12.0;
-  static const double fontValue = 15.0;
-  static const double fontInvoiceNumber = 18.0;
-  static const double fontDetailsHeading = 19.0;
+  static const double fontValue = 12.0;
+  static const double fontInvoiceNumber = 20.0;
+  static const double fontDetailsHeading = 16.0;
   static const double fontPaymentsHeading = 17.0;
-  static const double fontAmountDue = 22.0;
-  static const double fontHeadline = 30.0;
+  static const double fontAmountDue = 16.0;
+  static const double fontHeadline = 20.0;
 }
