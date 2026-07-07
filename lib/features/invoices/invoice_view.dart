@@ -9,17 +9,17 @@ import 'package:time_tracker/features/invoices/invoice_preview.dart';
 import 'package:time_tracker/features/invoices/invoice_repository.dart';
 import 'package:time_tracker/widgets/dropdown_field.dart';
 
-/// Read-only invoice builder for one job: pick a date range, preview the
+/// Read-only invoice builder for one project: pick a date range, preview the
 /// itemised entries, export a PDF. Generates on demand — stores nothing.
 class InvoiceView extends StatefulWidget {
   const InvoiceView({
     super.key,
     required this.db,
-    required this.job,
+    required this.project,
     required this.onDone,
   });
   final AppDatabase db;
-  final Job job;
+  final Project project;
   final VoidCallback onDone;
 
   @override
@@ -75,7 +75,7 @@ class _InvoiceViewState extends State<InvoiceView> {
   void _load() {
     _future = loadInvoiceDocument(
       widget.db,
-      jobId: widget.job.id,
+      projectId: widget.project.id,
       from: _range.start,
       to: DateTime(
         _range.end.year,
@@ -172,7 +172,7 @@ class _InvoiceViewState extends State<InvoiceView> {
 
   Future<void> _exportPdf() async {
     try {
-      final safe = widget.job.code.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+      final safe = widget.project.code.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
       // Let the user choose where to save (native file dialog).
       final location = await getSaveLocation(
         suggestedName: 'invoice_$safe.pdf',
@@ -186,7 +186,7 @@ class _InvoiceViewState extends State<InvoiceView> {
       // number chosen above (issue date is today for now).
       final loaded = await loadInvoiceDocument(
         widget.db,
-        jobId: widget.job.id,
+        projectId: widget.project.id,
         from: _range.start,
         to: DateTime(
           _range.end.year,
@@ -317,7 +317,7 @@ class _InvoiceViewState extends State<InvoiceView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Invoice · ${widget.job.code} — ${widget.job.title}',
+          'Invoice · ${widget.project.code} — ${widget.project.title}',
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: AppTokens.spaceXs),

@@ -12,10 +12,10 @@ class SidePanel extends StatefulWidget {
   const SidePanel({
     super.key,
     required this.db,
-    this.selectedJobId,
+    this.selectedProjectId,
     this.onSelect,
-    required this.onEditJob,
-    required this.onAddJob,
+    required this.onEditProject,
+    required this.onAddProject,
     required this.onEditClient,
     required this.onAddClient,
     this.cursorFocusNode,
@@ -27,10 +27,10 @@ class SidePanel extends StatefulWidget {
     this.autofocus = false,
   });
   final AppDatabase db;
-  final int? selectedJobId;
-  final void Function(int)? onSelect; // select a job for the timer
-  final void Function(Job) onEditJob;
-  final void Function(int clientId) onAddJob; // add a job under this client
+  final int? selectedProjectId;
+  final void Function(int)? onSelect; // select a project for the timer
+  final void Function(Project) onEditProject;
+  final void Function(int clientId) onAddProject; // add a project under this client
   final void Function(Client) onEditClient;
   final VoidCallback onAddClient;
   // Row-cursor focus, owned by the shell so it can move focus *into* the panel.
@@ -60,20 +60,20 @@ class SidePanel extends StatefulWidget {
 
 class _SidePanelState extends State<SidePanel> {
   late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
-  late final Stream<List<Job>> _jobsStream = widget.db.watchJobs();
+  late final Stream<List<Project>> _projectsStream = widget.db.watchProjects();
   final _searchController = TextEditingController();
   FocusNode? _internalSearch;
   FocusNode get _searchFocus =>
       widget.searchFocusNode ?? (_internalSearch ??= FocusNode());
   String _query = '';
 
-  // Manually expanded clients. Selecting a job seeds its client here once (so
+  // Manually expanded clients. Selecting a project seeds its client here once (so
   // it opens but can still be collapsed); searching force-expands everything
   // at the effective-expansion layer without touching this set.
   final Set<int> _expanded = {};
-  int? _seededSelection; // selectedJobId we last auto-expanded a client for
+  int? _seededSelection; // selectedProjectId we last auto-expanded a client for
 
-  // Row cursor over the flattened visible list (clients + jobs of expanded
+  // Row cursor over the flattened visible list (clients + projects of expanded
   // clients). Kept valid against [_rows] after every rebuild.
   int _cursor = 0;
   bool _pendingG = false; // saw the first `g` of a `gg`
@@ -135,9 +135,9 @@ class _SidePanelState extends State<SidePanel> {
     });
   }
 
-  int? _selectedClientId(List<Job> jobs) {
-    for (final j in jobs) {
-      if (j.id == widget.selectedJobId) return j.clientId;
+  int? _selectedClientId(List<Project> projects) {
+    for (final j in projects) {
+      if (j.id == widget.selectedProjectId) return j.clientId;
     }
     return null;
   }
@@ -169,24 +169,24 @@ class _SidePanelState extends State<SidePanel> {
     }
   }
 
-  // n / N: hop to the next/previous job row (reads best while searching).
+  // n / N: hop to the next/previous project row (reads best while searching).
   void _jumpMatch(int dir) {
     for (var i = _cursor + dir; i >= 0 && i < _rows.length; i += dir) {
-      if (_rows[i] is JobRow) {
+      if (_rows[i] is ProjectRow) {
         _jumpTo(i);
         return;
       }
     }
   }
 
-  // e : edit the focused row (client or job) — mirrors the tracker's `e`.
+  // e : edit the focused row (client or project) — mirrors the tracker's `e`.
   void _editCurrent() {
     if (_cursor >= _rows.length) return;
     final row = _rows[_cursor];
     if (row is ClientRow) {
       widget.onEditClient(row.client);
-    } else if (row is JobRow) {
-      widget.onEditJob(row.job);
+    } else if (row is ProjectRow) {
+      widget.onEditProject(row.project);
     }
   }
 
@@ -194,14 +194,14 @@ class _SidePanelState extends State<SidePanel> {
     if (_cursor >= _rows.length) return;
     final row = _rows[_cursor];
     if (row is ClientRow) {
-      if (!row.expanded && row.hasJobs) {
+      if (!row.expanded && row.hasProjects) {
         setState(() => _expanded.add(row.clientId));
         _ensureVisible();
-      } else if (row.expanded && row.hasJobs) {
-        _moveCursor(1); // step into the first job
+      } else if (row.expanded && row.hasProjects) {
+        _moveCursor(1); // step into the first project
       }
-    } else if (row is JobRow) {
-      widget.onSelect?.call(row.job.id); // open == a click
+    } else if (row is ProjectRow) {
+      widget.onSelect?.call(row.project.id); // open == a click
     }
   }
 
@@ -213,7 +213,7 @@ class _SidePanelState extends State<SidePanel> {
       if (row.expanded && !_searching) {
         setState(() => _expanded.remove(row.clientId));
       }
-    } else if (row is JobRow) {
+    } else if (row is ProjectRow) {
       final idx = _indexOfClient(row.clientId);
       if (idx != null) _jumpTo(idx);
     }
@@ -366,12 +366,12 @@ class _SidePanelState extends State<SidePanel> {
       _editCurrent();
       return KeyEventResult.handled;
     }
-    // a = add job under the focused row's client; A = add client.
+    // a = add project under the focused row's client; A = add client.
     if (key == LogicalKeyboardKey.keyA) {
       if (shift) {
         widget.onAddClient();
       } else {
-        _addJobCurrent();
+        _addProjectCurrent();
       }
       return KeyEventResult.handled;
     }
@@ -379,10 +379,10 @@ class _SidePanelState extends State<SidePanel> {
     return KeyEventResult.ignored;
   }
 
-  // A : add a job under the focused row's client (client or job row).
-  void _addJobCurrent() {
+  // A : add a project under the focused row's client (client or project row).
+  void _addProjectCurrent() {
     if (_cursor >= _rows.length) return;
-    widget.onAddJob(_rows[_cursor].clientId);
+    widget.onAddProject(_rows[_cursor].clientId);
   }
 
   @override
@@ -410,11 +410,11 @@ class _SidePanelState extends State<SidePanel> {
               stream: _clientsStream,
               builder: (context, clientSnap) {
                 final clients = clientSnap.data ?? [];
-                return StreamBuilder<List<Job>>(
-                  stream: _jobsStream,
-                  builder: (context, jobSnap) {
-                    final jobs = jobSnap.data ?? [];
-                    return _buildList(clients, jobs);
+                return StreamBuilder<List<Project>>(
+                  stream: _projectsStream,
+                  builder: (context, projectSnap) {
+                    final projects = projectSnap.data ?? [];
+                    return _buildList(clients, projects);
                   },
                 );
               },
@@ -434,16 +434,16 @@ class _SidePanelState extends State<SidePanel> {
     );
   }
 
-  Widget _buildList(List<Client> clients, List<Job> jobs) {
+  Widget _buildList(List<Client> clients, List<Project> projects) {
     // Drop expansion state for clients that no longer exist (deleted).
     final clientIds = clients.map((c) => c.id).toSet();
     _expanded.removeWhere((id) => !clientIds.contains(id));
 
-    // Seed the selected job's client into the expansion set once per selection
+    // Seed the selected project's client into the expansion set once per selection
     // change, so it opens on select but stays collapsible afterwards.
-    if (widget.selectedJobId != _seededSelection) {
-      _seededSelection = widget.selectedJobId;
-      final selectedClientId = _selectedClientId(jobs);
+    if (widget.selectedProjectId != _seededSelection) {
+      _seededSelection = widget.selectedProjectId;
+      final selectedClientId = _selectedClientId(projects);
       if (selectedClientId != null) _expanded.add(selectedClientId);
     }
 
@@ -454,7 +454,7 @@ class _SidePanelState extends State<SidePanel> {
 
     _rows = buildPanelRows(
       clients: clients,
-      jobs: jobs,
+      projects: projects,
       query: _query,
       isExpanded: effectiveExpanded,
     );
@@ -487,26 +487,26 @@ class _SidePanelState extends State<SidePanel> {
               client: row.client,
               expanded: row.expanded,
               onToggle: () => _toggleClient(row.clientId),
-              onAddJob: () => widget.onAddJob(row.clientId),
+              onAddProject: () => widget.onAddProject(row.clientId),
               onEditClient: () => widget.onEditClient(row.client),
             ),
-            JobRow() => JobRowItem(
+            ProjectRow() => ProjectRowItem(
               key: key,
-              job: row.job,
-              isSelected: row.job.id == widget.selectedJobId,
-              onTap: () => widget.onSelect?.call(row.job.id),
-              onEdit: () => widget.onEditJob(row.job),
+              project: row.project,
+              isSelected: row.project.id == widget.selectedProjectId,
+              onTap: () => widget.onSelect?.call(row.project.id),
+              onEdit: () => widget.onEditProject(row.project),
             ),
           },
         );
 
         // A divider above each client group (except the first), and breathing
-        // space after a client's last job — the visual grouping ExpansionTile
+        // space after a client's last project — the visual grouping ExpansionTile
         // used to provide.
         final dividerBefore = i > 0 && row is ClientRow;
-        final lastJobOfClient =
-            row is JobRow && (i + 1 >= _rows.length || _rows[i + 1] is ClientRow);
-        if (!dividerBefore && !lastJobOfClient) return tile;
+        final lastProjectOfClient =
+            row is ProjectRow && (i + 1 >= _rows.length || _rows[i + 1] is ClientRow);
+        if (!dividerBefore && !lastProjectOfClient) return tile;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -517,7 +517,7 @@ class _SidePanelState extends State<SidePanel> {
                 color: AppTokens.colorBorder,
               ),
             tile,
-            if (lastJobOfClient) const SizedBox(height: AppTokens.spaceSm),
+            if (lastProjectOfClient) const SizedBox(height: AppTokens.spaceSm),
           ],
         );
       },
@@ -526,7 +526,7 @@ class _SidePanelState extends State<SidePanel> {
 }
 
 // A subtle inset ring on the keyboard-focused row — deliberately distinct from
-// the green *selected*-job tint so both can show at once.
+// the green *selected*-project tint so both can show at once.
 // --- Search field + Add-client button, pinned to the top of the panel ---
 class _SearchHeader extends StatelessWidget {
   final TextEditingController controller;
@@ -658,7 +658,7 @@ class _ClientHeaderTile extends StatelessWidget {
   final Client client;
   final bool expanded;
   final VoidCallback onToggle;
-  final VoidCallback onAddJob;
+  final VoidCallback onAddProject;
   final VoidCallback onEditClient;
 
   const _ClientHeaderTile({
@@ -666,7 +666,7 @@ class _ClientHeaderTile extends StatelessWidget {
     required this.client,
     required this.expanded,
     required this.onToggle,
-    required this.onAddJob,
+    required this.onAddProject,
     required this.onEditClient,
   });
 
@@ -702,11 +702,11 @@ class _ClientHeaderTile extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            tooltip: 'Add job (a)',
-            onPressed: onAddJob,
+            tooltip: 'Add project (a)',
+            onPressed: onAddProject,
           ),
           const SizedBox(width: AppTokens.spaceSm),
-          // Edit sits rightmost, aligning with the job rows' edit icon.
+          // Edit sits rightmost, aligning with the project rows' edit icon.
           IconButton(
             icon: const Icon(Icons.edit_note),
             iconSize: AppTokens.iconMd,
@@ -722,16 +722,16 @@ class _ClientHeaderTile extends StatelessWidget {
   }
 }
 
-// --- Job row ---
-class JobRowItem extends StatelessWidget {
-  final Job job;
+// --- Project row ---
+class ProjectRowItem extends StatelessWidget {
+  final Project project;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onEdit;
 
-  const JobRowItem({
+  const ProjectRowItem({
     super.key,
-    required this.job,
+    required this.project,
     required this.isSelected,
     required this.onTap,
     required this.onEdit,
@@ -745,7 +745,7 @@ class JobRowItem extends StatelessWidget {
       selected: isSelected,
       // Left indent under the client; right inset matches the client header
       // (spaceMd) so the action icons line up in a column. Tight vertical
-      // padding keeps job rows close together.
+      // padding keeps project rows close together.
       contentPadding: const EdgeInsets.fromLTRB(
         AppTokens.spaceLg,
         AppTokens.space3xs,
@@ -753,7 +753,7 @@ class JobRowItem extends StatelessWidget {
         AppTokens.space3xs,
       ),
       title: Text(
-        '${job.code} - ${job.title}',
+        '${project.code} - ${project.title}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).extension<AppTextStyles>()!.rowTitleSmall,
@@ -764,7 +764,7 @@ class JobRowItem extends StatelessWidget {
         visualDensity: VisualDensity.compact,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(),
-        tooltip: 'Edit job (e)',
+        tooltip: 'Edit project (e)',
         onPressed: onEdit,
       ),
       onTap: onTap,

@@ -1,12 +1,12 @@
 /// What a finished session should be persisted as.
 class FinishedSession {
-  final int jobId;
+  final int projectId;
   final int taskId;
   final DateTime startedAt;
   final DateTime endedAt;
   final int seconds;
   const FinishedSession({
-    required this.jobId,
+    required this.projectId,
     required this.taskId,
     required this.startedAt,
     required this.endedAt,
@@ -16,7 +16,7 @@ class FinishedSession {
 
 /// The timekeeping state machine, free of Flutter.
 ///
-/// The job is bound at first [start], so switching — or losing — the selection
+/// The project is bound at first [start], so switching — or losing — the selection
 /// mid-session can't misattribute or silently discard tracked time. The clock
 /// lives in the widget and drives [tick]; persistence lives in the widget too.
 /// [finish] returns what to save *without* clearing, so a failed write can be
@@ -28,21 +28,21 @@ class TimerSession {
   int _elapsed = 0;
   bool _running = false;
   DateTime? _startedAt;
-  int? _boundJobId;
+  int? _boundProjectId;
   int? _boundTaskId;
 
   int get elapsed => _elapsed;
   bool get isRunning => _running;
-  int? get boundJobId => _boundJobId;
+  int? get boundProjectId => _boundProjectId;
   int? get boundTaskId => _boundTaskId;
   bool get hasSession => _running || _elapsed > 0;
 
-  /// Start or resume. Binds [jobId]/[taskId] at first start so a selection
+  /// Start or resume. Binds [projectId]/[taskId] at first start so a selection
   /// change mid-session can't misattribute time; a no-op while running.
-  void start(int? jobId, int? taskId, {required DateTime now}) {
+  void start(int? projectId, int? taskId, {required DateTime now}) {
     if (_running) return;
     _startedAt ??= now;
-    _boundJobId ??= jobId;
+    _boundProjectId ??= projectId;
     _boundTaskId ??= taskId;
     _running = true;
   }
@@ -53,14 +53,14 @@ class TimerSession {
   void tick() => _elapsed++;
 
   /// Stop and return what to persist, or null when there's nothing to record
-  /// (empty session, or no job was ever bound). Does not clear.
+  /// (empty session, or no project was ever bound). Does not clear.
   FinishedSession? finish({required DateTime now}) {
     _running = false;
-    if (_elapsed == 0 || _boundJobId == null || _boundTaskId == null) {
+    if (_elapsed == 0 || _boundProjectId == null || _boundTaskId == null) {
       return null;
     }
     return FinishedSession(
-      jobId: _boundJobId!,
+      projectId: _boundProjectId!,
       taskId: _boundTaskId!,
       startedAt: _startedAt ?? now,
       endedAt: now,
@@ -72,7 +72,7 @@ class TimerSession {
     _elapsed = 0;
     _running = false;
     _startedAt = null;
-    _boundJobId = null;
+    _boundProjectId = null;
     _boundTaskId = null;
   }
 }

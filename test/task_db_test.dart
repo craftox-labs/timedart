@@ -10,11 +10,11 @@ void main() {
   tearDown(() => db.close());
 
   test('addEntry attaches to the given task', () async {
-    final jobId = await db.ensureDefaultJob();
-    final taskId = await db.addTask(jobId: jobId, title: 'Design');
+    final projectId = await db.ensureDefaultProject();
+    final taskId = await db.addTask(projectId: projectId, title: 'Design');
 
     await db.addEntry(
-      jobId: jobId,
+      projectId: projectId,
       taskId: taskId,
       description: 'first pass',
       startedAt: DateTime(2026),
@@ -28,10 +28,10 @@ void main() {
   });
 
   test('deleteTask is blocked while the task has time entries', () async {
-    final jobId = await db.ensureDefaultJob();
-    final taskId = await db.addTask(jobId: jobId, title: 'Build');
+    final projectId = await db.ensureDefaultProject();
+    final taskId = await db.addTask(projectId: projectId, title: 'Build');
     await db.addEntry(
-      jobId: jobId,
+      projectId: projectId,
       taskId: taskId,
       startedAt: DateTime(2026),
       endedAt: DateTime(2026),
@@ -45,8 +45,8 @@ void main() {
   });
 
   test('deleteTask removes a task with no entries', () async {
-    final jobId = await db.ensureDefaultJob();
-    final taskId = await db.addTask(jobId: jobId, title: 'Empty');
+    final projectId = await db.ensureDefaultProject();
+    final taskId = await db.addTask(projectId: projectId, title: 'Empty');
 
     await db.deleteTask(taskId);
 

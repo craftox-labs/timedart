@@ -52,10 +52,10 @@ void main() {
     // under job 2 is a DIFFERENT task.
     Task taskOf(int entryIndex) =>
         tasks.firstWhere((t) => t.id == entries[entryIndex].taskId);
-    expect(taskOf(0).id, taskOf(1).id); // both job-1 Design
+    expect(taskOf(0).id, taskOf(1).id); // both project-1 Design
     expect(taskOf(0).title, 'Design');
-    expect(taskOf(0).jobId, 1);
-    expect(taskOf(3).jobId, 2); // job-2 Design
+    expect(taskOf(0).projectId, 1);
+    expect(taskOf(3).projectId, 2); // project-2 Design
     expect(taskOf(0).id, isNot(taskOf(3).id));
   });
 
@@ -97,7 +97,7 @@ void main() {
 
     // A fresh insert (what "finish" does) succeeds against the migrated schema.
     await db.addEntry(
-      jobId: 1,
+      projectId: 1,
       taskId: 1,
       description: 'a note',
       startedAt: DateTime(2026),

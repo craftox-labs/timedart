@@ -12,7 +12,7 @@ import 'package:time_tracker/features/tracker/task_editor.dart';
 import 'package:time_tracker/features/tracker/entry_form.dart';
 
 /// Owns the running timer so it survives content-pane switches. Editing a
-/// client/job or invoicing unmounts the tracker view, but the session and its
+/// client/project or invoicing unmounts the tracker view, but the session and its
 /// per-second ticker live here on the shell — so navigating away no longer
 /// discards a running session. The view renders from this and listens for
 /// repaints.
@@ -32,9 +32,9 @@ class TimerController extends ChangeNotifier {
   bool get hasSession => _session.hasSession;
   int? get boundTaskId => _session.boundTaskId;
 
-  void startOrResume(int? jobId, int? taskId) {
+  void startOrResume(int? projectId, int? taskId) {
     if (_session.isRunning) return;
-    _session.start(jobId, taskId, now: DateTime.now());
+    _session.start(projectId, taskId, now: DateTime.now());
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       _session.tick();
@@ -76,14 +76,14 @@ class TimerView extends StatefulWidget {
   const TimerView({
     super.key,
     required this.db,
-    required this.jobId,
+    required this.projectId,
     required this.onInvoice,
     this.cursorFocusNode,
     this.controller,
   });
   final AppDatabase db;
-  final int? jobId;
-  final void Function(Job) onInvoice; // open the invoice view for this job
+  final int? projectId;
+  final void Function(Project) onInvoice; // open the invoice view for this project
   // Keyboard cursor for the entry list (wide layout). When null, the pane has
   // no keymap — used by the narrow drawer layout, which is mouse-first.
   final FocusNode? cursorFocusNode;
@@ -100,9 +100,9 @@ class _TimerViewState extends State<TimerView> {
   TimerController? _internalController;
   TimerController get _c =>
       widget.controller ?? (_internalController ??= TimerController());
-  Stream<List<TimeEntry>>? _entriesStream; // entries for the selected job
-  Stream<List<Task>>? _tasksStream; // tasks for the selected job
-  Stream<(Job, Client)?>? _jobStream;
+  Stream<List<TimeEntry>>? _entriesStream; // entries for the selected project
+  Stream<List<Task>>? _tasksStream; // tasks for the selected project
+  Stream<(Project, Client)?>? _projectStream;
 
   // The task the timer will track against (armed by selecting it in the list).
   // The Start action is gated on this; a running session binds its task at
@@ -131,7 +131,7 @@ class _TimerViewState extends State<TimerView> {
   @override
   void initState() {
     super.initState();
-    _updateJobStream();
+    _updateProjectStream();
     _cursorNode?.addListener(_onFocusChanged);
     _c.primary = _primaryAction;
   }
@@ -139,7 +139,7 @@ class _TimerViewState extends State<TimerView> {
   @override
   void didUpdateWidget(TimerView old) {
     super.didUpdateWidget(old);
-    if (old.jobId != widget.jobId) _updateJobStream();
+    if (old.projectId != widget.projectId) _updateProjectStream();
     if (old.cursorFocusNode != widget.cursorFocusNode) {
       old.cursorFocusNode?.removeListener(_onFocusChanged);
       _cursorNode?.addListener(_onFocusChanged);
@@ -172,11 +172,11 @@ class _TimerViewState extends State<TimerView> {
     if (mounted) setState(() {});
   }
 
-  void _updateJobStream() {
-    final id = widget.jobId;
-    _jobStream = id == null ? null : widget.db.watchJobWithClient(id);
-    _entriesStream = id == null ? null : widget.db.watchEntriesForJob(id);
-    _tasksStream = id == null ? null : widget.db.watchTasksForJob(id);
+  void _updateProjectStream() {
+    final id = widget.projectId;
+    _projectStream = id == null ? null : widget.db.watchProjectWithClient(id);
+    _entriesStream = id == null ? null : widget.db.watchEntriesForProject(id);
+    _tasksStream = id == null ? null : widget.db.watchTasksForProject(id);
 
     // Cache tasks + entries so the key handler can index the flattened rows
     // (rebuilt in build()). The cursor is clamped there against _rows.
@@ -185,7 +185,7 @@ class _TimerViewState extends State<TimerView> {
     _entries = const [];
     _tasks = const [];
     _expanded.clear();
-    _selectedTaskId = null; // a different job means a different task set
+    _selectedTaskId = null; // a different project means a different task set
     _cursor = 0;
     _entriesSub = _entriesStream?.listen((rows) {
       if (mounted) setState(() => _entries = rows);
@@ -207,14 +207,14 @@ class _TimerViewState extends State<TimerView> {
   void _selectTask(int taskId) =>
       setState(() => _selectedTaskId = taskId); // arm for the timer
 
-  void _startOrResume() => _c.startOrResume(widget.jobId, _selectedTaskId);
+  void _startOrResume() => _c.startOrResume(widget.projectId, _selectedTaskId);
 
   void _pause() => _c.pause();
 
   Future<void> _finish() async {
     final result = _c.stop();
 
-    // Nothing to record (empty session, or no job/task was ever bound).
+    // Nothing to record (empty session, or no project/task was ever bound).
     if (result == null) {
       _c.reset();
       return;
@@ -224,7 +224,7 @@ class _TimerViewState extends State<TimerView> {
     try {
       // Await the write so a failure is caught rather than silently lost.
       await widget.db.addEntry(
-        jobId: result.jobId,
+        projectId: result.projectId,
         taskId: result.taskId,
         description: desc.isEmpty ? null : desc,
         startedAt: result.startedAt,
@@ -245,12 +245,12 @@ class _TimerViewState extends State<TimerView> {
   // Open the add/edit-entry editor (adaptive modal/sheet). entry == null adds;
   // taskId preselects the task when adding under a specific one.
   void _openEntryEditor(TimeEntry? entry, {int? taskId}) {
-    final jobId = widget.jobId;
-    if (jobId == null) return;
+    final projectId = widget.projectId;
+    if (projectId == null) return;
     showEntryEditor(
       context,
       db: widget.db,
-      jobId: jobId,
+      projectId: projectId,
       entry: entry,
       initialTaskId: taskId,
     );
@@ -258,17 +258,17 @@ class _TimerViewState extends State<TimerView> {
 
   // Open the add/edit-task editor. task == null adds.
   void _openTaskEditor(Task? task) {
-    final jobId = widget.jobId;
-    if (jobId == null) return;
-    showTaskEditor(context, db: widget.db, jobId: jobId, task: task);
+    final projectId = widget.projectId;
+    if (projectId == null) return;
+    showTaskEditor(context, db: widget.db, projectId: projectId, task: task);
   }
 
   // Whether Start/Space can fire: pause/resume of an existing session is always
-  // allowed; a fresh start needs a job and an armed task.
+  // allowed; a fresh start needs a project and an armed task.
   bool get _canPrimary =>
       _c.isRunning ||
       _c.hasSession ||
-      (widget.jobId != null && _selectedTaskId != null);
+      (widget.projectId != null && _selectedTaskId != null);
 
   // Start/resume ⇄ pause, mirroring the primary button.
   void _primaryAction() {
@@ -533,9 +533,9 @@ class _TimerViewState extends State<TimerView> {
 
   Widget _armedLabel(BuildContext context) {
     final theme = Theme.of(context);
-    if (widget.jobId == null) {
+    if (widget.projectId == null) {
       return Text(
-        'Select a job to start tracking',
+        'Select a project to start tracking',
         style: theme.textTheme.bodySmall,
       );
     }
@@ -574,8 +574,8 @@ class _TimerViewState extends State<TimerView> {
       children: [
         Column(
           children: [
-            // 1. Extracted Job Stream Element
-            JobHeader(jobStream: _jobStream),
+            // 1. Extracted Project Stream Element
+            ProjectHeader(projectStream: _projectStream),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
@@ -625,21 +625,21 @@ class _TimerViewState extends State<TimerView> {
           ],
         ),
         const SizedBox(height: AppTokens.spaceXl),
-        // 2. Tasks section: header (add task + per-job Invoice action) + list
-        if (widget.jobId != null) ...[
+        // 2. Tasks section: header (add task + per-project Invoice action) + list
+        if (widget.projectId != null) ...[
           _TasksHeader(
-            jobStream: _jobStream,
+            projectStream: _projectStream,
             onInvoice: widget.onInvoice,
             onAddTask: () => _openTaskEditor(null),
           ),
           const Divider(),
         ],
         Expanded(
-          child: StreamBuilder<(Job, Client)?>(
-            stream: _jobStream,
+          child: StreamBuilder<(Project, Client)?>(
+            stream: _projectStream,
             builder: (context, snap) {
               final data = snap.data;
-              // Effective job/client rate; a task may override it per-row.
+              // Effective project/client rate; a task may override it per-row.
               final rate = data == null
                   ? null
                   : (data.$1.rate ?? data.$2.defaultRate);
@@ -666,34 +666,34 @@ class _TimerViewState extends State<TimerView> {
   }
 }
 
-// --- Component 1: Job Meta Header ---
-class JobHeader extends StatelessWidget {
-  final Stream<(Job, Client)?>? jobStream;
+// --- Component 1: Project Meta Header ---
+class ProjectHeader extends StatelessWidget {
+  final Stream<(Project, Client)?>? projectStream;
 
-  const JobHeader({super.key, required this.jobStream});
+  const ProjectHeader({super.key, required this.projectStream});
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<(Job, Client)?>(
-      stream: jobStream,
+    return StreamBuilder<(Project, Client)?>(
+      stream: projectStream,
       builder: (context, snap) {
         final data = snap.data;
         if (data == null) return const SizedBox.shrink();
-        final (job, client) = data;
+        final (project, client) = data;
 
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: 4,
           children: [
             Text(
-              '${client.name} : ${job.code}',
+              '${client.name} : ${project.code}',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
             Text(
-              job.title,
+              project.title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w300,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -706,14 +706,14 @@ class JobHeader extends StatelessWidget {
   }
 }
 
-// --- Tasks section header: label + add-task + per-job Invoice action ---
+// --- Tasks section header: label + add-task + per-project Invoice action ---
 class _TasksHeader extends StatelessWidget {
-  final Stream<(Job, Client)?>? jobStream;
-  final void Function(Job) onInvoice;
+  final Stream<(Project, Client)?>? projectStream;
+  final void Function(Project) onInvoice;
   final VoidCallback onAddTask;
 
   const _TasksHeader({
-    required this.jobStream,
+    required this.projectStream,
     required this.onInvoice,
     required this.onAddTask,
   });
@@ -721,10 +721,10 @@ class _TasksHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return StreamBuilder<(Job, Client)?>(
-      stream: jobStream,
+    return StreamBuilder<(Project, Client)?>(
+      stream: projectStream,
       builder: (context, snap) {
-        final job = snap.data?.$1;
+        final project = snap.data?.$1;
         return Padding(
           padding: const EdgeInsets.only(bottom: AppTokens.spaceSm),
           child: Row(
@@ -741,8 +741,8 @@ class _TasksHeader extends StatelessWidget {
               ),
               const SizedBox(width: AppTokens.spaceMd),
               TextButton.icon(
-                // Disabled until the job has loaded.
-                onPressed: job == null ? null : () => onInvoice(job),
+                // Disabled until the project has loaded.
+                onPressed: project == null ? null : () => onInvoice(project),
                 icon: const Icon(Icons.receipt_long, size: AppTokens.iconSm),
                 label: const Text('Invoice'),
                 // Strip padding so the label sits flush to the right edge.

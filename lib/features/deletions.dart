@@ -58,7 +58,7 @@ Future<bool> confirmDeleteClient(
       await showInfoDialog(
         context,
         title: "Can't delete client",
-        message: 'This client still has jobs. Delete or reassign its jobs '
+        message: 'This client still has projects. Delete or reassign its projects '
             'first.',
       );
     }
@@ -67,25 +67,25 @@ Future<bool> confirmDeleteClient(
   return true;
 }
 
-Future<bool> confirmDeleteJob(
+Future<bool> confirmDeleteProject(
   BuildContext context,
   AppDatabase db,
-  Job job,
+  Project project,
 ) async {
   final ok = await confirmDelete(
     context,
-    title: 'Delete job?',
-    message: '"${job.title}" will be removed.',
+    title: 'Delete project?',
+    message: '"${project.title}" will be removed.',
   );
   if (!ok) return false;
   try {
-    await db.deleteJob(job.id);
+    await db.deleteProject(project.id);
   } catch (_) {
     if (context.mounted) {
       await showInfoDialog(
         context,
-        title: "Can't delete job",
-        message: 'This job has time entries. Delete its entries first.',
+        title: "Can't delete project",
+        message: 'This project has time entries. Delete its entries first.',
       );
     }
     return false;

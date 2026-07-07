@@ -35,7 +35,7 @@ class TaskEntryRow extends TaskListRow {
 
 // Flatten (tasks, their entries, expansion) into the visible row list. A
 // collapsed task contributes only its header; an expanded one is followed by a
-// TaskEntryRow per entry (in the order [entries] arrives — watchEntriesForJob
+// TaskEntryRow per entry (in the order [entries] arrives — watchEntriesForProject
 // sorts newest-first). Entries with no taskId are ignored (shouldn't happen
 // post-migration). [totalSeconds] rolls up every entry, expanded or not.
 List<TaskListRow> buildTaskRows({

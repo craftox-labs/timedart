@@ -42,8 +42,8 @@ const List<_Group> _keymap = [
   ]),
   _Group('Side panel', [
     _Shortcut(['A'], 'Add client'),
-    _Shortcut(['a'], 'Add job'),
-    _Shortcut(['n', 'N'], 'Next / previous job'),
+    _Shortcut(['a'], 'Add project'),
+    _Shortcut(['n', 'N'], 'Next / previous project'),
   ]),
   _Group('Tracker', [
     _Shortcut(['Space'], 'Start / pause / resume'),

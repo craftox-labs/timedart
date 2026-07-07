@@ -10,7 +10,7 @@ Client _client({double defaultRate = 0}) => Client(
   defaultRate: defaultRate,
 );
 
-Job _job({double? rate}) => Job(
+Project _project({double? rate}) => Project(
   id: 1,
   clientId: 1,
   code: 'A-1',
@@ -22,45 +22,45 @@ Job _job({double? rate}) => Job(
 
 TimeEntry _entry(int seconds) => TimeEntry(
   id: 1,
-  jobId: 1,
+  projectId: 1,
   taskId: 1,
   startedAt: _t,
   endedAt: _t.add(Duration(seconds: seconds)),
   seconds: seconds,
 );
 
-JobInvoice _invoice({
-  double? jobRate,
+ProjectInvoice _invoice({
+  double? projectRate,
   double? clientRate,
   required List<int> secs,
-}) => JobInvoice(
-  job: _job(rate: jobRate),
+}) => ProjectInvoice(
+  project: _project(rate: projectRate),
   client: _client(defaultRate: clientRate ?? 0),
-  rate: jobRate ?? clientRate,
+  rate: projectRate ?? clientRate,
   entries: [for (final s in secs) _entry(s)],
   taskTitles: const {1: 'task'},
 );
 
 void main() {
-  group('JobInvoice arithmetic', () {
+  group('ProjectInvoice arithmetic', () {
     test('sums hours across entries', () {
-      final inv = _invoice(jobRate: 100, secs: [3600, 1800]); // 1h + 0.5h
+      final inv = _invoice(projectRate: 100, secs: [3600, 1800]); // 1h + 0.5h
       expect(inv.totalHours, closeTo(1.5, 1e-9));
     });
 
     test('per-line amount = hours * rate', () {
-      final inv = _invoice(jobRate: 100, secs: [1800]); // 0.5h
+      final inv = _invoice(projectRate: 100, secs: [1800]); // 0.5h
       expect(inv.lines.single.hours, closeTo(0.5, 1e-9));
       expect(inv.lines.single.amount, closeTo(50, 1e-9));
     });
 
     test('total = sum of hours * rate', () {
-      final inv = _invoice(jobRate: 100, secs: [3600, 1800]);
+      final inv = _invoice(projectRate: 100, secs: [3600, 1800]);
       expect(inv.total, closeTo(150, 1e-9));
     });
 
     test('no effective rate → amounts and total are null', () {
-      final inv = _invoice(secs: [3600]); // neither job nor client rate
+      final inv = _invoice(secs: [3600]); // neither project nor client rate
       expect(inv.rate, isNull);
       expect(inv.lines.single.amount, isNull);
       expect(inv.total, isNull);
@@ -69,7 +69,7 @@ void main() {
     });
 
     test('one line per entry', () {
-      final inv = _invoice(jobRate: 50, secs: [60, 120, 180]);
+      final inv = _invoice(projectRate: 50, secs: [60, 120, 180]);
       expect(inv.lines.length, 3);
     });
   });

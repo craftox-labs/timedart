@@ -16,31 +16,31 @@ class Clients extends Table {
   DateTimeColumn get archivedAt => dateTime().nullable()();
 }
 
-class Jobs extends Table {
+class Projects extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get clientId => integer().references(Clients, #id)(); // FK
-  TextColumn get code => text().unique()(); // human job number
+  TextColumn get code => text().unique()(); // human project number
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides client default
   TextColumn get status => text().withDefault(const Constant('active'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
-// A unit of work under a job. Owns many time-entry segments, so multiple
-// sessions accumulate against one task. `rate` overrides the job's rate (used
+// A unit of work under a project. Owns many time-entry segments, so multiple
+// sessions accumulate against one task. `rate` overrides the project's rate (used
 // by a later invoicing pass); status leaves room for open/done/archived.
 class Tasks extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get jobId => integer().references(Jobs, #id)();
+  IntColumn get projectId => integer().references(Projects, #id)();
   TextColumn get title => text()();
-  RealColumn get rate => real().nullable()(); // overrides job.rate
+  RealColumn get rate => real().nullable()(); // overrides project.rate
   TextColumn get status => text().withDefault(const Constant('active'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 class TimeEntries extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get jobId => integer().references(Jobs, #id)();
+  IntColumn get projectId => integer().references(Projects, #id)();
   // An entry belongs to a task; [description] is an optional per-segment note
   // (e.g. "fixed the login bug"). Nullable — most entries just inherit the
   // task's title in the UI.
@@ -105,7 +105,7 @@ class Profiles extends Table {
       integer().nullable().references(Templates, #id)();
 }
 
-/// One itemised line of a [JobInvoice]: an entry with its hours and amount.
+/// One itemised line of a [ProjectInvoice]: an entry with its hours and amount.
 /// `amount` is null when the invoice has no effective rate (un-billable).
 class InvoiceLine {
   final TimeEntry entry;
@@ -120,19 +120,19 @@ class InvoiceLine {
   });
 }
 
-/// An invoice for a single job over a period: the job, its client, the
+/// An invoice for a single project over a period: the project, its client, the
 /// effective rate (`null` = un-billable), and the itemised time entries.
 ///
 /// Owns all invoice arithmetic — hours, per-line amounts, totals — so the
 /// preview and the PDF read numbers rather than recomputing them.
-class JobInvoice {
-  final Job job;
+class ProjectInvoice {
+  final Project project;
   final Client client;
-  final double? rate; // effective: job.rate ?? client.defaultRate
+  final double? rate; // effective: project.rate ?? client.defaultRate
   final List<TimeEntry> entries;
   final Map<int, String> taskTitles; // taskId → title, for line labels
-  JobInvoice({
-    required this.job,
+  ProjectInvoice({
+    required this.project,
     required this.client,
     required this.rate,
     required this.entries,
@@ -163,53 +163,64 @@ class JobInvoice {
 }
 
 @DriftDatabase(
-  tables: [Clients, Jobs, Tasks, TimeEntries, Templates, Profiles],
+  tables: [Clients, Projects, Tasks, TimeEntries, Templates, Profiles],
 )
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
-  // connection. With it on, deleting a job that has time entries (or a client
-  // that has jobs) fails loudly instead of silently orphaning rows.
+  // connection. With it on, deleting a project that has time entries (or a
+  // client that has projects) fails loudly instead of silently orphaning rows.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
-      // v1 → v2: introduce Tasks between Job and TimeEntry. Create the table,
+      // v1 → v2: introduce Tasks between Project and TimeEntry. Create the table,
       // add the (nullable) taskId column, then fold each distinct
-      // (job, task-string) into one Task and repoint its entries. The old
+      // (project, task-string) into one Task and repoint its entries. The old
       // `task` string column is left in place (dropped later in #57). FK
       // enforcement is off during migration (beforeOpen runs afterwards), so
       // the ALTER + backfill are safe.
       if (from < 2) {
         await m.createTable(tasks);
         await m.addColumn(timeEntries, timeEntries.taskId);
+        // tasks is created with the current schema (project_id); time_entries
+        // at v1 still uses job_id, so the SELECT reads job_id from the old rows.
         await customStatement(
-          'INSERT INTO tasks (job_id, title) '
+          'INSERT INTO tasks (project_id, title) '
           'SELECT DISTINCT job_id, task FROM time_entries',
         );
         await customStatement(
           'UPDATE time_entries SET task_id = ('
           'SELECT t.id FROM tasks t '
-          'WHERE t.job_id = time_entries.job_id AND t.title = time_entries.task)',
+          'WHERE t.project_id = time_entries.job_id AND t.title = time_entries.task)',
         );
       }
       // v2 → v3: the free-text `task` string is now redundant with taskId.
       // Rebuild time_entries to drop it and add an optional per-entry `name`
       // (starts null — names are set explicitly, not inherited from the task).
       if (from < 3) {
-        // `description` is nullable, so it needs no transformer — the rebuild
+        // `description` is nullable so it needs no transformer — the rebuild
         // adds it as NULL and drops the old `task` column (gone from v3).
+        // `projectId` maps from the old `job_id` column name; for from=1 the
+        // from<2 block already created tasks with project_id, so time_entries
+        // still has job_id at this point and the transformer bridges the gap.
         await m.alterTable(
-          TableMigration(timeEntries, newColumns: [timeEntries.description]),
+          TableMigration(
+            timeEntries,
+            newColumns: [timeEntries.description],
+            columnTransformer: {
+              timeEntries.projectId: const CustomExpression('job_id'),
+            },
+          ),
         );
       }
-      // v3 → v4: a client's default rate is now required (every job resolves to
-      // at least the client default). Rebuild clients with the non-null column,
+      // v3 → v4: a client's default rate is now required (every project resolves
+      // to at least the client default). Rebuild clients with the non-null column,
       // backfilling any pre-existing null rate to 0 so the copy can't violate.
       if (from < 4) {
         // TableMigration rebuilds `clients` to the CURRENT schema, which now
@@ -260,6 +271,24 @@ class AppDatabase extends _$AppDatabase {
         );
         await customStatement('DROP TABLE _pairing_old');
       }
+      // v6 → v7: rename jobs→projects and job_id→project_id throughout.
+      // Every pre-v7 database has a `jobs` table, so the table rename is
+      // unconditional. Column renames are guarded:
+      //   - tasks.job_id: from<2 creates tasks fresh (project_id already); from≥2
+      //     databases have job_id from a prior migration run.
+      //   - time_entries.job_id: from<3 TableMigration already maps job_id→project_id
+      //     via columnTransformer; from≥3 databases still have job_id.
+      await customStatement('ALTER TABLE jobs RENAME TO projects');
+      if (from >= 2) {
+        await customStatement(
+          'ALTER TABLE tasks RENAME COLUMN job_id TO project_id',
+        );
+      }
+      if (from >= 3) {
+        await customStatement(
+          'ALTER TABLE time_entries RENAME COLUMN job_id TO project_id',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -274,14 +303,14 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<int> ensureDefaultJob() async {
+  Future<int> ensureDefaultProject() async {
     final existing = await (select(
-      jobs,
-    )..where((j) => j.code.equals('GENERAL'))).getSingleOrNull();
+      projects,
+    )..where((p) => p.code.equals('GENERAL'))).getSingleOrNull();
     if (existing != null) return existing.id;
     final clientId = await _defaultClientId();
-    return into(jobs).insert(
-      JobsCompanion.insert(
+    return into(projects).insert(
+      ProjectsCompanion.insert(
         clientId: clientId,
         code: 'GENERAL',
         title: 'Uncategorised',
@@ -290,7 +319,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> addEntry({
-    required int jobId,
+    required int projectId,
     required int taskId,
     String? description,
     required DateTime startedAt,
@@ -298,7 +327,7 @@ class AppDatabase extends _$AppDatabase {
     required int seconds,
   }) => into(timeEntries).insert(
     TimeEntriesCompanion.insert(
-      jobId: jobId,
+      projectId: projectId,
       taskId: Value(taskId),
       description: Value(description),
       startedAt: startedAt,
@@ -335,13 +364,13 @@ class AppDatabase extends _$AppDatabase {
         ).insert(ClientsCompanion.insert(name: 'Personal', defaultRate: 0.0));
   }
 
-  Future<int> addJob({
+  Future<int> addProject({
     required int clientId,
     required String code,
     required String title,
     double? rate,
-  }) => into(jobs).insert(
-    JobsCompanion.insert(
+  }) => into(projects).insert(
+    ProjectsCompanion.insert(
       clientId: clientId,
       code: code,
       title: title,
@@ -349,14 +378,14 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<void> updateJob({
+  Future<void> updateProject({
     required int id,
     required int clientId,
     required String code,
     required String title,
     double? rate,
-  }) => (update(jobs)..where((j) => j.id.equals(id))).write(
-    JobsCompanion(
+  }) => (update(projects)..where((p) => p.id.equals(id))).write(
+    ProjectsCompanion(
       clientId: Value(clientId),
       code: Value(code),
       title: Value(title),
@@ -364,33 +393,35 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<void> deleteJob(int id) =>
-      (delete(jobs)..where((j) => j.id.equals(id))).go();
+  Future<void> deleteProject(int id) =>
+      (delete(projects)..where((p) => p.id.equals(id))).go();
 
-  Stream<List<Job>> watchJobs() =>
-      (select(jobs)..orderBy([(j) => OrderingTerm.asc(j.title)])).watch();
+  Stream<List<Project>> watchProjects() =>
+      (select(projects)..orderBy([(p) => OrderingTerm.asc(p.title)])).watch();
 
-  Stream<(Job, Client)?> watchJobWithClient(int id) {
-    final q = select(jobs).join([
-      innerJoin(clients, clients.id.equalsExp(jobs.clientId)),
-    ])..where(jobs.id.equals(id));
+  Stream<(Project, Client)?> watchProjectWithClient(int id) {
+    final q = select(projects).join([
+      innerJoin(clients, clients.id.equalsExp(projects.clientId)),
+    ])..where(projects.id.equals(id));
     return q.watchSingleOrNull().map(
       (row) =>
-          row == null ? null : (row.readTable(jobs), row.readTable(clients)),
+          row == null
+              ? null
+              : (row.readTable(projects), row.readTable(clients)),
     );
   }
 
-  Stream<List<TimeEntry>> watchEntriesForJob(int jobId) =>
+  Stream<List<TimeEntry>> watchEntriesForProject(int projectId) =>
       (select(timeEntries)
-            ..where((t) => t.jobId.equals(jobId))
+            ..where((t) => t.projectId.equals(projectId))
             ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
           .watch();
 
   // --- Tasks ---
 
-  Stream<List<Task>> watchTasksForJob(int jobId) =>
+  Stream<List<Task>> watchTasksForProject(int projectId) =>
       (select(tasks)
-            ..where((t) => t.jobId.equals(jobId))
+            ..where((t) => t.projectId.equals(projectId))
             ..orderBy([(t) => OrderingTerm.asc(t.title)]))
           .watch();
 
@@ -401,12 +432,12 @@ class AppDatabase extends _$AppDatabase {
           .watch();
 
   Future<int> addTask({
-    required int jobId,
+    required int projectId,
     required String title,
     double? rate,
   }) => into(tasks).insert(
     TasksCompanion.insert(
-      jobId: jobId,
+      projectId: projectId,
       title: title,
       rate: rate == null ? const Value.absent() : Value(rate),
     ),
@@ -421,7 +452,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   // Entries FK-reference the task (pragma on), so this throws if the task still
-  // has time entries — matching how jobs/clients guard their children. The
+  // has time entries — matching how projects/clients guard their children. The
   // caller surfaces that as "delete its entries first".
   Future<void> deleteTask(int id) =>
       (delete(tasks)..where((t) => t.id.equals(id))).go();
@@ -429,8 +460,8 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Client>> watchClients() =>
       (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
 
-  Stream<Job?> watchJob(int id) =>
-      (select(jobs)..where((j) => j.id.equals(id))).watchSingleOrNull();
+  Stream<Project?> watchProject(int id) =>
+      (select(projects)..where((p) => p.id.equals(id))).watchSingleOrNull();
 
   Future<int> addClient({
     required String name,
@@ -472,8 +503,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// Seed a timedart Template (visual style) and an example Profile pointed at
   /// it on first run. Idempotent — a no-op once any Template exists — so it's
-  /// safe to call at every startup (mirrors [ensureDefaultJob]). Colours are the
-  /// brand tokens as ARGB ints; the user edits them in the template editor.
+  /// safe to call at every startup (mirrors [ensureDefaultProject]). Colours are
+  /// the brand tokens as ARGB ints; the user edits them in the template editor.
   Future<void> ensureInvoiceDefaults() async {
     final existing = await (select(templates)..limit(1)).getSingleOrNull();
     if (existing != null) return;
@@ -547,57 +578,57 @@ class AppDatabase extends _$AppDatabase {
 
   // Row getters for assembling an InvoiceDocument (the pure builder lives in
   // features/invoices — the data layer only hands back rows).
-  Future<Job> getJob(int id) =>
-      (select(jobs)..where((j) => j.id.equals(id))).getSingle();
+  Future<Project> getProject(int id) =>
+      (select(projects)..where((p) => p.id.equals(id))).getSingle();
   Future<Client> getClient(int id) =>
       (select(clients)..where((c) => c.id.equals(id))).getSingle();
-  Future<List<Task>> tasksForJob(int jobId) =>
-      (select(tasks)..where((t) => t.jobId.equals(jobId))).get();
-  Future<List<TimeEntry>> entriesForJobInPeriod(
-    int jobId,
+  Future<List<Task>> tasksForProject(int projectId) =>
+      (select(tasks)..where((t) => t.projectId.equals(projectId))).get();
+  Future<List<TimeEntry>> entriesForProjectInPeriod(
+    int projectId,
     DateTime from,
     DateTime to,
   ) =>
       (select(timeEntries)
             ..where(
               (t) =>
-                  t.jobId.equals(jobId) &
+                  t.projectId.equals(projectId) &
                   t.startedAt.isBiggerOrEqualValue(from) &
                   t.startedAt.isSmallerOrEqualValue(to),
             )
             ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
           .get();
 
-  /// Build an on-demand invoice for a single job over [from]..[to] (inclusive):
-  /// the job, its client, effective rate, and the itemised entries. Read-only —
-  /// stores nothing.
-  Future<JobInvoice> jobInvoice({
-    required int jobId,
+  /// Build an on-demand invoice for a single project over [from]..[to]
+  /// (inclusive): the project, its client, effective rate, and the itemised
+  /// entries. Read-only — stores nothing.
+  Future<ProjectInvoice> projectInvoice({
+    required int projectId,
     required DateTime from,
     required DateTime to,
   }) async {
-    final job = await (select(
-      jobs,
-    )..where((j) => j.id.equals(jobId))).getSingle();
+    final project = await (select(
+      projects,
+    )..where((p) => p.id.equals(projectId))).getSingle();
     final client = await (select(
       clients,
-    )..where((c) => c.id.equals(job.clientId))).getSingle();
+    )..where((c) => c.id.equals(project.clientId))).getSingle();
     final entries =
         await (select(timeEntries)
               ..where(
                 (t) =>
-                    t.jobId.equals(jobId) &
+                    t.projectId.equals(projectId) &
                     t.startedAt.isBiggerOrEqualValue(from) &
                     t.startedAt.isSmallerOrEqualValue(to),
               )
               ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
             .get();
     final taskRows =
-        await (select(tasks)..where((t) => t.jobId.equals(jobId))).get();
-    return JobInvoice(
-      job: job,
+        await (select(tasks)..where((t) => t.projectId.equals(projectId))).get();
+    return ProjectInvoice(
+      project: project,
       client: client,
-      rate: job.rate ?? client.defaultRate,
+      rate: project.rate ?? client.defaultRate,
       entries: entries,
       taskTitles: {for (final t in taskRows) t.id: t.title},
     );
