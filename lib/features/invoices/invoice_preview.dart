@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/constants/format.dart';
+import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_layout.dart';
@@ -12,10 +13,13 @@ import 'package:time_tracker/features/invoices/invoice_layout.dart';
 Widget brandingPreviewFrame({required Widget child}) => Center(
   child: Container(
     decoration: BoxDecoration(
-      border: Border.all(color: const Color(0xFF2A2A2A)),
-      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: AppTokens.colorBorder),
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
     ),
-    child: ClipRRect(borderRadius: BorderRadius.circular(3), child: child),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm - 1),
+      child: child,
+    ),
   ),
 );
 
