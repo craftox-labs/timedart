@@ -14,8 +14,8 @@ import 'package:time_tracker/widgets/panel_title_bar.dart';
 /// [SidePanel]'s look and keyboard nav (j/k move, Enter/l expand-or-open,
 /// h collapse, Esc back) but is a separate widget so the client/project panel's
 /// tuned navigation is untouched.
-class BrandingPanel extends StatefulWidget {
-  const BrandingPanel({
+class SettingsPanel extends StatefulWidget {
+  const SettingsPanel({
     super.key,
     required this.db,
     required this.onBack,
@@ -60,7 +60,7 @@ class BrandingPanel extends StatefulWidget {
   final bool autofocus;
 
   @override
-  State<BrandingPanel> createState() => _BrandingPanelState();
+  State<SettingsPanel> createState() => _SettingsPanelState();
 }
 
 enum _Section { templates, profiles }
@@ -68,6 +68,11 @@ enum _Section { templates, profiles }
 String _sectionLabel(_Section s) => switch (s) {
       _Section.templates => 'Templates',
       _Section.profiles => 'Profiles',
+    };
+
+String _sectionSingular(_Section s) => switch (s) {
+      _Section.templates => 'Template',
+      _Section.profiles => 'Profile',
     };
 
 // A flattened visible row: a section header, or one entity under an open one.
@@ -90,7 +95,7 @@ class _EntityRow extends _BRow {
   const _EntityRow(this.section, {required this.id, required this.name, required this.isDefault});
 }
 
-class _BrandingPanelState extends State<BrandingPanel> {
+class _SettingsPanelState extends State<SettingsPanel> {
   late final Stream<List<InvoiceTemplate>> _templates =
       widget.db.watchTemplates();
   late final Stream<List<InvoiceProfile>> _profiles = widget.db.watchProfiles();
@@ -99,7 +104,7 @@ class _BrandingPanelState extends State<BrandingPanel> {
   final Set<_Section> _expanded = {..._Section.values};
   FocusNode? _internalCursor;
   FocusNode get _cursorNode =>
-      widget.cursorFocusNode ?? (_internalCursor ??= FocusNode(debugLabel: 'brandingCursor'));
+      widget.cursorFocusNode ?? (_internalCursor ??= FocusNode(debugLabel: 'settingsCursor'));
   int _cursor = 0;
   List<_BRow> _rows = const [];
 
@@ -330,6 +335,7 @@ class _BrandingPanelState extends State<BrandingPanel> {
           child: switch (row) {
             _HeaderRow() => _SectionHeaderTile(
                 label: _sectionLabel(row.section),
+                singularLabel: _sectionSingular(row.section),
                 expanded: row.expanded,
                 hasItems: row.hasItems,
                 onTap: () {
@@ -389,12 +395,14 @@ class _BrandingPanelState extends State<BrandingPanel> {
 class _SectionHeaderTile extends StatelessWidget {
   const _SectionHeaderTile({
     required this.label,
+    required this.singularLabel,
     required this.expanded,
     required this.hasItems,
     required this.onTap,
     this.onAdd,
   });
   final String label;
+  final String singularLabel;
   final bool expanded;
   final bool hasItems;
   final VoidCallback onTap;
@@ -432,7 +440,7 @@ class _SectionHeaderTile extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              tooltip: 'Add $label (a)',
+              tooltip: 'Add $singularLabel (a)',
               onPressed: onAdd,
             ),
     );

@@ -7,7 +7,7 @@ import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/shell/page_header.dart';
 import 'package:time_tracker/features/shell/shortcuts_help.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
-import 'package:time_tracker/features/shell/branding_panel.dart';
+import 'package:time_tracker/features/shell/settings_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
 import 'package:time_tracker/features/projects/project_form.dart';
 import 'package:time_tracker/features/clients/client_form.dart';
@@ -379,7 +379,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       // client/project tree; the content pane shows the matching preview.
       if (_inBranding) {
         final detail = _detail;
-        return BrandingPanel(
+        return SettingsPanel(
           db: widget.db,
           selectedTemplateId: detail is _TemplateEditorDetail
               ? detail.template?.id
