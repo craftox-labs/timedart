@@ -22,22 +22,22 @@ abstract class InvoiceLayout {
   static const double detailsHeadingGap = 12.0;
   static const double tableHeaderGap = 8.0;
   static const double totalsGap = 8.0;
-  static const double amountDueGap = 8.0;
+  static const double amountDueGap = 12.0;
   static const double paymentsHeadingGap = 8.0;
   static const double paymentsFieldGap = 8.0;
-  static const double gridGutter = 12.0;
+  static const double gridGutter = 6.0;
   static const double fieldValueGap = 4.0;
   static const double fieldPaddingH = 12.0;
-  static const double fieldPaddingV = 8.0;
+  static const double fieldPaddingV = 5.0;
   static const double rowPaddingH = 12.0;
-  static const double rowPaddingV = 4.0;
-  static const double rowMarginBottom = 8.0;
+  static const double rowPaddingV = 5.0;
+  static const double rowMarginBottom = 6.0;
   static const double fieldRadius = 6.0;
 
   // ── Typography ─────────────────────────────────────────────────────
   static const double fontLabel = 10.0;
   static const double fontCell = 12.0;
-  static const double fontValue = 12.0;
+  static const double fontValue = 11.0;
   static const double fontInvoiceNumber = 20.0;
   static const double fontDetailsHeading = 16.0;
   static const double fontPaymentsHeading = 17.0;
@@ -47,9 +47,9 @@ abstract class InvoiceLayout {
   // Font weights (Flutter preview uses these directly; the PDF renderer uses
   // separate font files for regular vs bold — [fontWeightBold] maps to
   // Urbanist-SemiBold.ttf, [fontWeightValue] to the variable font).
-  static const FontWeight fontWeightLabel = FontWeight.w400;
-  static const FontWeight fontWeightValue = FontWeight.w600;
-  static const FontWeight fontWeightBold = FontWeight.w700;
+  static const FontWeight fontWeightLabel = FontWeight.w700;
+  static const FontWeight fontWeightValue = FontWeight.w400;
+  static const FontWeight fontWeightBold = FontWeight.w800;
 
   // ── Logo ───────────────────────────────────────────────────────────
   static const double logoHeight = 38.0;
@@ -57,9 +57,9 @@ abstract class InvoiceLayout {
   // ── Table columns ─────────────────────────────────────────────────
   // Flex weights for the 5-column line-items grid (ITEM / DATE / RATE / TIME / TOTAL).
   // Totals and AMOUNT DUE rows use the same weights so columns align top-to-bottom.
-  static const int colItem = 3;
-  static const int colDate = 2;
-  static const int colRate = 2;
-  static const int colTime = 2;
-  static const int colTotal = 2;
+  static const int colItem = 4;
+  static const int colDate = 1;
+  static const int colRate = 1;
+  static const int colTime = 1;
+  static const int colTotal = 1;
 }

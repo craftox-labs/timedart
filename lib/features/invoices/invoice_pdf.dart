@@ -43,7 +43,8 @@ Future<Uint8List> buildBrandedInvoicePdf({
   final bg = PdfColor.fromInt(template.colorBackground);
   final surface = PdfColor.fromInt(template.colorSurface);
   final primary = PdfColor.fromInt(template.colorPrimary);
-  final muted = PdfColor.fromInt(template.colorText).flatten(background: bg);
+  final text = PdfColor.fromInt(template.colorText); // text on surface (field box values)
+  final muted = PdfColor.fromInt(template.colorPrimary).flatten(background: bg); // secondary text on background
 
   final labelStyle = pw.TextStyle(
     font: font,
@@ -52,7 +53,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
   );
   final valueStyle = pw.TextStyle(
     font: bold,
-    color: primary,
+    color: text,
     fontSize: _p(InvoiceLayout.fontValue),
   );
 

@@ -75,7 +75,8 @@ class InvoicePreview extends StatelessWidget {
   Color get _bg => Color(template.colorBackground);
   Color get _surface => Color(template.colorSurface);
   Color get _primary => Color(template.colorPrimary);
-  Color get _muted => Color(template.colorText).withValues(alpha: 0.55);
+  Color get _text => Color(template.colorText); // text on surface (field box values)
+  Color get _muted => _primary.withValues(alpha: 0.55); // secondary text on background
 
   String _money(double a) => formatCurrency(a, doc.currency);
   String _iso(DateTime d) =>
@@ -89,7 +90,7 @@ class InvoicePreview extends StatelessWidget {
     fontWeight: InvoiceLayout.fontWeightLabel,
   );
   TextStyle get _value => TextStyle(
-    color: _primary,
+    color: _text,
     fontSize: InvoiceLayout.fontValue,
     fontWeight: InvoiceLayout.fontWeightValue,
   );
