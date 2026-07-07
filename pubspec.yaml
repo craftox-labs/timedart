@@ -67,6 +67,7 @@ flutter:
 
   assets:
     - assets/logo/
+    - assets/fonts/
 
   # Urbanist is a variable font: one file per axis-set. Flutter maps the
   # `fontWeight` used in the theme onto its `wght` axis, so w300/w400/etc. all

@@ -1,37 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/constants/format.dart';
-import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
+import 'package:time_tracker/features/invoices/invoice_layout.dart';
 
 /// A bordered frame that hugs an invoice preview tightly — the border traces
-/// the sheet's true edges, so it reads as the actual page boundary rather than
-/// an arbitrary panel outline (a loose frame around a dark-background template
-/// was easy to mistake for extra page margin). Wrapped in [Center] so a
-/// stretching ancestor (e.g. a `Column(crossAxisAlignment: stretch)`) can't
-/// force it wider than its child — it sizes to the sheet, not its slot. The
-/// child is clipped to a radius inset by the border width so the corners meet
-/// cleanly (a bordered Container with a rounded child otherwise leaves a
-/// square notch).
+/// the sheet's true edges so it reads as the actual page boundary rather than
+/// an arbitrary panel outline. Wrapped in [Center] so a stretching ancestor
+/// can't force it wider than its child. The child is clipped to a radius inset
+/// by the border width so corners meet cleanly.
 Widget brandingPreviewFrame({required Widget child}) => Center(
   child: Container(
-    // Container (unlike DecoratedBox) insets its child by the border width, so
-    // the opaque preview can't paint over the border. ClipRRect rounds the
-    // inner corners to match.
     decoration: BoxDecoration(
-      border: Border.all(color: AppTokens.colorBorder),
-      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+      border: Border.all(color: const Color(0xFF2A2A2A)),
+      borderRadius: BorderRadius.circular(4),
     ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(AppTokens.radiusSm - 1),
-      child: child,
-    ),
+    child: ClipRRect(borderRadius: BorderRadius.circular(3), child: child),
   ),
 );
 
 /// Standard print page proportions (height ÷ width). A4 is the default; Letter
-/// is offered for US output. A page-size picker is a later setting — for now the
-/// preview assumes A4.
+/// is offered for US output. A page-size picker is a later setting (#99).
 enum InvoicePageSize {
   a4(297 / 210),
   letter(279 / 216);
@@ -40,18 +29,10 @@ enum InvoicePageSize {
   final double ratio; // height / width
 }
 
-/// The invoice preview laid out as a page — a sheet with the chosen print
-/// proportions and a minimum height, so it reads like the printed output
-/// (with the content's own safe margin) rather than a raw content block.
-/// Fills [brandingPreviewFrame] edge to edge — no gutter between the sheet and
-/// its border, so the border traces the sheet's true boundary instead of an
-/// ambiguous margin that a dark template background could get lost in.
-/// Scrolls vertically inside its parent when the invoice runs longer than one
-/// page. When [scrollable] (the default) the page scrolls vertically within
-/// its own slot — right for a fixed-size preview panel. Pass `false` when
-/// embedding the preview inside an outer scroll view (e.g. an editor whose
-/// whole content pane scrolls): the page then renders at its natural height
-/// and the outer view owns scrolling, avoiding nested scrollables.
+/// The invoice preview laid out as a page — a sheet at the chosen print
+/// proportions. Fills [brandingPreviewFrame] edge to edge. Scrolls vertically
+/// inside its parent when the invoice runs longer than one page height.
+/// Pass [scrollable] = false when embedding inside an outer scroll view.
 Widget invoicePreviewPage({
   required InvoiceDocument doc,
   required InvoiceTemplate template,
@@ -60,11 +41,7 @@ Widget invoicePreviewPage({
 }) {
   return LayoutBuilder(
     builder: (context, c) {
-      // The page is always laid out at a fixed A4 design width, then scaled
-      // down to fit narrower panes — so the preview reads like the printed
-      // sheet (content proportionate to the page) rather than reflowing its
-      // contents. It is never scaled up past the design width.
-      const designWidth = 820.0;
+      const designWidth = InvoiceLayout.designWidth;
       final sheet = Container(
         width: designWidth,
         constraints: BoxConstraints(minHeight: designWidth * size.ratio),
@@ -73,8 +50,6 @@ Widget invoicePreviewPage({
       );
       final page = c.maxWidth >= designWidth
           ? sheet
-          // Uniform down-scale: width matches the pane, height follows in
-          // proportion, so the whole page shrinks like a thumbnail.
           : FittedBox(
               fit: BoxFit.fitWidth,
               alignment: Alignment.topCenter,
@@ -85,103 +60,135 @@ Widget invoicePreviewPage({
   );
 }
 
-/// On-screen, WYSIWYG preview of an [InvoiceDocument] rendered with an
-/// [InvoiceTemplate]. Presentational — reads resolved values from the document
-/// and applies the template, mirroring the PDF renderer (invoice_pdf.dart) so
-/// what you see matches the export. Both read the same view-model; the two
-/// renderers are kept in visual parity by hand (printing's PdfPreview is
-/// unusable on Linux — see PRD #79).
+/// On-screen WYSIWYG preview of an [InvoiceDocument] rendered with an
+/// [InvoiceTemplate]. Mirrors invoice_pdf.dart so what you see matches
+/// the export. Both renderers read from [InvoiceLayout] — edit that file
+/// to restyle both outputs simultaneously.
 class InvoicePreview extends StatelessWidget {
   final InvoiceDocument doc;
   final InvoiceTemplate template;
   const InvoicePreview({super.key, required this.doc, required this.template});
 
-  // Design-space (820px width) sizes with no AppTokens equivalent — the PDF's
-  // matching values are invoice_pdf.dart's _Layout.fontHeadline/fontAmountDue,
-  // independently tuned (different coordinate space; see that file's note).
-  static const _fontHeadline = 22.0;
-  static const _fontAmountDue = 18.0;
-
   Color get _bg => Color(template.colorBackground);
   Color get _surface => Color(template.colorSurface);
   Color get _primary => Color(template.colorPrimary);
-  Color get _muted => Color(template.colorText).withValues(alpha: 0.55);
+  Color get _text =>
+      Color(template.colorText); // text on surface (field box values)
+  Color get _muted => _primary.withValues(
+    alpha: InvoiceLayout.mutedAlpha,
+  ); // secondary text on background
 
-  String _money(double a) => formatCurrency(a, doc.currency);
+  String get _sym => currencySymbol(doc.currency);
+  String _moneyNum(double a) => a.toStringAsFixed(2);
+
   String _iso(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
 
-  TextStyle get _label =>
-      TextStyle(color: _primary, fontSize: AppTokens.fontSizeXs);
-  TextStyle get _value => TextStyle(
+  TextStyle get _label => TextStyle(
     color: _primary,
-    fontSize: AppTokens.fontSizeSm,
-    fontWeight: FontWeight.w600,
+    fontSize: InvoiceLayout.fontLabel,
+    fontWeight: InvoiceLayout.fontWeightLabel,
+  );
+  TextStyle get _value => TextStyle(
+    color: _text,
+    fontSize: InvoiceLayout.fontValue,
+    fontWeight: InvoiceLayout.fontWeightValue,
   );
 
   @override
   Widget build(BuildContext context) {
-    // A4-ish aspect on a dark card, scrolls within its parent.
     return Container(
       color: _bg,
-      padding: const EdgeInsets.all(AppTokens.spaceXl),
+      padding: const EdgeInsets.all(InvoiceLayout.pageMargin),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           _masthead(),
-          const SizedBox(height: AppTokens.spaceLg),
+          const SizedBox(height: InvoiceLayout.sectionGap),
           _party(),
-          const SizedBox(height: AppTokens.spaceMd),
+          const SizedBox(height: InvoiceLayout.partyBlockGap),
           _recipientGrid(),
-          const SizedBox(height: AppTokens.spaceLg),
+          const SizedBox(height: InvoiceLayout.detailsBlockGap),
           Text(
             'Details',
             style: TextStyle(
               color: _primary,
-              fontSize: AppTokens.fontSizeMd,
-              fontWeight: FontWeight.w700,
+              fontSize: InvoiceLayout.fontDetailsHeading,
+              fontWeight: InvoiceLayout.fontWeightBold,
             ),
           ),
-          const SizedBox(height: AppTokens.spaceSm),
+          const SizedBox(height: InvoiceLayout.detailsHeadingGap),
           _table(),
-          const SizedBox(height: AppTokens.spaceMd),
+          const SizedBox(height: InvoiceLayout.totalsGap),
           _totals(),
-          const SizedBox(height: AppTokens.spaceXl),
+          const SizedBox(height: InvoiceLayout.sectionGap),
           _payments(),
         ],
       ),
     );
   }
 
+  // Business details sit at the left edge; the logo anchors the right edge on
+  // the same top line. Separating the two gives whatever icon/logo the user
+  // supplies its own room rather than stacking text beneath it.
   Widget _masthead() => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Spacer(),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // template.logo (user upload) wins; else the bundled timedart mark.
-          template.logo != null
-              ? Image.memory(template.logo!, height: 28)
-              : Image.asset(
-                  'assets/logo/timedart_logo_horizontal.png',
-                  height: 28,
+      Expanded(
+        child: Column(
+          spacing: 2,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              doc.businessName,
+              style: TextStyle(
+                color: _primary,
+                fontSize: InvoiceLayout.fontPaymentsHeading,
+                fontWeight: InvoiceLayout.fontWeightBold,
+              ),
+            ),
+            Text.rich(
+              TextSpan(
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: InvoiceLayout.fontValue,
                 ),
-          const SizedBox(height: AppTokens.space3xs),
-          Text(
-            [
-              if (doc.senderEmail != null) 'e. ${doc.senderEmail}',
-              if (doc.senderPhone != null) 't. ${doc.senderPhone}',
-            ].join('    '),
-            style: TextStyle(color: _muted, fontSize: AppTokens.fontSizeXs),
-          ),
-        ],
+                children: _contactSpans(),
+              ),
+            ),
+          ],
+        ),
       ),
+      const SizedBox(width: InvoiceLayout.sectionGap),
+      template.logo != null
+          ? Image.memory(template.logo!, height: InvoiceLayout.logoHeight)
+          : Image.asset(
+              'assets/logo/timedart_logo_horizontal.png',
+              height: InvoiceLayout.logoHeight,
+            ),
     ],
   );
+
+  // Masthead contact line: bold "e." / "t." / "w." prefixes, regular values,
+  // four spaces between entries. Only present fields appear.
+  List<InlineSpan> _contactSpans() {
+    const prefixStyle = TextStyle(fontWeight: InvoiceLayout.fontWeightLabel);
+    final entries = <(String, String)>[
+      if (doc.senderEmail != null) ('e.', doc.senderEmail!),
+      if (doc.senderPhone != null) ('t.', doc.senderPhone!),
+      if (doc.senderWebsite != null) ('w.', doc.senderWebsite!),
+    ];
+    return [
+      for (final (i, entry) in entries.indexed) ...[
+        if (i > 0) const TextSpan(text: '    '),
+        TextSpan(text: entry.$1, style: prefixStyle),
+        TextSpan(text: ' ${entry.$2}'),
+      ],
+    ];
+  }
 
   Widget _party() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,32 +198,32 @@ class InvoicePreview extends StatelessWidget {
         doc.attention ?? doc.organisation,
         style: TextStyle(
           color: _primary,
-          fontSize: _fontHeadline,
-          fontWeight: FontWeight.w700,
+          fontSize: InvoiceLayout.fontHeadline,
+          fontWeight: InvoiceLayout.fontWeightBold,
         ),
       ),
-      const SizedBox(height: AppTokens.spaceXs),
+      const SizedBox(height: InvoiceLayout.headlineGap),
       Text('RE:', style: _label),
       Text(
         doc.reference,
         style: TextStyle(
           color: _primary,
-          fontSize: _fontHeadline,
-          fontWeight: FontWeight.w700,
+          fontSize: InvoiceLayout.fontHeadline,
+          fontWeight: InvoiceLayout.fontWeightBold,
         ),
       ),
-      const SizedBox(height: AppTokens.spaceXs),
+      const SizedBox(height: InvoiceLayout.headlineGap),
       Text(
         _iso(doc.issueDate),
-        style: TextStyle(color: _muted, fontSize: AppTokens.fontSizeXs),
+        style: TextStyle(color: _primary, fontSize: InvoiceLayout.fontLabel),
       ),
       if (doc.invoiceNumber != null)
         Text(
-          'Invoice #${doc.invoiceNumber}',
+          doc.invoiceNumber!,
           style: TextStyle(
             color: _primary,
-            fontSize: AppTokens.fontSizeMd,
-            fontWeight: FontWeight.w700,
+            fontSize: InvoiceLayout.fontInvoiceNumber,
+            fontWeight: InvoiceLayout.fontWeightBold,
           ),
         ),
     ],
@@ -228,16 +235,16 @@ class InvoicePreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: _field('TO', doc.recipientContact)),
-          const SizedBox(width: AppTokens.spaceXs),
+          const SizedBox(width: InvoiceLayout.gridGutter),
           Expanded(child: _field('EMAIL', doc.recipientEmail)),
         ],
       ),
-      const SizedBox(height: AppTokens.space2xs),
+      const SizedBox(height: InvoiceLayout.totalsGap),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: _field('ORGANISATION', doc.organisation)),
-          const SizedBox(width: AppTokens.spaceXs),
+          const SizedBox(width: InvoiceLayout.gridGutter),
           Expanded(child: _field('PHONE', doc.recipientPhone)),
         ],
       ),
@@ -248,16 +255,16 @@ class InvoicePreview extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text('$label:', style: _label),
-      const SizedBox(height: AppTokens.space3xs),
+      const SizedBox(height: InvoiceLayout.fieldValueGap),
       Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.spaceSm,
-          vertical: AppTokens.spaceXs,
+          horizontal: InvoiceLayout.fieldPaddingH,
+          vertical: InvoiceLayout.fieldPaddingV,
         ),
         decoration: BoxDecoration(
           color: _surface,
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          borderRadius: BorderRadius.circular(InvoiceLayout.fieldRadius),
         ),
         child: Text(
           value == null || value.isEmpty ? '—' : value,
@@ -267,101 +274,197 @@ class InvoicePreview extends StatelessWidget {
     ],
   );
 
-  // Shared column layout (flex 3/2/2/2/2) for header, lines, and totals.
-  Widget _cell(String s, int flex, {bool right = false, TextStyle? style}) =>
-      Expanded(
-        flex: flex,
-        child: Text(
-          s,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: right ? TextAlign.right : TextAlign.left,
-          style: style ?? _value,
-        ),
-      );
+  // Plain text sized to a single line — content for a cell box or a bare label.
+  Widget _txt(String s, {bool right = false, TextStyle? style}) => Text(
+    s,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    textAlign: right ? TextAlign.right : TextAlign.left,
+    style: style ?? _value,
+  );
+
+  // Currency symbol left-aligned, number right-aligned, within a cell box.
+  Widget _splitRow(String left, String right, {TextStyle? style}) => Row(
+    children: [
+      Text(left, style: style ?? _value),
+      const Spacer(),
+      Text(right, style: style ?? _value),
+    ],
+  );
+
+  // A single surface box occupying [flex] columns. Its own fill + padding is
+  // what draws the column divisions when boxes are separated by gutters.
+  Widget _box({required int flex, required Widget child}) => Expanded(
+    flex: flex,
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: InvoiceLayout.rowPaddingH,
+        vertical: InvoiceLayout.rowPaddingV,
+      ),
+      decoration: _rowDecoration,
+      child: child,
+    ),
+  );
+
+  // Header label, aligned to the column's surface edge (no interior padding):
+  // ITEM flush-left, the rest flush-right, matching the box outlines beneath.
+  Widget _headCell(String s, int flex, {bool right = false}) => Expanded(
+    flex: flex,
+    child: _txt(s, right: right, style: _label),
+  );
+
+  static const _gutter = SizedBox(width: InvoiceLayout.gridGutter);
 
   Widget _table() => Column(
     children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceSm),
-        child: Row(
-          children: [
-            _cell('ITEM', 3, style: _label),
-            _cell('DATE', 2, style: _label),
-            _cell('RATE (${doc.currency})', 2, right: true, style: _label),
-            _cell('TIME (HRS)', 2, right: true, style: _label),
-            _cell('TOTAL', 2, right: true, style: _label),
-          ],
-        ),
+      Row(
+        children: [
+          _headCell('ITEM', InvoiceLayout.colItem),
+          _gutter,
+          _headCell('DATE', InvoiceLayout.colDate, right: true),
+          _gutter,
+          _headCell(
+            'RATE (${doc.currency})',
+            InvoiceLayout.colRate,
+            right: true,
+          ),
+          _gutter,
+          _headCell('TIME (HRS)', InvoiceLayout.colTime, right: true),
+          _gutter,
+          _headCell('TOTAL', InvoiceLayout.colTotal, right: true),
+        ],
       ),
-      const SizedBox(height: AppTokens.space3xs),
+      const SizedBox(height: InvoiceLayout.tableHeaderGap),
       for (final l in doc.lines)
-        Container(
-          margin: const EdgeInsets.only(bottom: AppTokens.space3xs),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.spaceSm,
-            vertical: AppTokens.spaceXs,
-          ),
-          decoration: BoxDecoration(
-            color: _surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-          ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: InvoiceLayout.rowMarginBottom),
           child: Row(
             children: [
-              _cell(l.item, 3),
-              _cell(_iso(l.date), 2),
-              _cell(_money(l.rate), 2, right: true),
-              _cell(Duration(seconds: l.seconds).hms, 2, right: true),
-              _cell(_money(l.amount), 2, right: true),
+              _box(flex: InvoiceLayout.colItem, child: _txt(l.item)),
+              _gutter,
+              _box(
+                flex: InvoiceLayout.colDate,
+                child: _txt(_iso(l.date), right: true),
+              ),
+              _gutter,
+              _box(
+                flex: InvoiceLayout.colRate,
+                child: _splitRow(_sym, _moneyNum(l.rate)),
+              ),
+              _gutter,
+              _box(
+                flex: InvoiceLayout.colTime,
+                child: _txt(Duration(seconds: l.seconds).hms, right: true),
+              ),
+              _gutter,
+              _box(
+                flex: InvoiceLayout.colTotal,
+                child: _splitRow(_sym, _moneyNum(l.amount)),
+              ),
             ],
           ),
         ),
     ],
   );
 
+  BoxDecoration get _rowDecoration => BoxDecoration(
+    color: _surface,
+    borderRadius: BorderRadius.circular(InvoiceLayout.fieldRadius),
+  );
+
+  // Flex of the leftover label area (first three columns) and the value box
+  // (last two columns). Totals labels sit bare on the background; only the
+  // figures get a surface box, spanning those last two columns.
+  static const _labelSpan =
+      InvoiceLayout.colItem + InvoiceLayout.colDate + InvoiceLayout.colRate;
+
+  // One totals line: a right-aligned bare label over the first three columns,
+  // then caller-supplied cells over the last two (TIME + TOTAL). The two
+  // leading gutters reproduce the ITEM|DATE and DATE|RATE gaps folded into the
+  // merged label span; with the trailing gutter that makes four gutters total,
+  // matching the line rows so every value box lands under its column exactly.
+  Widget _totalsRow(String label, List<Widget> trailing) => Padding(
+    padding: const EdgeInsets.only(bottom: InvoiceLayout.rowMarginBottom),
+    child: Row(
+      children: [
+        _gutter,
+        _gutter,
+        Expanded(
+          flex: _labelSpan,
+          child: _txt(label, right: true, style: _label),
+        ),
+        _gutter,
+        ...trailing,
+      ],
+    ),
+  );
+
   Widget _totals() => Column(
     children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceSm),
-        child: Row(
-          children: [
-            _cell('TOTAL:', 7, right: true, style: _label),
-            _cell(doc.totalTime.hms, 2, right: true, style: _value),
-            _cell(_money(doc.subtotal), 2, right: true, style: _value),
-          ],
+      // TOTAL: time and amount each in their own box, aligned to the columns.
+      _totalsRow('TOTAL:', [
+        _box(
+          flex: InvoiceLayout.colTime,
+          child: _txt(doc.totalTime.hms, right: true),
         ),
-      ),
+        _gutter,
+        _box(
+          flex: InvoiceLayout.colTotal,
+          child: _splitRow(_sym, _moneyNum(doc.subtotal)),
+        ),
+      ]),
       if (doc.tax != null)
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.spaceSm,
-            vertical: AppTokens.space4xs,
+        _totalsRow('${doc.tax!.label} (${doc.tax!.rate}%):', [
+          const Spacer(flex: InvoiceLayout.colTime),
+          _gutter,
+          _box(
+            flex: InvoiceLayout.colTotal,
+            child: _splitRow(_sym, _moneyNum(doc.tax!.amount)),
           ),
-          child: Row(
-            children: [
-              _cell(
-                '${doc.tax!.label} (${doc.tax!.rate}%):',
-                9,
-                right: true,
-                style: _label,
-              ),
-              _cell(_money(doc.tax!.amount), 2, right: true, style: _value),
-            ],
-          ),
-        ),
-      const SizedBox(height: AppTokens.space3xs),
+        ]),
+      const SizedBox(height: InvoiceLayout.amountDueGap),
+      // AMOUNT DUE: the label fills the leftover width; the value box takes an
+      // exact pixel width so it spans the TIME + TOTAL columns (plus the gutter
+      // between them) and lines up with those columns exactly — a flex slot
+      // can't, since it can't reclaim that internal gutter.
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceSm),
+        padding: const EdgeInsets.only(bottom: InvoiceLayout.rowMarginBottom),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Text('AMOUNT DUE:  ', style: _label),
-            Text(
-              '${_money(doc.amountDue)} ${doc.currency}',
-              style: TextStyle(
-                color: _primary,
-                fontSize: _fontAmountDue,
-                fontWeight: FontWeight.w700,
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _txt('AMOUNT DUE:', right: true, style: _label),
+              ),
+            ),
+            _gutter,
+            Container(
+              width: InvoiceLayout.totalsValueWidth,
+              padding: const EdgeInsets.symmetric(
+                horizontal: InvoiceLayout.rowPaddingH,
+                vertical: InvoiceLayout.rowPaddingV,
+              ),
+              decoration: _rowDecoration,
+              child: Row(
+                children: [
+                  Text(
+                    '$_sym ${_moneyNum(doc.amountDue)}',
+                    style: TextStyle(
+                      color: _text,
+                      fontSize: InvoiceLayout.fontAmountDue,
+                      fontWeight: InvoiceLayout.fontWeightBold,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    doc.currency,
+                    style: TextStyle(
+                      color: _text,
+                      fontSize: InvoiceLayout.fontLabel,
+                      fontWeight: InvoiceLayout.fontWeightLabel,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -377,22 +480,24 @@ class InvoicePreview extends StatelessWidget {
         'Please make payments to:',
         style: TextStyle(
           color: _primary,
-          fontSize: AppTokens.fontSizeSm,
-          fontWeight: FontWeight.w700,
+          fontSize: InvoiceLayout.fontPaymentsHeading,
+          fontWeight: InvoiceLayout.fontWeightBold,
         ),
       ),
-      const SizedBox(height: AppTokens.space2xs),
-      if (doc.paymentLink != null) _field('Link', doc.paymentLink),
-      const SizedBox(height: AppTokens.spaceXs),
+      const SizedBox(height: InvoiceLayout.paymentsHeadingGap),
+      if (doc.paymentLink != null) ...[
+        _field('Link', doc.paymentLink),
+        const SizedBox(height: InvoiceLayout.paymentsFieldGap),
+      ],
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: _field('NAME', doc.payeeName)),
-          const SizedBox(width: AppTokens.spaceXs),
+          const SizedBox(width: InvoiceLayout.gridGutter),
           Expanded(child: _field('ACN/ABN', doc.senderAbn)),
-          const SizedBox(width: AppTokens.spaceXs),
+          const SizedBox(width: InvoiceLayout.gridGutter),
           Expanded(child: _field('SWIFT/BIC', doc.swift)),
-          const SizedBox(width: AppTokens.spaceXs),
+          const SizedBox(width: InvoiceLayout.gridGutter),
           Expanded(child: _field('BANK', doc.bankName)),
         ],
       ),
