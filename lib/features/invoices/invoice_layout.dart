@@ -51,6 +51,12 @@ abstract class InvoiceLayout {
   static const FontWeight fontWeightValue = FontWeight.w400;
   static const FontWeight fontWeightBold = FontWeight.w800;
 
+  // Alpha for secondary ("muted") text painted over the background — the
+  // masthead contact line and issue date. Both renderers apply it the same
+  // way: the preview via a translucent colour, the PDF by compositing that
+  // translucent primary over the background (PDFs can't paint transparency).
+  static const double mutedAlpha = 0.55;
+
   // ── Logo ───────────────────────────────────────────────────────────
   static const double logoHeight = 38.0;
 

@@ -44,15 +44,25 @@ Future<Uint8List> buildBrandedInvoicePdf({
   final surface = PdfColor.fromInt(template.colorSurface);
   final primary = PdfColor.fromInt(template.colorPrimary);
   final text = PdfColor.fromInt(template.colorText); // text on surface (field box values)
-  final muted = PdfColor.fromInt(template.colorPrimary).flatten(background: bg); // secondary text on background
+  // Secondary text on background: primary at [mutedAlpha], composited over the
+  // background since a PDF fill can't be translucent. Mirrors the preview's
+  // _primary.withValues(alpha: mutedAlpha).
+  final muted = PdfColor(
+    primary.red,
+    primary.green,
+    primary.blue,
+    InvoiceLayout.mutedAlpha,
+  ).flatten(background: bg);
 
+  // Only two font files exist (regular [font], SemiBold [bold]), so the
+  // preview's w700 labels map to [bold] and its w400 values to [font].
   final labelStyle = pw.TextStyle(
-    font: font,
+    font: bold,
     color: primary,
     fontSize: _p(InvoiceLayout.fontLabel),
   );
   final valueStyle = pw.TextStyle(
-    font: bold,
+    font: font,
     color: text,
     fontSize: _p(InvoiceLayout.fontValue),
   );

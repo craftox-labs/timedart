@@ -74,8 +74,9 @@ class InvoicePreview extends StatelessWidget {
   Color get _primary => Color(template.colorPrimary);
   Color get _text =>
       Color(template.colorText); // text on surface (field box values)
-  Color get _muted =>
-      _primary.withValues(alpha: 0.55); // secondary text on background
+  Color get _muted => _primary.withValues(
+    alpha: InvoiceLayout.mutedAlpha,
+  ); // secondary text on background
 
   String get _sym => currencySymbol(doc.currency);
   String _moneyNum(double a) => a.toStringAsFixed(2);
