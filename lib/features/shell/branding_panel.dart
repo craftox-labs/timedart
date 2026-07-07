@@ -12,7 +12,7 @@ import 'package:time_tracker/widgets/panel_title_bar.dart';
 /// Selecting a row opens that entity's editor directly in the content pane
 /// (the shell gates the switch behind an unsaved-changes check). Mirrors
 /// [SidePanel]'s look and keyboard nav (j/k move, Enter/l expand-or-open,
-/// h collapse, Esc back) but is a separate widget so the client/job panel's
+/// h collapse, Esc back) but is a separate widget so the client/project panel's
 /// tuned navigation is untouched.
 class BrandingPanel extends StatefulWidget {
   const BrandingPanel({
@@ -363,7 +363,7 @@ class _BrandingPanelState extends State<BrandingPanel> {
         );
         final dividerBefore = i > 0 && row is _HeaderRow;
         // Breathing space after a section's last row — matches SidePanel's
-        // gap after a client's last job.
+        // gap after a client's last project.
         final lastOfSection =
             row is _EntityRow &&
             (i + 1 >= _rows.length || _rows[i + 1] is _HeaderRow);

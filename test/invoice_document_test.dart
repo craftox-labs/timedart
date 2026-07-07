@@ -38,7 +38,7 @@ Client _client({
   defaultRate: defaultRate,
 );
 
-Job _job({String code = 'CD002', double? rate}) => Job(
+Project _project({String code = 'CD002', double? rate}) => Project(
   id: 1,
   clientId: 1,
   code: code,
@@ -50,7 +50,7 @@ Job _job({String code = 'CD002', double? rate}) => Job(
 
 Task _task({int id = 1, double? rate, String title = 'Mobile'}) => Task(
   id: id,
-  jobId: 1,
+  projectId: 1,
   title: title,
   rate: rate,
   status: 'active',
@@ -64,7 +64,7 @@ TimeEntry _entry({
   int seconds = 3600,
 }) => TimeEntry(
   id: id,
-  jobId: 1,
+  projectId: 1,
   taskId: taskId,
   description: description,
   startedAt: _t,
@@ -74,14 +74,14 @@ TimeEntry _entry({
 
 InvoiceDocument _doc({
   InvoiceProfile? profile,
-  Job? job,
+  Project? project,
   Client? client,
   List<Task>? tasks,
   required List<TimeEntry> entries,
   String? invoiceNumber,
 }) => buildInvoiceDocument(
   profile: profile ?? _profile(),
-  job: job ?? _job(),
+  project: project ?? _project(),
   client: client ?? _client(),
   tasks: tasks ?? [_task()],
   entries: entries,
@@ -99,15 +99,15 @@ void main() {
       expect(doc.lines.single.amount, closeTo(23, 1e-9));
     });
 
-    test('rate resolves task override → job → client default', () {
+    test('rate resolves task override → project → client default', () {
       final doc = buildInvoiceDocument(
         profile: _profile(),
-        job: _job(rate: 80), // job overrides client default (46)
+        project: _project(rate: 80), // project overrides client default (46)
         client: _client(defaultRate: 46),
-        tasks: [_task(id: 1, rate: 120), _task(id: 2)], // task 1 overrides job
+        tasks: [_task(id: 1, rate: 120), _task(id: 2)], // task 1 overrides project
         entries: [
           _entry(id: 1, taskId: 1, seconds: 3600), // → 120
-          _entry(id: 2, taskId: 2, seconds: 3600), // → job 80
+          _entry(id: 2, taskId: 2, seconds: 3600), // → project 80
         ],
         from: DateTime(2026, 4, 1),
         to: DateTime(2026, 4, 30),
@@ -117,10 +117,10 @@ void main() {
       expect(doc.lines[1].rate, 80);
     });
 
-    test('rate falls to client default when job has none', () {
+    test('rate falls to client default when project has none', () {
       final doc = buildInvoiceDocument(
         profile: _profile(),
-        job: _job(rate: null),
+        project: _project(rate: null),
         client: _client(defaultRate: 46),
         tasks: [_task(id: 1)],
         entries: [_entry(taskId: 1)],
@@ -134,7 +134,7 @@ void main() {
     test('label: task title, task+note, note-only, dash', () {
       final doc = buildInvoiceDocument(
         profile: _profile(),
-        job: _job(),
+        project: _project(),
         client: _client(),
         tasks: [_task(id: 1, title: 'Mobile')],
         entries: [
@@ -208,7 +208,7 @@ void main() {
   });
 
   group('header, parties, currency', () {
-    test('reference is the job code; currency passes through', () {
+    test('reference is the project code; currency passes through', () {
       final doc = _doc(entries: [_entry()]);
       expect(doc.reference, 'CD002');
       expect(doc.currency, 'AUD');

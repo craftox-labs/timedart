@@ -13,7 +13,7 @@ import 'package:time_tracker/widgets/focus_ring.dart';
 // two navigable lists feel identical.
 class TaskList extends StatelessWidget {
   final List<TaskListRow> rows;
-  final double? rate; // effective job/client rate; a task may override it
+  final double? rate; // effective project/client rate; a task may override it
   final int? selectedTaskId; // the task the timer is armed on / tracking
   final int cursor;
   final bool cursorActive;

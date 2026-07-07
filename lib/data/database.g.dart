@@ -564,11 +564,11 @@ class ClientsCompanion extends UpdateCompanion<Client> {
   }
 }
 
-class $JobsTable extends Jobs with TableInfo<$JobsTable, Job> {
+class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $JobsTable(this.attachedDatabase, [this._alias]);
+  $ProjectsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -660,10 +660,10 @@ class $JobsTable extends Jobs with TableInfo<$JobsTable, Job> {
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'jobs';
+  static const String $name = 'projects';
   @override
   VerificationContext validateIntegrity(
-    Insertable<Job> instance, {
+    Insertable<Project> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -719,9 +719,9 @@ class $JobsTable extends Jobs with TableInfo<$JobsTable, Job> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Job map(Map<String, dynamic> data, {String? tablePrefix}) {
+  Project map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Job(
+    return Project(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -754,12 +754,12 @@ class $JobsTable extends Jobs with TableInfo<$JobsTable, Job> {
   }
 
   @override
-  $JobsTable createAlias(String alias) {
-    return $JobsTable(attachedDatabase, alias);
+  $ProjectsTable createAlias(String alias) {
+    return $ProjectsTable(attachedDatabase, alias);
   }
 }
 
-class Job extends DataClass implements Insertable<Job> {
+class Project extends DataClass implements Insertable<Project> {
   final int id;
   final int clientId;
   final String code;
@@ -767,7 +767,7 @@ class Job extends DataClass implements Insertable<Job> {
   final double? rate;
   final String status;
   final DateTime createdAt;
-  const Job({
+  const Project({
     required this.id,
     required this.clientId,
     required this.code,
@@ -791,8 +791,8 @@ class Job extends DataClass implements Insertable<Job> {
     return map;
   }
 
-  JobsCompanion toCompanion(bool nullToAbsent) {
-    return JobsCompanion(
+  ProjectsCompanion toCompanion(bool nullToAbsent) {
+    return ProjectsCompanion(
       id: Value(id),
       clientId: Value(clientId),
       code: Value(code),
@@ -803,12 +803,12 @@ class Job extends DataClass implements Insertable<Job> {
     );
   }
 
-  factory Job.fromJson(
+  factory Project.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Job(
+    return Project(
       id: serializer.fromJson<int>(json['id']),
       clientId: serializer.fromJson<int>(json['clientId']),
       code: serializer.fromJson<String>(json['code']),
@@ -832,7 +832,7 @@ class Job extends DataClass implements Insertable<Job> {
     };
   }
 
-  Job copyWith({
+  Project copyWith({
     int? id,
     int? clientId,
     String? code,
@@ -840,7 +840,7 @@ class Job extends DataClass implements Insertable<Job> {
     Value<double?> rate = const Value.absent(),
     String? status,
     DateTime? createdAt,
-  }) => Job(
+  }) => Project(
     id: id ?? this.id,
     clientId: clientId ?? this.clientId,
     code: code ?? this.code,
@@ -849,8 +849,8 @@ class Job extends DataClass implements Insertable<Job> {
     status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
   );
-  Job copyWithCompanion(JobsCompanion data) {
-    return Job(
+  Project copyWithCompanion(ProjectsCompanion data) {
+    return Project(
       id: data.id.present ? data.id.value : this.id,
       clientId: data.clientId.present ? data.clientId.value : this.clientId,
       code: data.code.present ? data.code.value : this.code,
@@ -863,7 +863,7 @@ class Job extends DataClass implements Insertable<Job> {
 
   @override
   String toString() {
-    return (StringBuffer('Job(')
+    return (StringBuffer('Project(')
           ..write('id: $id, ')
           ..write('clientId: $clientId, ')
           ..write('code: $code, ')
@@ -881,7 +881,7 @@ class Job extends DataClass implements Insertable<Job> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Job &&
+      (other is Project &&
           other.id == this.id &&
           other.clientId == this.clientId &&
           other.code == this.code &&
@@ -891,7 +891,7 @@ class Job extends DataClass implements Insertable<Job> {
           other.createdAt == this.createdAt);
 }
 
-class JobsCompanion extends UpdateCompanion<Job> {
+class ProjectsCompanion extends UpdateCompanion<Project> {
   final Value<int> id;
   final Value<int> clientId;
   final Value<String> code;
@@ -899,7 +899,7 @@ class JobsCompanion extends UpdateCompanion<Job> {
   final Value<double?> rate;
   final Value<String> status;
   final Value<DateTime> createdAt;
-  const JobsCompanion({
+  const ProjectsCompanion({
     this.id = const Value.absent(),
     this.clientId = const Value.absent(),
     this.code = const Value.absent(),
@@ -908,7 +908,7 @@ class JobsCompanion extends UpdateCompanion<Job> {
     this.status = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
-  JobsCompanion.insert({
+  ProjectsCompanion.insert({
     this.id = const Value.absent(),
     required int clientId,
     required String code,
@@ -919,7 +919,7 @@ class JobsCompanion extends UpdateCompanion<Job> {
   }) : clientId = Value(clientId),
        code = Value(code),
        title = Value(title);
-  static Insertable<Job> custom({
+  static Insertable<Project> custom({
     Expression<int>? id,
     Expression<int>? clientId,
     Expression<String>? code,
@@ -939,7 +939,7 @@ class JobsCompanion extends UpdateCompanion<Job> {
     });
   }
 
-  JobsCompanion copyWith({
+  ProjectsCompanion copyWith({
     Value<int>? id,
     Value<int>? clientId,
     Value<String>? code,
@@ -948,7 +948,7 @@ class JobsCompanion extends UpdateCompanion<Job> {
     Value<String>? status,
     Value<DateTime>? createdAt,
   }) {
-    return JobsCompanion(
+    return ProjectsCompanion(
       id: id ?? this.id,
       clientId: clientId ?? this.clientId,
       code: code ?? this.code,
@@ -988,7 +988,7 @@ class JobsCompanion extends UpdateCompanion<Job> {
 
   @override
   String toString() {
-    return (StringBuffer('JobsCompanion(')
+    return (StringBuffer('ProjectsCompanion(')
           ..write('id: $id, ')
           ..write('clientId: $clientId, ')
           ..write('code: $code, ')
@@ -1019,16 +1019,18 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
-  static const VerificationMeta _jobIdMeta = const VerificationMeta('jobId');
+  static const VerificationMeta _projectIdMeta = const VerificationMeta(
+    'projectId',
+  );
   @override
-  late final GeneratedColumn<int> jobId = GeneratedColumn<int>(
-    'job_id',
+  late final GeneratedColumn<int> projectId = GeneratedColumn<int>(
+    'project_id',
     aliasedName,
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES jobs (id)',
+      'REFERENCES projects (id)',
     ),
   );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
@@ -1074,7 +1076,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    jobId,
+    projectId,
     title,
     rate,
     status,
@@ -1095,13 +1097,13 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
-    if (data.containsKey('job_id')) {
+    if (data.containsKey('project_id')) {
       context.handle(
-        _jobIdMeta,
-        jobId.isAcceptableOrUnknown(data['job_id']!, _jobIdMeta),
+        _projectIdMeta,
+        projectId.isAcceptableOrUnknown(data['project_id']!, _projectIdMeta),
       );
     } else if (isInserting) {
-      context.missing(_jobIdMeta);
+      context.missing(_projectIdMeta);
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -1142,9 +1144,9 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
-      jobId: attachedDatabase.typeMapping.read(
+      projectId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
-        data['${effectivePrefix}job_id'],
+        data['${effectivePrefix}project_id'],
       )!,
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1173,14 +1175,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
 
 class Task extends DataClass implements Insertable<Task> {
   final int id;
-  final int jobId;
+  final int projectId;
   final String title;
   final double? rate;
   final String status;
   final DateTime createdAt;
   const Task({
     required this.id,
-    required this.jobId,
+    required this.projectId,
     required this.title,
     this.rate,
     required this.status,
@@ -1190,7 +1192,7 @@ class Task extends DataClass implements Insertable<Task> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
-    map['job_id'] = Variable<int>(jobId);
+    map['project_id'] = Variable<int>(projectId);
     map['title'] = Variable<String>(title);
     if (!nullToAbsent || rate != null) {
       map['rate'] = Variable<double>(rate);
@@ -1203,7 +1205,7 @@ class Task extends DataClass implements Insertable<Task> {
   TasksCompanion toCompanion(bool nullToAbsent) {
     return TasksCompanion(
       id: Value(id),
-      jobId: Value(jobId),
+      projectId: Value(projectId),
       title: Value(title),
       rate: rate == null && nullToAbsent ? const Value.absent() : Value(rate),
       status: Value(status),
@@ -1218,7 +1220,7 @@ class Task extends DataClass implements Insertable<Task> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Task(
       id: serializer.fromJson<int>(json['id']),
-      jobId: serializer.fromJson<int>(json['jobId']),
+      projectId: serializer.fromJson<int>(json['projectId']),
       title: serializer.fromJson<String>(json['title']),
       rate: serializer.fromJson<double?>(json['rate']),
       status: serializer.fromJson<String>(json['status']),
@@ -1230,7 +1232,7 @@ class Task extends DataClass implements Insertable<Task> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
-      'jobId': serializer.toJson<int>(jobId),
+      'projectId': serializer.toJson<int>(projectId),
       'title': serializer.toJson<String>(title),
       'rate': serializer.toJson<double?>(rate),
       'status': serializer.toJson<String>(status),
@@ -1240,14 +1242,14 @@ class Task extends DataClass implements Insertable<Task> {
 
   Task copyWith({
     int? id,
-    int? jobId,
+    int? projectId,
     String? title,
     Value<double?> rate = const Value.absent(),
     String? status,
     DateTime? createdAt,
   }) => Task(
     id: id ?? this.id,
-    jobId: jobId ?? this.jobId,
+    projectId: projectId ?? this.projectId,
     title: title ?? this.title,
     rate: rate.present ? rate.value : this.rate,
     status: status ?? this.status,
@@ -1256,7 +1258,7 @@ class Task extends DataClass implements Insertable<Task> {
   Task copyWithCompanion(TasksCompanion data) {
     return Task(
       id: data.id.present ? data.id.value : this.id,
-      jobId: data.jobId.present ? data.jobId.value : this.jobId,
+      projectId: data.projectId.present ? data.projectId.value : this.projectId,
       title: data.title.present ? data.title.value : this.title,
       rate: data.rate.present ? data.rate.value : this.rate,
       status: data.status.present ? data.status.value : this.status,
@@ -1268,7 +1270,7 @@ class Task extends DataClass implements Insertable<Task> {
   String toString() {
     return (StringBuffer('Task(')
           ..write('id: $id, ')
-          ..write('jobId: $jobId, ')
+          ..write('projectId: $projectId, ')
           ..write('title: $title, ')
           ..write('rate: $rate, ')
           ..write('status: $status, ')
@@ -1278,13 +1280,14 @@ class Task extends DataClass implements Insertable<Task> {
   }
 
   @override
-  int get hashCode => Object.hash(id, jobId, title, rate, status, createdAt);
+  int get hashCode =>
+      Object.hash(id, projectId, title, rate, status, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Task &&
           other.id == this.id &&
-          other.jobId == this.jobId &&
+          other.projectId == this.projectId &&
           other.title == this.title &&
           other.rate == this.rate &&
           other.status == this.status &&
@@ -1293,14 +1296,14 @@ class Task extends DataClass implements Insertable<Task> {
 
 class TasksCompanion extends UpdateCompanion<Task> {
   final Value<int> id;
-  final Value<int> jobId;
+  final Value<int> projectId;
   final Value<String> title;
   final Value<double?> rate;
   final Value<String> status;
   final Value<DateTime> createdAt;
   const TasksCompanion({
     this.id = const Value.absent(),
-    this.jobId = const Value.absent(),
+    this.projectId = const Value.absent(),
     this.title = const Value.absent(),
     this.rate = const Value.absent(),
     this.status = const Value.absent(),
@@ -1308,16 +1311,16 @@ class TasksCompanion extends UpdateCompanion<Task> {
   });
   TasksCompanion.insert({
     this.id = const Value.absent(),
-    required int jobId,
+    required int projectId,
     required String title,
     this.rate = const Value.absent(),
     this.status = const Value.absent(),
     this.createdAt = const Value.absent(),
-  }) : jobId = Value(jobId),
+  }) : projectId = Value(projectId),
        title = Value(title);
   static Insertable<Task> custom({
     Expression<int>? id,
-    Expression<int>? jobId,
+    Expression<int>? projectId,
     Expression<String>? title,
     Expression<double>? rate,
     Expression<String>? status,
@@ -1325,7 +1328,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (jobId != null) 'job_id': jobId,
+      if (projectId != null) 'project_id': projectId,
       if (title != null) 'title': title,
       if (rate != null) 'rate': rate,
       if (status != null) 'status': status,
@@ -1335,7 +1338,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
 
   TasksCompanion copyWith({
     Value<int>? id,
-    Value<int>? jobId,
+    Value<int>? projectId,
     Value<String>? title,
     Value<double?>? rate,
     Value<String>? status,
@@ -1343,7 +1346,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   }) {
     return TasksCompanion(
       id: id ?? this.id,
-      jobId: jobId ?? this.jobId,
+      projectId: projectId ?? this.projectId,
       title: title ?? this.title,
       rate: rate ?? this.rate,
       status: status ?? this.status,
@@ -1357,8 +1360,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
-    if (jobId.present) {
-      map['job_id'] = Variable<int>(jobId.value);
+    if (projectId.present) {
+      map['project_id'] = Variable<int>(projectId.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -1379,7 +1382,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   String toString() {
     return (StringBuffer('TasksCompanion(')
           ..write('id: $id, ')
-          ..write('jobId: $jobId, ')
+          ..write('projectId: $projectId, ')
           ..write('title: $title, ')
           ..write('rate: $rate, ')
           ..write('status: $status, ')
@@ -1408,16 +1411,18 @@ class $TimeEntriesTable extends TimeEntries
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
-  static const VerificationMeta _jobIdMeta = const VerificationMeta('jobId');
+  static const VerificationMeta _projectIdMeta = const VerificationMeta(
+    'projectId',
+  );
   @override
-  late final GeneratedColumn<int> jobId = GeneratedColumn<int>(
-    'job_id',
+  late final GeneratedColumn<int> projectId = GeneratedColumn<int>(
+    'project_id',
     aliasedName,
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES jobs (id)',
+      'REFERENCES projects (id)',
     ),
   );
   static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
@@ -1479,7 +1484,7 @@ class $TimeEntriesTable extends TimeEntries
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    jobId,
+    projectId,
     taskId,
     description,
     startedAt,
@@ -1501,13 +1506,13 @@ class $TimeEntriesTable extends TimeEntries
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
-    if (data.containsKey('job_id')) {
+    if (data.containsKey('project_id')) {
       context.handle(
-        _jobIdMeta,
-        jobId.isAcceptableOrUnknown(data['job_id']!, _jobIdMeta),
+        _projectIdMeta,
+        projectId.isAcceptableOrUnknown(data['project_id']!, _projectIdMeta),
       );
     } else if (isInserting) {
-      context.missing(_jobIdMeta);
+      context.missing(_projectIdMeta);
     }
     if (data.containsKey('task_id')) {
       context.handle(
@@ -1561,9 +1566,9 @@ class $TimeEntriesTable extends TimeEntries
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
-      jobId: attachedDatabase.typeMapping.read(
+      projectId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
-        data['${effectivePrefix}job_id'],
+        data['${effectivePrefix}project_id'],
       )!,
       taskId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -1596,7 +1601,7 @@ class $TimeEntriesTable extends TimeEntries
 
 class TimeEntry extends DataClass implements Insertable<TimeEntry> {
   final int id;
-  final int jobId;
+  final int projectId;
   final int? taskId;
   final String? description;
   final DateTime startedAt;
@@ -1604,7 +1609,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
   final int seconds;
   const TimeEntry({
     required this.id,
-    required this.jobId,
+    required this.projectId,
     this.taskId,
     this.description,
     required this.startedAt,
@@ -1615,7 +1620,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
-    map['job_id'] = Variable<int>(jobId);
+    map['project_id'] = Variable<int>(projectId);
     if (!nullToAbsent || taskId != null) {
       map['task_id'] = Variable<int>(taskId);
     }
@@ -1631,7 +1636,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
   TimeEntriesCompanion toCompanion(bool nullToAbsent) {
     return TimeEntriesCompanion(
       id: Value(id),
-      jobId: Value(jobId),
+      projectId: Value(projectId),
       taskId: taskId == null && nullToAbsent
           ? const Value.absent()
           : Value(taskId),
@@ -1651,7 +1656,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return TimeEntry(
       id: serializer.fromJson<int>(json['id']),
-      jobId: serializer.fromJson<int>(json['jobId']),
+      projectId: serializer.fromJson<int>(json['projectId']),
       taskId: serializer.fromJson<int?>(json['taskId']),
       description: serializer.fromJson<String?>(json['description']),
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
@@ -1664,7 +1669,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
-      'jobId': serializer.toJson<int>(jobId),
+      'projectId': serializer.toJson<int>(projectId),
       'taskId': serializer.toJson<int?>(taskId),
       'description': serializer.toJson<String?>(description),
       'startedAt': serializer.toJson<DateTime>(startedAt),
@@ -1675,7 +1680,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
 
   TimeEntry copyWith({
     int? id,
-    int? jobId,
+    int? projectId,
     Value<int?> taskId = const Value.absent(),
     Value<String?> description = const Value.absent(),
     DateTime? startedAt,
@@ -1683,7 +1688,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
     int? seconds,
   }) => TimeEntry(
     id: id ?? this.id,
-    jobId: jobId ?? this.jobId,
+    projectId: projectId ?? this.projectId,
     taskId: taskId.present ? taskId.value : this.taskId,
     description: description.present ? description.value : this.description,
     startedAt: startedAt ?? this.startedAt,
@@ -1693,7 +1698,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
   TimeEntry copyWithCompanion(TimeEntriesCompanion data) {
     return TimeEntry(
       id: data.id.present ? data.id.value : this.id,
-      jobId: data.jobId.present ? data.jobId.value : this.jobId,
+      projectId: data.projectId.present ? data.projectId.value : this.projectId,
       taskId: data.taskId.present ? data.taskId.value : this.taskId,
       description: data.description.present
           ? data.description.value
@@ -1708,7 +1713,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
   String toString() {
     return (StringBuffer('TimeEntry(')
           ..write('id: $id, ')
-          ..write('jobId: $jobId, ')
+          ..write('projectId: $projectId, ')
           ..write('taskId: $taskId, ')
           ..write('description: $description, ')
           ..write('startedAt: $startedAt, ')
@@ -1719,14 +1724,21 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, jobId, taskId, description, startedAt, endedAt, seconds);
+  int get hashCode => Object.hash(
+    id,
+    projectId,
+    taskId,
+    description,
+    startedAt,
+    endedAt,
+    seconds,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is TimeEntry &&
           other.id == this.id &&
-          other.jobId == this.jobId &&
+          other.projectId == this.projectId &&
           other.taskId == this.taskId &&
           other.description == this.description &&
           other.startedAt == this.startedAt &&
@@ -1736,7 +1748,7 @@ class TimeEntry extends DataClass implements Insertable<TimeEntry> {
 
 class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   final Value<int> id;
-  final Value<int> jobId;
+  final Value<int> projectId;
   final Value<int?> taskId;
   final Value<String?> description;
   final Value<DateTime> startedAt;
@@ -1744,7 +1756,7 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   final Value<int> seconds;
   const TimeEntriesCompanion({
     this.id = const Value.absent(),
-    this.jobId = const Value.absent(),
+    this.projectId = const Value.absent(),
     this.taskId = const Value.absent(),
     this.description = const Value.absent(),
     this.startedAt = const Value.absent(),
@@ -1753,19 +1765,19 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   });
   TimeEntriesCompanion.insert({
     this.id = const Value.absent(),
-    required int jobId,
+    required int projectId,
     this.taskId = const Value.absent(),
     this.description = const Value.absent(),
     required DateTime startedAt,
     required DateTime endedAt,
     required int seconds,
-  }) : jobId = Value(jobId),
+  }) : projectId = Value(projectId),
        startedAt = Value(startedAt),
        endedAt = Value(endedAt),
        seconds = Value(seconds);
   static Insertable<TimeEntry> custom({
     Expression<int>? id,
-    Expression<int>? jobId,
+    Expression<int>? projectId,
     Expression<int>? taskId,
     Expression<String>? description,
     Expression<DateTime>? startedAt,
@@ -1774,7 +1786,7 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (jobId != null) 'job_id': jobId,
+      if (projectId != null) 'project_id': projectId,
       if (taskId != null) 'task_id': taskId,
       if (description != null) 'description': description,
       if (startedAt != null) 'started_at': startedAt,
@@ -1785,7 +1797,7 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
 
   TimeEntriesCompanion copyWith({
     Value<int>? id,
-    Value<int>? jobId,
+    Value<int>? projectId,
     Value<int?>? taskId,
     Value<String?>? description,
     Value<DateTime>? startedAt,
@@ -1794,7 +1806,7 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   }) {
     return TimeEntriesCompanion(
       id: id ?? this.id,
-      jobId: jobId ?? this.jobId,
+      projectId: projectId ?? this.projectId,
       taskId: taskId ?? this.taskId,
       description: description ?? this.description,
       startedAt: startedAt ?? this.startedAt,
@@ -1809,8 +1821,8 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
-    if (jobId.present) {
-      map['job_id'] = Variable<int>(jobId.value);
+    if (projectId.present) {
+      map['project_id'] = Variable<int>(projectId.value);
     }
     if (taskId.present) {
       map['task_id'] = Variable<int>(taskId.value);
@@ -1834,7 +1846,7 @@ class TimeEntriesCompanion extends UpdateCompanion<TimeEntry> {
   String toString() {
     return (StringBuffer('TimeEntriesCompanion(')
           ..write('id: $id, ')
-          ..write('jobId: $jobId, ')
+          ..write('projectId: $projectId, ')
           ..write('taskId: $taskId, ')
           ..write('description: $description, ')
           ..write('startedAt: $startedAt, ')
@@ -3569,7 +3581,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $ClientsTable clients = $ClientsTable(this);
-  late final $JobsTable jobs = $JobsTable(this);
+  late final $ProjectsTable projects = $ProjectsTable(this);
   late final $TasksTable tasks = $TasksTable(this);
   late final $TimeEntriesTable timeEntries = $TimeEntriesTable(this);
   late final $TemplatesTable templates = $TemplatesTable(this);
@@ -3580,7 +3592,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     clients,
-    jobs,
+    projects,
     tasks,
     timeEntries,
     templates,
@@ -3617,20 +3629,20 @@ final class $$ClientsTableReferences
     extends BaseReferences<_$AppDatabase, $ClientsTable, Client> {
   $$ClientsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$JobsTable, List<Job>> _jobsRefsTable(
+  static MultiTypedResultKey<$ProjectsTable, List<Project>> _projectsRefsTable(
     _$AppDatabase db,
   ) => MultiTypedResultKey.fromTable(
-    db.jobs,
-    aliasName: 'clients__id__jobs__client_id',
+    db.projects,
+    aliasName: 'clients__id__projects__client_id',
   );
 
-  $$JobsTableProcessedTableManager get jobsRefs {
-    final manager = $$JobsTableTableManager(
+  $$ProjectsTableProcessedTableManager get projectsRefs {
+    final manager = $$ProjectsTableTableManager(
       $_db,
-      $_db.jobs,
+      $_db.projects,
     ).filter((f) => f.clientId.id.sqlEquals($_itemColumn<int>('id')!));
 
-    final cache = $_typedResult.readTableOrNull(_jobsRefsTable($_db));
+    final cache = $_typedResult.readTableOrNull(_projectsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -3691,22 +3703,22 @@ class $$ClientsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  Expression<bool> jobsRefs(
-    Expression<bool> Function($$JobsTableFilterComposer f) f,
+  Expression<bool> projectsRefs(
+    Expression<bool> Function($$ProjectsTableFilterComposer f) f,
   ) {
-    final $$JobsTableFilterComposer composer = $composerBuilder(
+    final $$ProjectsTableFilterComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.id,
-      referencedTable: $db.jobs,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.clientId,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableFilterComposer(
+          }) => $$ProjectsTableFilterComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3814,22 +3826,22 @@ class $$ClientsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  Expression<T> jobsRefs<T extends Object>(
-    Expression<T> Function($$JobsTableAnnotationComposer a) f,
+  Expression<T> projectsRefs<T extends Object>(
+    Expression<T> Function($$ProjectsTableAnnotationComposer a) f,
   ) {
-    final $$JobsTableAnnotationComposer composer = $composerBuilder(
+    final $$ProjectsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
       getCurrentColumn: (t) => t.id,
-      referencedTable: $db.jobs,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.clientId,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableAnnotationComposer(
+          }) => $$ProjectsTableAnnotationComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3853,7 +3865,7 @@ class $$ClientsTableTableManager
           $$ClientsTableUpdateCompanionBuilder,
           (Client, $$ClientsTableReferences),
           Client,
-          PrefetchHooks Function({bool jobsRefs})
+          PrefetchHooks Function({bool projectsRefs})
         > {
   $$ClientsTableTableManager(_$AppDatabase db, $ClientsTable table)
     : super(
@@ -3918,21 +3930,20 @@ class $$ClientsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({jobsRefs = false}) {
+          prefetchHooksCallback: ({projectsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (jobsRefs) db.jobs],
+              explicitlyWatchedTables: [if (projectsRefs) db.projects],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
-                  if (jobsRefs)
-                    await $_getPrefetchedData<Client, $ClientsTable, Job>(
+                  if (projectsRefs)
+                    await $_getPrefetchedData<Client, $ClientsTable, Project>(
                       currentTable: table,
-                      referencedTable: $$ClientsTableReferences._jobsRefsTable(
-                        db,
-                      ),
+                      referencedTable: $$ClientsTableReferences
+                          ._projectsRefsTable(db),
                       managerFromTypedResult: (p0) =>
-                          $$ClientsTableReferences(db, table, p0).jobsRefs,
+                          $$ClientsTableReferences(db, table, p0).projectsRefs,
                       referencedItemsForCurrentItem: (item, referencedItems) =>
                           referencedItems.where((e) => e.clientId == item.id),
                       typedResults: items,
@@ -3957,10 +3968,10 @@ typedef $$ClientsTableProcessedTableManager =
       $$ClientsTableUpdateCompanionBuilder,
       (Client, $$ClientsTableReferences),
       Client,
-      PrefetchHooks Function({bool jobsRefs})
+      PrefetchHooks Function({bool projectsRefs})
     >;
-typedef $$JobsTableCreateCompanionBuilder =
-    JobsCompanion Function({
+typedef $$ProjectsTableCreateCompanionBuilder =
+    ProjectsCompanion Function({
       Value<int> id,
       required int clientId,
       required String code,
@@ -3969,8 +3980,8 @@ typedef $$JobsTableCreateCompanionBuilder =
       Value<String> status,
       Value<DateTime> createdAt,
     });
-typedef $$JobsTableUpdateCompanionBuilder =
-    JobsCompanion Function({
+typedef $$ProjectsTableUpdateCompanionBuilder =
+    ProjectsCompanion Function({
       Value<int> id,
       Value<int> clientId,
       Value<String> code,
@@ -3980,12 +3991,12 @@ typedef $$JobsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
     });
 
-final class $$JobsTableReferences
-    extends BaseReferences<_$AppDatabase, $JobsTable, Job> {
-  $$JobsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+final class $$ProjectsTableReferences
+    extends BaseReferences<_$AppDatabase, $ProjectsTable, Project> {
+  $$ProjectsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $ClientsTable _clientIdTable(_$AppDatabase db) =>
-      db.clients.createAlias('jobs__client_id__clients__id');
+      db.clients.createAlias('projects__client_id__clients__id');
 
   $$ClientsTableProcessedTableManager get clientId {
     final $_column = $_itemColumn<int>('client_id')!;
@@ -4005,14 +4016,14 @@ final class $$JobsTableReferences
     _$AppDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.tasks,
-    aliasName: 'jobs__id__tasks__job_id',
+    aliasName: 'projects__id__tasks__project_id',
   );
 
   $$TasksTableProcessedTableManager get tasksRefs {
     final manager = $$TasksTableTableManager(
       $_db,
       $_db.tasks,
-    ).filter((f) => f.jobId.id.sqlEquals($_itemColumn<int>('id')!));
+    ).filter((f) => f.projectId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_tasksRefsTable($_db));
     return ProcessedTableManager(
@@ -4023,14 +4034,14 @@ final class $$JobsTableReferences
   static MultiTypedResultKey<$TimeEntriesTable, List<TimeEntry>>
   _timeEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.timeEntries,
-    aliasName: 'jobs__id__time_entries__job_id',
+    aliasName: 'projects__id__time_entries__project_id',
   );
 
   $$TimeEntriesTableProcessedTableManager get timeEntriesRefs {
     final manager = $$TimeEntriesTableTableManager(
       $_db,
       $_db.timeEntries,
-    ).filter((f) => f.jobId.id.sqlEquals($_itemColumn<int>('id')!));
+    ).filter((f) => f.projectId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_timeEntriesRefsTable($_db));
     return ProcessedTableManager(
@@ -4039,8 +4050,9 @@ final class $$JobsTableReferences
   }
 }
 
-class $$JobsTableFilterComposer extends Composer<_$AppDatabase, $JobsTable> {
-  $$JobsTableFilterComposer({
+class $$ProjectsTableFilterComposer
+    extends Composer<_$AppDatabase, $ProjectsTable> {
+  $$ProjectsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -4107,7 +4119,7 @@ class $$JobsTableFilterComposer extends Composer<_$AppDatabase, $JobsTable> {
       composer: this,
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.tasks,
-      getReferencedColumn: (t) => t.jobId,
+      getReferencedColumn: (t) => t.projectId,
       builder:
           (
             joinBuilder, {
@@ -4132,7 +4144,7 @@ class $$JobsTableFilterComposer extends Composer<_$AppDatabase, $JobsTable> {
       composer: this,
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.timeEntries,
-      getReferencedColumn: (t) => t.jobId,
+      getReferencedColumn: (t) => t.projectId,
       builder:
           (
             joinBuilder, {
@@ -4151,8 +4163,9 @@ class $$JobsTableFilterComposer extends Composer<_$AppDatabase, $JobsTable> {
   }
 }
 
-class $$JobsTableOrderingComposer extends Composer<_$AppDatabase, $JobsTable> {
-  $$JobsTableOrderingComposer({
+class $$ProjectsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProjectsTable> {
+  $$ProjectsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -4213,9 +4226,9 @@ class $$JobsTableOrderingComposer extends Composer<_$AppDatabase, $JobsTable> {
   }
 }
 
-class $$JobsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $JobsTable> {
-  $$JobsTableAnnotationComposer({
+class $$ProjectsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProjectsTable> {
+  $$ProjectsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -4270,7 +4283,7 @@ class $$JobsTableAnnotationComposer
       composer: this,
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.tasks,
-      getReferencedColumn: (t) => t.jobId,
+      getReferencedColumn: (t) => t.projectId,
       builder:
           (
             joinBuilder, {
@@ -4295,7 +4308,7 @@ class $$JobsTableAnnotationComposer
       composer: this,
       getCurrentColumn: (t) => t.id,
       referencedTable: $db.timeEntries,
-      getReferencedColumn: (t) => t.jobId,
+      getReferencedColumn: (t) => t.projectId,
       builder:
           (
             joinBuilder, {
@@ -4314,36 +4327,36 @@ class $$JobsTableAnnotationComposer
   }
 }
 
-class $$JobsTableTableManager
+class $$ProjectsTableTableManager
     extends
         RootTableManager<
           _$AppDatabase,
-          $JobsTable,
-          Job,
-          $$JobsTableFilterComposer,
-          $$JobsTableOrderingComposer,
-          $$JobsTableAnnotationComposer,
-          $$JobsTableCreateCompanionBuilder,
-          $$JobsTableUpdateCompanionBuilder,
-          (Job, $$JobsTableReferences),
-          Job,
+          $ProjectsTable,
+          Project,
+          $$ProjectsTableFilterComposer,
+          $$ProjectsTableOrderingComposer,
+          $$ProjectsTableAnnotationComposer,
+          $$ProjectsTableCreateCompanionBuilder,
+          $$ProjectsTableUpdateCompanionBuilder,
+          (Project, $$ProjectsTableReferences),
+          Project,
           PrefetchHooks Function({
             bool clientId,
             bool tasksRefs,
             bool timeEntriesRefs,
           })
         > {
-  $$JobsTableTableManager(_$AppDatabase db, $JobsTable table)
+  $$ProjectsTableTableManager(_$AppDatabase db, $ProjectsTable table)
     : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$JobsTableFilterComposer($db: db, $table: table),
+              $$ProjectsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$JobsTableOrderingComposer($db: db, $table: table),
+              $$ProjectsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$JobsTableAnnotationComposer($db: db, $table: table),
+              $$ProjectsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -4353,7 +4366,7 @@ class $$JobsTableTableManager
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
-              }) => JobsCompanion(
+              }) => ProjectsCompanion(
                 id: id,
                 clientId: clientId,
                 code: code,
@@ -4371,7 +4384,7 @@ class $$JobsTableTableManager
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
-              }) => JobsCompanion.insert(
+              }) => ProjectsCompanion.insert(
                 id: id,
                 clientId: clientId,
                 code: code,
@@ -4382,8 +4395,10 @@ class $$JobsTableTableManager
               ),
           withReferenceMapper: (p0) => p0
               .map(
-                (e) =>
-                    (e.readTable(table), $$JobsTableReferences(db, table, e)),
+                (e) => (
+                  e.readTable(table),
+                  $$ProjectsTableReferences(db, table, e),
+                ),
               )
               .toList(),
           prefetchHooksCallback:
@@ -4415,9 +4430,9 @@ class $$JobsTableTableManager
                               state.withJoin(
                                     currentTable: table,
                                     currentColumn: table.clientId,
-                                    referencedTable: $$JobsTableReferences
+                                    referencedTable: $$ProjectsTableReferences
                                         ._clientIdTable(db),
-                                    referencedColumn: $$JobsTableReferences
+                                    referencedColumn: $$ProjectsTableReferences
                                         ._clientIdTable(db)
                                         .id,
                                   )
@@ -4429,31 +4444,44 @@ class $$JobsTableTableManager
                   getPrefetchedDataCallback: (items) async {
                     return [
                       if (tasksRefs)
-                        await $_getPrefetchedData<Job, $JobsTable, Task>(
+                        await $_getPrefetchedData<
+                          Project,
+                          $ProjectsTable,
+                          Task
+                        >(
                           currentTable: table,
-                          referencedTable: $$JobsTableReferences
+                          referencedTable: $$ProjectsTableReferences
                               ._tasksRefsTable(db),
                           managerFromTypedResult: (p0) =>
-                              $$JobsTableReferences(db, table, p0).tasksRefs,
+                              $$ProjectsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).tasksRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
-                                (e) => e.jobId == item.id,
+                                (e) => e.projectId == item.id,
                               ),
                           typedResults: items,
                         ),
                       if (timeEntriesRefs)
-                        await $_getPrefetchedData<Job, $JobsTable, TimeEntry>(
+                        await $_getPrefetchedData<
+                          Project,
+                          $ProjectsTable,
+                          TimeEntry
+                        >(
                           currentTable: table,
-                          referencedTable: $$JobsTableReferences
+                          referencedTable: $$ProjectsTableReferences
                               ._timeEntriesRefsTable(db),
-                          managerFromTypedResult: (p0) => $$JobsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).timeEntriesRefs,
+                          managerFromTypedResult: (p0) =>
+                              $$ProjectsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).timeEntriesRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
-                                (e) => e.jobId == item.id,
+                                (e) => e.projectId == item.id,
                               ),
                           typedResults: items,
                         ),
@@ -4465,18 +4493,18 @@ class $$JobsTableTableManager
       );
 }
 
-typedef $$JobsTableProcessedTableManager =
+typedef $$ProjectsTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
-      $JobsTable,
-      Job,
-      $$JobsTableFilterComposer,
-      $$JobsTableOrderingComposer,
-      $$JobsTableAnnotationComposer,
-      $$JobsTableCreateCompanionBuilder,
-      $$JobsTableUpdateCompanionBuilder,
-      (Job, $$JobsTableReferences),
-      Job,
+      $ProjectsTable,
+      Project,
+      $$ProjectsTableFilterComposer,
+      $$ProjectsTableOrderingComposer,
+      $$ProjectsTableAnnotationComposer,
+      $$ProjectsTableCreateCompanionBuilder,
+      $$ProjectsTableUpdateCompanionBuilder,
+      (Project, $$ProjectsTableReferences),
+      Project,
       PrefetchHooks Function({
         bool clientId,
         bool tasksRefs,
@@ -4486,7 +4514,7 @@ typedef $$JobsTableProcessedTableManager =
 typedef $$TasksTableCreateCompanionBuilder =
     TasksCompanion Function({
       Value<int> id,
-      required int jobId,
+      required int projectId,
       required String title,
       Value<double?> rate,
       Value<String> status,
@@ -4495,7 +4523,7 @@ typedef $$TasksTableCreateCompanionBuilder =
 typedef $$TasksTableUpdateCompanionBuilder =
     TasksCompanion Function({
       Value<int> id,
-      Value<int> jobId,
+      Value<int> projectId,
       Value<String> title,
       Value<double?> rate,
       Value<String> status,
@@ -4506,17 +4534,17 @@ final class $$TasksTableReferences
     extends BaseReferences<_$AppDatabase, $TasksTable, Task> {
   $$TasksTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $JobsTable _jobIdTable(_$AppDatabase db) =>
-      db.jobs.createAlias('tasks__job_id__jobs__id');
+  static $ProjectsTable _projectIdTable(_$AppDatabase db) =>
+      db.projects.createAlias('tasks__project_id__projects__id');
 
-  $$JobsTableProcessedTableManager get jobId {
-    final $_column = $_itemColumn<int>('job_id')!;
+  $$ProjectsTableProcessedTableManager get projectId {
+    final $_column = $_itemColumn<int>('project_id')!;
 
-    final manager = $$JobsTableTableManager(
+    final manager = $$ProjectsTableTableManager(
       $_db,
-      $_db.jobs,
+      $_db.projects,
     ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_jobIdTable($_db));
+    final item = $_typedResult.readTableOrNull(_projectIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -4575,20 +4603,20 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  $$JobsTableFilterComposer get jobId {
-    final $$JobsTableFilterComposer composer = $composerBuilder(
+  $$ProjectsTableFilterComposer get projectId {
+    final $$ProjectsTableFilterComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.jobId,
-      referencedTable: $db.jobs,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableFilterComposer(
+          }) => $$ProjectsTableFilterComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4658,20 +4686,20 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  $$JobsTableOrderingComposer get jobId {
-    final $$JobsTableOrderingComposer composer = $composerBuilder(
+  $$ProjectsTableOrderingComposer get projectId {
+    final $$ProjectsTableOrderingComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.jobId,
-      referencedTable: $db.jobs,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableOrderingComposer(
+          }) => $$ProjectsTableOrderingComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4706,20 +4734,20 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
-  $$JobsTableAnnotationComposer get jobId {
-    final $$JobsTableAnnotationComposer composer = $composerBuilder(
+  $$ProjectsTableAnnotationComposer get projectId {
+    final $$ProjectsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.jobId,
-      referencedTable: $db.jobs,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableAnnotationComposer(
+          }) => $$ProjectsTableAnnotationComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4768,7 +4796,7 @@ class $$TasksTableTableManager
           $$TasksTableUpdateCompanionBuilder,
           (Task, $$TasksTableReferences),
           Task,
-          PrefetchHooks Function({bool jobId, bool timeEntriesRefs})
+          PrefetchHooks Function({bool projectId, bool timeEntriesRefs})
         > {
   $$TasksTableTableManager(_$AppDatabase db, $TasksTable table)
     : super(
@@ -4784,14 +4812,14 @@ class $$TasksTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<int> jobId = const Value.absent(),
+                Value<int> projectId = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
-                jobId: jobId,
+                projectId: projectId,
                 title: title,
                 rate: rate,
                 status: status,
@@ -4800,14 +4828,14 @@ class $$TasksTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                required int jobId,
+                required int projectId,
                 required String title,
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
-                jobId: jobId,
+                projectId: projectId,
                 title: title,
                 rate: rate,
                 status: status,
@@ -4819,59 +4847,68 @@ class $$TasksTableTableManager
                     (e.readTable(table), $$TasksTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({jobId = false, timeEntriesRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (timeEntriesRefs) db.timeEntries],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (jobId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.jobId,
-                                referencedTable: $$TasksTableReferences
-                                    ._jobIdTable(db),
-                                referencedColumn: $$TasksTableReferences
-                                    ._jobIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({projectId = false, timeEntriesRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (timeEntriesRefs) db.timeEntries,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (projectId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.projectId,
+                                    referencedTable: $$TasksTableReferences
+                                        ._projectIdTable(db),
+                                    referencedColumn: $$TasksTableReferences
+                                        ._projectIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (timeEntriesRefs)
+                        await $_getPrefetchedData<Task, $TasksTable, TimeEntry>(
+                          currentTable: table,
+                          referencedTable: $$TasksTableReferences
+                              ._timeEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TasksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).timeEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.taskId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (timeEntriesRefs)
-                    await $_getPrefetchedData<Task, $TasksTable, TimeEntry>(
-                      currentTable: table,
-                      referencedTable: $$TasksTableReferences
-                          ._timeEntriesRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$TasksTableReferences(db, table, p0).timeEntriesRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.taskId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -4888,12 +4925,12 @@ typedef $$TasksTableProcessedTableManager =
       $$TasksTableUpdateCompanionBuilder,
       (Task, $$TasksTableReferences),
       Task,
-      PrefetchHooks Function({bool jobId, bool timeEntriesRefs})
+      PrefetchHooks Function({bool projectId, bool timeEntriesRefs})
     >;
 typedef $$TimeEntriesTableCreateCompanionBuilder =
     TimeEntriesCompanion Function({
       Value<int> id,
-      required int jobId,
+      required int projectId,
       Value<int?> taskId,
       Value<String?> description,
       required DateTime startedAt,
@@ -4903,7 +4940,7 @@ typedef $$TimeEntriesTableCreateCompanionBuilder =
 typedef $$TimeEntriesTableUpdateCompanionBuilder =
     TimeEntriesCompanion Function({
       Value<int> id,
-      Value<int> jobId,
+      Value<int> projectId,
       Value<int?> taskId,
       Value<String?> description,
       Value<DateTime> startedAt,
@@ -4915,17 +4952,17 @@ final class $$TimeEntriesTableReferences
     extends BaseReferences<_$AppDatabase, $TimeEntriesTable, TimeEntry> {
   $$TimeEntriesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $JobsTable _jobIdTable(_$AppDatabase db) =>
-      db.jobs.createAlias('time_entries__job_id__jobs__id');
+  static $ProjectsTable _projectIdTable(_$AppDatabase db) =>
+      db.projects.createAlias('time_entries__project_id__projects__id');
 
-  $$JobsTableProcessedTableManager get jobId {
-    final $_column = $_itemColumn<int>('job_id')!;
+  $$ProjectsTableProcessedTableManager get projectId {
+    final $_column = $_itemColumn<int>('project_id')!;
 
-    final manager = $$JobsTableTableManager(
+    final manager = $$ProjectsTableTableManager(
       $_db,
-      $_db.jobs,
+      $_db.projects,
     ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_jobIdTable($_db));
+    final item = $_typedResult.readTableOrNull(_projectIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -4984,20 +5021,20 @@ class $$TimeEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  $$JobsTableFilterComposer get jobId {
-    final $$JobsTableFilterComposer composer = $composerBuilder(
+  $$ProjectsTableFilterComposer get projectId {
+    final $$ProjectsTableFilterComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.jobId,
-      referencedTable: $db.jobs,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableFilterComposer(
+          }) => $$ProjectsTableFilterComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5065,20 +5102,20 @@ class $$TimeEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  $$JobsTableOrderingComposer get jobId {
-    final $$JobsTableOrderingComposer composer = $composerBuilder(
+  $$ProjectsTableOrderingComposer get projectId {
+    final $$ProjectsTableOrderingComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.jobId,
-      referencedTable: $db.jobs,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableOrderingComposer(
+          }) => $$ProjectsTableOrderingComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5138,20 +5175,20 @@ class $$TimeEntriesTableAnnotationComposer
   GeneratedColumn<int> get seconds =>
       $composableBuilder(column: $table.seconds, builder: (column) => column);
 
-  $$JobsTableAnnotationComposer get jobId {
-    final $$JobsTableAnnotationComposer composer = $composerBuilder(
+  $$ProjectsTableAnnotationComposer get projectId {
+    final $$ProjectsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
-      getCurrentColumn: (t) => t.jobId,
-      referencedTable: $db.jobs,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
       getReferencedColumn: (t) => t.id,
       builder:
           (
             joinBuilder, {
             $addJoinBuilderToRootComposer,
             $removeJoinBuilderFromRootComposer,
-          }) => $$JobsTableAnnotationComposer(
+          }) => $$ProjectsTableAnnotationComposer(
             $db: $db,
-            $table: $db.jobs,
+            $table: $db.projects,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5198,7 +5235,7 @@ class $$TimeEntriesTableTableManager
           $$TimeEntriesTableUpdateCompanionBuilder,
           (TimeEntry, $$TimeEntriesTableReferences),
           TimeEntry,
-          PrefetchHooks Function({bool jobId, bool taskId})
+          PrefetchHooks Function({bool projectId, bool taskId})
         > {
   $$TimeEntriesTableTableManager(_$AppDatabase db, $TimeEntriesTable table)
     : super(
@@ -5214,7 +5251,7 @@ class $$TimeEntriesTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<int> jobId = const Value.absent(),
+                Value<int> projectId = const Value.absent(),
                 Value<int?> taskId = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<DateTime> startedAt = const Value.absent(),
@@ -5222,7 +5259,7 @@ class $$TimeEntriesTableTableManager
                 Value<int> seconds = const Value.absent(),
               }) => TimeEntriesCompanion(
                 id: id,
-                jobId: jobId,
+                projectId: projectId,
                 taskId: taskId,
                 description: description,
                 startedAt: startedAt,
@@ -5232,7 +5269,7 @@ class $$TimeEntriesTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                required int jobId,
+                required int projectId,
                 Value<int?> taskId = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 required DateTime startedAt,
@@ -5240,7 +5277,7 @@ class $$TimeEntriesTableTableManager
                 required int seconds,
               }) => TimeEntriesCompanion.insert(
                 id: id,
-                jobId: jobId,
+                projectId: projectId,
                 taskId: taskId,
                 description: description,
                 startedAt: startedAt,
@@ -5255,7 +5292,7 @@ class $$TimeEntriesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({jobId = false, taskId = false}) {
+          prefetchHooksCallback: ({projectId = false, taskId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -5275,15 +5312,15 @@ class $$TimeEntriesTableTableManager
                       dynamic
                     >
                   >(state) {
-                    if (jobId) {
+                    if (projectId) {
                       state =
                           state.withJoin(
                                 currentTable: table,
-                                currentColumn: table.jobId,
+                                currentColumn: table.projectId,
                                 referencedTable: $$TimeEntriesTableReferences
-                                    ._jobIdTable(db),
+                                    ._projectIdTable(db),
                                 referencedColumn: $$TimeEntriesTableReferences
-                                    ._jobIdTable(db)
+                                    ._projectIdTable(db)
                                     .id,
                               )
                               as T;
@@ -5325,7 +5362,7 @@ typedef $$TimeEntriesTableProcessedTableManager =
       $$TimeEntriesTableUpdateCompanionBuilder,
       (TimeEntry, $$TimeEntriesTableReferences),
       TimeEntry,
-      PrefetchHooks Function({bool jobId, bool taskId})
+      PrefetchHooks Function({bool projectId, bool taskId})
     >;
 typedef $$TemplatesTableCreateCompanionBuilder =
     TemplatesCompanion Function({
@@ -6335,7 +6372,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$ClientsTableTableManager get clients =>
       $$ClientsTableTableManager(_db, _db.clients);
-  $$JobsTableTableManager get jobs => $$JobsTableTableManager(_db, _db.jobs);
+  $$ProjectsTableTableManager get projects =>
+      $$ProjectsTableTableManager(_db, _db.projects);
   $$TasksTableTableManager get tasks =>
       $$TasksTableTableManager(_db, _db.tasks);
   $$TimeEntriesTableTableManager get timeEntries =>

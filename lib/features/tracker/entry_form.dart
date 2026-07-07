@@ -11,7 +11,7 @@ import 'package:time_tracker/features/deletions.dart';
 Future<void> showEntryEditor(
   BuildContext context, {
   required AppDatabase db,
-  required int jobId,
+  required int projectId,
   TimeEntry? entry,
   int? initialTaskId, // preselect the task when adding under a specific one
 }) {
@@ -26,7 +26,7 @@ Future<void> showEntryEditor(
             padding: const EdgeInsets.all(AppTokens.spaceXl),
             child: EntryForm(
               db: db,
-              jobId: jobId,
+              projectId: projectId,
               entry: entry,
               initialTaskId: initialTaskId,
               onClose: () => Navigator.pop(ctx),
@@ -46,7 +46,7 @@ Future<void> showEntryEditor(
         padding: const EdgeInsets.all(AppTokens.spaceLg),
         child: EntryForm(
           db: db,
-          jobId: jobId,
+          projectId: projectId,
           entry: entry,
           initialTaskId: initialTaskId,
           onClose: () => Navigator.pop(ctx),
@@ -60,13 +60,13 @@ class EntryForm extends StatefulWidget {
   const EntryForm({
     super.key,
     required this.db,
-    required this.jobId,
+    required this.projectId,
     this.entry,
     this.initialTaskId,
     required this.onClose,
   });
   final AppDatabase db;
-  final int jobId;
+  final int projectId;
   final TimeEntry? entry; // null = create, set = edit
   final int? initialTaskId; // preselected task when adding
   final VoidCallback onClose; // pop the dialog/sheet (save, delete, or cancel)
@@ -76,7 +76,7 @@ class EntryForm extends StatefulWidget {
 }
 
 class _EntryFormState extends State<EntryForm> {
-  // Which task this entry belongs to, chosen from a dropdown of the job's tasks.
+  // Which task this entry belongs to, chosen from a dropdown of the project's tasks.
   late int? _selectedTaskId = widget.entry?.taskId ?? widget.initialTaskId;
   List<Task> _tasks = const [];
   late final _description = TextEditingController(
@@ -104,8 +104,8 @@ class _EntryFormState extends State<EntryForm> {
     // rather than appending (e.g. avoids "0" + "20" → "020").
     _selectAllOnFocus(_hoursFocus, _hours);
     _selectAllOnFocus(_minutesFocus, _minutes);
-    // Load the job's tasks for the dropdown (they don't change mid-dialog).
-    widget.db.watchTasksForJob(widget.jobId).first.then((tasks) {
+    // Load the project's tasks for the dropdown (they don't change mid-dialog).
+    widget.db.watchTasksForProject(widget.projectId).first.then((tasks) {
       if (mounted) setState(() => _tasks = tasks);
     });
   }
@@ -189,7 +189,7 @@ class _EntryFormState extends State<EntryForm> {
         );
       } else {
         await widget.db.addEntry(
-          jobId: widget.jobId,
+          projectId: widget.projectId,
           taskId: taskId!,
           description: desc.isEmpty ? null : desc,
           startedAt: _start,

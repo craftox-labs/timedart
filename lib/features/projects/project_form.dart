@@ -5,14 +5,14 @@ import 'package:time_tracker/widgets/dropdown_field.dart';
 import 'package:time_tracker/util/parse_rate.dart';
 import 'package:time_tracker/features/deletions.dart';
 
-// Add/edit/delete a job. Presented adaptively — a modal dialog on wide windows,
+// Add/edit/delete a project. Presented adaptively — a modal dialog on wide windows,
 // a bottom sheet on narrow — mirroring showTaskEditor / showEntryEditor.
-// Returns the new job's id when one was just created (so the caller can select
+// Returns the new project's id when one was just created (so the caller can select
 // it), or null on edit / delete / cancel.
-Future<int?> showJobEditor(
+Future<int?> showProjectEditor(
   BuildContext context, {
   required AppDatabase db,
-  Job? job,
+  Project? project,
   int? initialClientId,
 }) {
   final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
@@ -24,9 +24,9 @@ Future<int?> showJobEditor(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Padding(
             padding: const EdgeInsets.all(AppTokens.spaceXl),
-            child: JobForm(
+            child: ProjectForm(
               db: db,
-              initial: job,
+              initial: project,
               initialClientId: initialClientId,
             ),
           ),
@@ -41,27 +41,27 @@ Future<int?> showJobEditor(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
       child: Padding(
         padding: const EdgeInsets.all(AppTokens.spaceLg),
-        child: JobForm(db: db, initial: job, initialClientId: initialClientId),
+        child: ProjectForm(db: db, initial: project, initialClientId: initialClientId),
       ),
     ),
   );
 }
 
-class JobForm extends StatefulWidget {
-  const JobForm({
+class ProjectForm extends StatefulWidget {
+  const ProjectForm({
     super.key,
     required this.db,
     this.initial,
     this.initialClientId,
   });
   final AppDatabase db;
-  final Job? initial; // null = create, set = edit
+  final Project? initial; // null = create, set = edit
   final int? initialClientId; // preselect the client when adding under one
   @override
-  State<JobForm> createState() => _JobFormState();
+  State<ProjectForm> createState() => _ProjectFormState();
 }
 
-class _JobFormState extends State<JobForm> {
+class _ProjectFormState extends State<ProjectForm> {
   late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
   late final _code = TextEditingController(text: widget.initial?.code ?? '');
   late final _title = TextEditingController(text: widget.initial?.title ?? '');
@@ -96,10 +96,10 @@ class _JobFormState extends State<JobForm> {
     setState(() => _rateError = null);
     final rate = parsed.value;
 
-    int? createdJobId;
+    int? createdProjectId;
     try {
       if (_isEdit) {
-        await widget.db.updateJob(
+        await widget.db.updateProject(
           id: widget.initial!.id,
           clientId: _clientId!, // allow reassigning the client
           code: _code.text.trim(),
@@ -107,7 +107,7 @@ class _JobFormState extends State<JobForm> {
           rate: rate,
         );
       } else {
-        createdJobId = await widget.db.addJob(
+        createdProjectId = await widget.db.addProject(
           clientId: _clientId!,
           code: _code.text.trim(),
           title: _title.text.trim(),
@@ -115,19 +115,19 @@ class _JobFormState extends State<JobForm> {
         );
       }
     } catch (e) {
-      // e.g. the unique job-code constraint
+      // e.g. the unique project-code constraint
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not save job: $e')));
+        ).showSnackBar(SnackBar(content: Text('Could not save project: $e')));
       }
       return;
     }
-    if (mounted) Navigator.pop(context, createdJobId);
+    if (mounted) Navigator.pop(context, createdProjectId);
   }
 
   Future<void> _confirmDelete() async {
-    final deleted = await confirmDeleteJob(context, widget.db, widget.initial!);
+    final deleted = await confirmDeleteProject(context, widget.db, widget.initial!);
     if (deleted && mounted) Navigator.pop(context);
   }
 
@@ -139,7 +139,7 @@ class _JobFormState extends State<JobForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            _isEdit ? 'Edit job' : 'New job',
+            _isEdit ? 'Edit project' : 'New project',
             style: Theme.of(context).textTheme.titleLarge,
           ),
         const SizedBox(height: AppTokens.spaceXl),

@@ -1,7 +1,7 @@
 // A pure, UI-free view-model for a rendered invoice (PRD #79).
 //
 // buildInvoiceDocument resolves the raw domain objects — the sender
-// InvoiceProfile, the Job/Client, the period's Tasks and TimeEntries — into
+// InvoiceProfile, the Project/Client, the period's Tasks and TimeEntries — into
 // display-ready values and all the invoice arithmetic. Both renderers (the PDF
 // exporter and the on-screen preview) read numbers and text from here rather
 // than recomputing them, so the two can't drift.
@@ -45,14 +45,14 @@ class InvoiceTax {
 }
 
 /// The resolved invoice. Amounts are non-null because a client's default rate is
-/// required (every line resolves `task.rate ?? job.rate ?? client.defaultRate`).
+/// required (every line resolves `task.rate ?? project.rate ?? client.defaultRate`).
 class InvoiceDocument {
   // Header
   final String? invoiceNumber; // entered at export; may be absent
   final DateTime issueDate;
   final DateTime periodFrom;
   final DateTime periodTo;
-  final String reference; // the job code (RE:)
+  final String reference; // the project code (RE:)
 
   // Sender (from the profile)
   final String businessName;
@@ -122,7 +122,7 @@ class InvoiceDocument {
 /// rendered in the order given (the caller sorts, typically by start).
 InvoiceDocument buildInvoiceDocument({
   required InvoiceProfile profile,
-  required Job job,
+  required Project project,
   required Client client,
   required List<Task> tasks,
   required List<TimeEntry> entries,
@@ -139,8 +139,8 @@ InvoiceDocument buildInvoiceDocument({
         item: _label(taskById[e.taskId], e.description),
         date: e.startedAt,
         seconds: e.seconds,
-        // task override → job rate → client default (always non-null).
-        rate: taskById[e.taskId]?.rate ?? job.rate ?? client.defaultRate,
+        // task override → project rate → client default (always non-null).
+        rate: taskById[e.taskId]?.rate ?? project.rate ?? client.defaultRate,
       ),
   ];
 
@@ -160,7 +160,7 @@ InvoiceDocument buildInvoiceDocument({
     issueDate: issueDate,
     periodFrom: from,
     periodTo: to,
-    reference: job.code,
+    reference: project.code,
     businessName: profile.businessName,
     senderEmail: profile.email,
     senderPhone: profile.phone,
@@ -187,7 +187,7 @@ InvoiceDocument buildInvoiceDocument({
 /// A synthetic [InvoiceDocument] for branding previews — a fixed set of
 /// placeholder line items plus a stand-in recipient, dressed with a real
 /// [profile]'s sender/payment/tax fields. Lets the theme/profile/template
-/// editors show a live, representative invoice without a real job or any tracked
+/// editors show a live, representative invoice without a real project or any tracked
 /// time. Pure: [issueDate] is injected so it's deterministic in tests/previews.
 InvoiceDocument sampleInvoiceDocument({
   required InvoiceProfile profile,
@@ -252,7 +252,7 @@ InvoiceDocument sampleInvoiceDocument({
 }
 
 /// A structure-only [InvoiceDocument] for the profile editor's preview: real
-/// sender/payment/tax fields from [profile], but no fabricated client, job, or
+/// sender/payment/tax fields from [profile], but no fabricated client, project, or
 /// tracked-time data — those fields are blanked (rendering as the same '—'
 /// placeholder empty fields already use) since a profile has no relationship
 /// to any particular client or invoice. Contrast [sampleInvoiceDocument],
@@ -300,7 +300,7 @@ InvoiceDocument profilePreviewDocument({
 }
 
 // The line label: task title, plus the entry's own note when it has one; falls
-// back to the note alone, then a dash. Mirrors the old JobInvoice labelling.
+// back to the note alone, then a dash. Mirrors the old ProjectInvoice labelling.
 String _label(Task? task, String? description) {
   final desc = description?.trim();
   final hasDesc = desc != null && desc.isNotEmpty;

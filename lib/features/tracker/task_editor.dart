@@ -4,12 +4,12 @@ import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/util/parse_rate.dart';
 import 'package:time_tracker/features/deletions.dart';
 
-// Add/edit/delete a task under a job. Presented adaptively — a modal dialog on
+// Add/edit/delete a task under a project. Presented adaptively — a modal dialog on
 // wide windows, a bottom sheet on narrow — mirroring showEntryEditor.
 Future<void> showTaskEditor(
   BuildContext context, {
   required AppDatabase db,
-  required int jobId,
+  required int projectId,
   Task? task,
 }) {
   final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
@@ -21,7 +21,7 @@ Future<void> showTaskEditor(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Padding(
             padding: const EdgeInsets.all(AppTokens.spaceXl),
-            child: TaskForm(db: db, jobId: jobId, task: task),
+            child: TaskForm(db: db, projectId: projectId, task: task),
           ),
         ),
       ),
@@ -34,16 +34,16 @@ Future<void> showTaskEditor(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
       child: Padding(
         padding: const EdgeInsets.all(AppTokens.spaceLg),
-        child: TaskForm(db: db, jobId: jobId, task: task),
+        child: TaskForm(db: db, projectId: projectId, task: task),
       ),
     ),
   );
 }
 
 class TaskForm extends StatefulWidget {
-  const TaskForm({super.key, required this.db, required this.jobId, this.task});
+  const TaskForm({super.key, required this.db, required this.projectId, this.task});
   final AppDatabase db;
-  final int jobId;
+  final int projectId;
   final Task? task; // null = create, set = edit
 
   @override
@@ -85,7 +85,7 @@ class _TaskFormState extends State<TaskForm> {
         );
       } else {
         await widget.db.addTask(
-          jobId: widget.jobId,
+          projectId: widget.projectId,
           title: title,
           rate: parsed.value,
         );
@@ -133,7 +133,7 @@ class _TaskFormState extends State<TaskForm> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: 'Rate (\$/h)',
-            hintText: 'Overrides the job rate — leave blank to inherit',
+            hintText: 'Overrides the project rate — leave blank to inherit',
             errorText: _rateError,
           ),
           onSubmitted: (_) => _submit(),

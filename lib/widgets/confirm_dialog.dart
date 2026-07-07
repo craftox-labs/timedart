@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// A yes/no delete confirmation. Returns true only if the user confirms.
-/// Shared by the job and client forms so the dialog reads identically.
+/// Shared by the project and client forms so the dialog reads identically.
 Future<bool> confirmDelete(
   BuildContext context, {
   required String title,

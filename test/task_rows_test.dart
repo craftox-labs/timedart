@@ -4,7 +4,7 @@ import 'package:time_tracker/features/tracker/task_rows.dart';
 
 Task _task(int id, String title) => Task(
   id: id,
-  jobId: 1,
+  projectId: 1,
   title: title,
   rate: null,
   status: 'active',
@@ -13,7 +13,7 @@ Task _task(int id, String title) => Task(
 
 TimeEntry _entry(int id, int taskId, int seconds) => TimeEntry(
   id: id,
-  jobId: 1,
+  projectId: 1,
   taskId: taskId,
   startedAt: DateTime(2026),
   endedAt: DateTime(2026),

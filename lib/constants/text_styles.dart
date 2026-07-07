@@ -31,7 +31,7 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
   /// A collapsible section's header label (e.g. "Templates"/"Profiles").
   final TextStyle sectionHeader;
 
-  /// A row's own title at high density (job row, template/profile entity row)
+  /// A row's own title at high density (project row, template/profile entity row)
   /// — same weight as [rowMeta] but the row's primary colour, not muted.
   final TextStyle rowTitleSmall;
 

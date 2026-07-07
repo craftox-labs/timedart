@@ -9,7 +9,7 @@ import 'package:time_tracker/features/shell/shortcuts_help.dart';
 import 'package:time_tracker/features/shell/side_panel.dart';
 import 'package:time_tracker/features/shell/branding_panel.dart';
 import 'package:time_tracker/features/tracker/timer_view.dart';
-import 'package:time_tracker/features/jobs/job_form.dart';
+import 'package:time_tracker/features/projects/project_form.dart';
 import 'package:time_tracker/features/clients/client_form.dart';
 import 'package:time_tracker/features/invoices/invoice_view.dart';
 import 'package:time_tracker/features/invoices/profile_editor.dart';
@@ -29,8 +29,8 @@ class _Tracker extends _Detail {
 }
 
 class _Invoice extends _Detail {
-  final Job job;
-  const _Invoice(this.job);
+  final Project project;
+  const _Invoice(this.project);
 }
 
 // App Settings home: the panel shows template/profile sections; the content
@@ -61,9 +61,9 @@ class AdaptiveShell extends StatefulWidget {
 }
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
-  int? _selectedJobId; // the job the timer records against
+  int? _selectedProjectId; // the project the timer records against
   _Detail _detail = const _Tracker();
-  StreamSubscription<List<Job>>? _jobsSub;
+  StreamSubscription<List<Project>>? _projectsSub;
 
   // Whether the currently-mounted Template/Profile editor has unsaved changes,
   // and a handle to trigger its save — both supplied by the editor itself
@@ -78,7 +78,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       _detail is _TemplateEditorDetail ||
       _detail is _ProfileEditorDetail;
   // Pages whose content stretches to the divider with a left-aligned header
-  // logo — the branding pages plus the per-job invoice view (a preview page too).
+  // logo — the branding pages plus the per-project invoice view (a preview page too).
   bool get _wideContentPage => _inBranding || _detail is _Invoice;
 
   // Keyboard-nav focus (wide layout only). The panel's row cursor lives here so
@@ -235,28 +235,28 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   void _showTracker() => _navigateTo(const _Tracker());
-  void _selectJob(int id) => setState(() {
-    _selectedJobId = id;
-    _detail = const _Tracker(); // picking a job returns you to the timer
+  void _selectProject(int id) => setState(() {
+    _selectedProjectId = id;
+    _detail = const _Tracker(); // picking a project returns you to the timer
   });
 
-  // Client/job editing are modals (like task/entry), so they open over the
+  // Client/project editing are modals (like task/entry), so they open over the
   // content pane rather than replacing it.
-  void _editJob(Job job) => showJobEditor(context, db: widget.db, job: job);
-  Future<void> _addJob(int clientId) async {
-    final createdJobId = await showJobEditor(
+  void _editProject(Project project) => showProjectEditor(context, db: widget.db, project: project);
+  Future<void> _addProject(int clientId) async {
+    final createdProjectId = await showProjectEditor(
       context,
       db: widget.db,
       initialClientId: clientId,
     );
-    // A freshly-created job becomes the selection so the timer switches to it.
-    if (createdJobId != null && mounted) _selectJob(createdJobId);
+    // A freshly-created project becomes the selection so the timer switches to it.
+    if (createdProjectId != null && mounted) _selectProject(createdProjectId);
   }
 
   void _editClient(Client c) =>
       showClientEditor(context, db: widget.db, client: c);
   void _addClient() => showClientEditor(context, db: widget.db);
-  void _invoiceJob(Job job) => setState(() => _detail = _Invoice(job));
+  void _invoiceProject(Project project) => setState(() => _detail = _Invoice(project));
 
   // App Settings home.
   void _openBranding() => _navigateTo(const _Branding());
@@ -271,28 +271,28 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void initState() {
     super.initState();
-    widget.db.ensureDefaultJob().then((id) {
+    widget.db.ensureDefaultProject().then((id) {
       if (mounted) {
-        setState(() => _selectedJobId ??= id); // default only if unset
+        setState(() => _selectedProjectId ??= id); // default only if unset
       }
     });
     widget.db.ensureInvoiceDefaults(); // seed timedart theme/profile/template
 
-    // Keep the selection honest when jobs change: if the selected job is
-    // deleted, fall back to the first remaining job (or none).
-    _jobsSub = widget.db.watchJobs().listen((jobs) {
+    // Keep the selection honest when projects change: if the selected project is
+    // deleted, fall back to the first remaining project (or none).
+    _projectsSub = widget.db.watchProjects().listen((projects) {
       if (!mounted) return;
-      final ids = jobs.map((j) => j.id).toSet();
-      final selected = _selectedJobId;
+      final ids = projects.map((j) => j.id).toSet();
+      final selected = _selectedProjectId;
       if (selected != null && !ids.contains(selected)) {
-        setState(() => _selectedJobId = jobs.isNotEmpty ? jobs.first.id : null);
+        setState(() => _selectedProjectId = projects.isNotEmpty ? projects.first.id : null);
       }
     });
   }
 
   @override
   void dispose() {
-    _jobsSub?.cancel();
+    _projectsSub?.cancel();
     _panelCursor.dispose();
     _trackerScope.dispose();
     _trackerCursor.dispose();
@@ -306,16 +306,16 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final Widget detailView = switch (_detail) {
       _Tracker() => TimerView(
         db: widget.db,
-        jobId: _selectedJobId,
-        onInvoice: _invoiceJob,
+        projectId: _selectedProjectId,
+        onInvoice: _invoiceProject,
         // Keyboard cursor for the entry list; only ever focused in the wide
         // layout (Tab / Ctrl-h / Ctrl-w h), inert in the drawer.
         cursorFocusNode: _trackerCursor,
         controller: _timer,
       ),
-      _Invoice(:final job) => InvoiceView(
+      _Invoice(:final project) => InvoiceView(
         db: widget.db,
-        job: job,
+        project: project,
         onDone: _showTracker,
       ),
       _Branding() => const SettingsHome(),
@@ -340,7 +340,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onSaveHandleReady: (save) => _currentEditorSave = save,
         ),
     };
-    // Preview pages (branding + per-job invoice) keep the left edge aligned with
+    // Preview pages (branding + per-project invoice) keep the left edge aligned with
     // the page header (same inset as the centred content column) but stretch
     // right to the panel divider so the preview + controls use the extra width.
     // Other pages stay centred within ContentBody's reading width.
@@ -376,7 +376,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       }
 
       // In Branding mode the right column is the branding panel instead of the
-      // client/job tree; the content pane shows the matching preview.
+      // client/project tree; the content pane shows the matching preview.
       if (_inBranding) {
         final detail = _detail;
         return BrandingPanel(
@@ -409,10 +409,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
       return SidePanel(
         db: widget.db,
-        selectedJobId: _selectedJobId,
-        onSelect: (id) => run(() => _selectJob(id)),
-        onEditJob: (j) => run(() => _editJob(j)),
-        onAddJob: (cid) => run(() => _addJob(cid)),
+        selectedProjectId: _selectedProjectId,
+        onSelect: (id) => run(() => _selectProject(id)),
+        onEditProject: (j) => run(() => _editProject(j)),
+        onAddProject: (cid) => run(() => _addProject(cid)),
         onEditClient: (c) => run(() => _editClient(c)),
         onAddClient: () => run(_addClient),
         // Keyboard nav is wired only where the panel is persistent (wide).

@@ -5,7 +5,7 @@ import 'package:time_tracker/util/parse_rate.dart';
 import 'package:time_tracker/features/deletions.dart';
 
 // Add/edit/delete a client. Presented adaptively — a modal dialog on wide
-// windows, a bottom sheet on narrow — mirroring showTaskEditor / showJobEditor.
+// windows, a bottom sheet on narrow — mirroring showTaskEditor / showProjectEditor.
 Future<void> showClientEditor(
   BuildContext context, {
   required AppDatabase db,
@@ -73,7 +73,7 @@ class _ClientFormState extends State<ClientForm> {
       setState(() => _rateError = parsed.error);
       return;
     }
-    // A client's default rate is required — it's the fallback every job inherits.
+    // A client's default rate is required — it's the fallback every project inherits.
     final rate = parsed.value;
     if (rate == null) {
       setState(() => _rateError = 'A default rate is required');

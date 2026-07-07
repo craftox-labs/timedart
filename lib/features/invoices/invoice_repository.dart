@@ -2,7 +2,7 @@ import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
 
 /// Bridges the data layer and the pure [buildInvoiceDocument]: fetches the rows
-/// for a job's invoice over a period plus the branding — the default
+/// for a project's invoice over a period plus the branding — the default
 /// [InvoiceProfile] and an [InvoiceTemplate] — and assembles a document + its
 /// template. Lives in the feature layer (it may depend on both `data` and the
 /// pure builder); the data layer stays ignorant of invoice view-models.
@@ -14,7 +14,7 @@ import 'package:time_tracker/features/invoices/invoice_document.dart';
 /// [AppDatabase.ensureInvoiceDefaults], but callers handle it).
 Future<({InvoiceDocument doc, InvoiceTemplate template})?> loadInvoiceDocument(
   AppDatabase db, {
-  required int jobId,
+  required int projectId,
   required DateTime from,
   required DateTime to,
   required DateTime issueDate,
@@ -28,14 +28,14 @@ Future<({InvoiceDocument doc, InvoiceTemplate template})?> loadInvoiceDocument(
       ? await db.templateById(profile.templateId!)
       : await db.defaultTemplate();
   if (template == null) return null;
-  final job = await db.getJob(jobId);
-  final client = await db.getClient(job.clientId);
-  final tasks = await db.tasksForJob(jobId);
-  final entries = await db.entriesForJobInPeriod(jobId, from, to);
+  final project = await db.getProject(projectId);
+  final client = await db.getClient(project.clientId);
+  final tasks = await db.tasksForProject(projectId);
+  final entries = await db.entriesForProjectInPeriod(projectId, from, to);
 
   final doc = buildInvoiceDocument(
     profile: profile,
-    job: job,
+    project: project,
     client: client,
     tasks: tasks,
     entries: entries,
