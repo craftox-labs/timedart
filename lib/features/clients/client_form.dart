@@ -49,6 +49,9 @@ class ClientForm extends StatefulWidget {
 
 class _ClientFormState extends State<ClientForm> {
   late final _name = TextEditingController(text: widget.initial?.name ?? '');
+  late final _contact = TextEditingController(
+    text: widget.initial?.contactName ?? '',
+  );
   late final _email = TextEditingController(text: widget.initial?.email ?? '');
   late final _rate = TextEditingController(
     text: widget.initial?.defaultRate.toString() ?? '',
@@ -60,6 +63,7 @@ class _ClientFormState extends State<ClientForm> {
   @override
   void dispose() {
     _name.dispose();
+    _contact.dispose();
     _email.dispose();
     _rate.dispose();
     super.dispose();
@@ -82,17 +86,20 @@ class _ClientFormState extends State<ClientForm> {
     setState(() => _rateError = null);
 
     final email = _email.text.trim().isEmpty ? null : _email.text.trim();
+    final contact = _contact.text.trim().isEmpty ? null : _contact.text.trim();
     try {
       if (_isEdit) {
         await widget.db.updateClient(
           id: widget.initial!.id,
           name: _name.text.trim(),
+          contactName: contact,
           email: email,
           defaultRate: rate,
         );
       } else {
         await widget.db.addClient(
           name: _name.text.trim(),
+          contactName: contact,
           email: email,
           defaultRate: rate,
         );
@@ -133,6 +140,12 @@ class _ClientFormState extends State<ClientForm> {
           controller: _name,
           onSubmitted: (_) => _submit(),
           decoration: const InputDecoration(labelText: 'Name'),
+        ),
+        const SizedBox(height: AppTokens.spaceLg),
+        TextField(
+          controller: _contact,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(labelText: 'Contact name'),
         ),
         const SizedBox(height: AppTokens.spaceLg),
         TextField(
