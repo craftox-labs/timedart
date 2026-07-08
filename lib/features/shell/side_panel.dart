@@ -46,7 +46,7 @@ class SidePanel extends StatefulWidget {
   // `?` (Shift+/) — open the shortcuts help. Routed up because the panel
   // consumes the `/` key itself (so it can't bubble to the shell).
   final VoidCallback? onShowHelp;
-  // Open App Settings (Branding mode). Shown as a gear in the panel footer.
+  // Open App Settings. Shown as a gear in the panel footer.
   final VoidCallback? onOpenSettings;
   // Render the base-of-panel footer (Shortcuts/Settings). False in the wide
   // layout, where those actions live in the header instead. onShowHelp is still
@@ -778,7 +778,7 @@ class ProjectRowItem extends StatelessWidget {
 
 // Base-of-panel footer: a `?` keycap + "Shortcuts" hint (opens the help modal),
 // and an App Settings gear. Either half is shown only when its callback is set.
-// Public so the branding panel shows the same footer.
+// Public so the settings panel shows the same footer.
 class PanelFooter extends StatelessWidget {
   const PanelFooter({super.key, this.onShowHelp, this.onOpenSettings});
   final VoidCallback? onShowHelp;
@@ -860,7 +860,7 @@ class PanelFooter extends StatelessWidget {
 
 // Base-of-panel Craftox badge — a small linked logo, always present regardless
 // of layout/panel mode (unlike PanelFooter, which the wide layout suppresses
-// in favour of the header). Public so the branding panel shows it too.
+// in favour of the header). Public so the settings panel shows it too.
 class CraftoxBadge extends StatelessWidget {
   const CraftoxBadge({super.key});
 

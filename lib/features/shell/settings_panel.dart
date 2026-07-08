@@ -33,7 +33,7 @@ class SettingsPanel extends StatefulWidget {
   });
 
   final AppDatabase db;
-  final VoidCallback onBack; // leave Branding mode (Esc / the back arrow)
+  final VoidCallback onBack; // leave Settings mode (Esc / the back arrow)
   // Externally supplied so the shell's shared pane-switch focus (Tab,
   // Ctrl-h/l — this panel already forwards ctrl-combos to the shell, see
   // _onKey) can target this panel's row cursor, same as SidePanel. Falls back

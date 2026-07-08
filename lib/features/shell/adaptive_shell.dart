@@ -36,12 +36,12 @@ class _Invoice extends _Detail {
 
 // App Settings home: the panel shows template/profile sections; the content
 // pane is a placeholder until one is picked (see SettingsHome).
-class _Branding extends _Detail {
-  const _Branding();
+class _Settings extends _Detail {
+  const _Settings();
 }
 
-// Editing (or creating, when the row is null) a branding entity in the content
-// pane, with the branding panel still alongside.
+// Editing (or creating, when the row is null) a template or profile in the content
+// pane, with the settings panel still alongside.
 class _TemplateEditorDetail extends _Detail {
   final InvoiceTemplate? template;
   final bool startEditing; // the 'e' shortcut skips straight past the view
@@ -73,14 +73,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   bool _editorDirty = false;
   Future<bool> Function()? _currentEditorSave;
 
-  // Branding mode swaps the side panel for the branding sections.
-  bool get _inBranding =>
-      _detail is _Branding ||
+  // Settings mode swaps the side panel for the settings sections.
+  bool get _inSettings =>
+      _detail is _Settings ||
       _detail is _TemplateEditorDetail ||
       _detail is _ProfileEditorDetail;
   // Pages whose content stretches to the divider with a left-aligned header
-  // logo — the branding pages plus the per-project invoice view (a preview page too).
-  bool get _wideContentPage => _inBranding || _detail is _Invoice;
+  // logo — the settings pages plus the per-project invoice view (a preview page too).
+  bool get _wideContentPage => _inSettings || _detail is _Invoice;
 
   // Content stretches to the divider only where a live invoice preview needs the
   // width — the two editors and the per-project invoice. The Settings home is a
@@ -109,7 +109,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   bool _pendingCtrlW = false; // saw Ctrl-w, awaiting an h/l
 
   void _focusPanel() =>
-      (_inBranding ? _settingsCursor : _panelCursor).requestFocus();
+      (_inSettings ? _settingsCursor : _panelCursor).requestFocus();
   void _focusTracker() => _trackerCursor.requestFocus();
   void _focusSearch() => _panelSearch.requestFocus();
 
@@ -188,9 +188,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final right =
         key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
 
-    // Ctrl+, opens App Settings (Branding) from anywhere.
+    // Ctrl+, opens App Settings from anywhere.
     if (ctrl && key == LogicalKeyboardKey.comma) {
-      if (event is KeyDownEvent) _openBranding();
+      if (event is KeyDownEvent) _openSettings();
       return KeyEventResult.handled;
     }
 
@@ -253,19 +253,19 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
 
     if (!mounted) return;
-    final wasInBranding = _inBranding; // reads the *old* _detail
+    final wasInSettings = _inSettings; // reads the *old* _detail
     setState(() {
       _detail = next;
       _editorDirty = false;
       _currentEditorSave = null;
     });
-    // The panel's PageTransitionSwitcher swaps only when _inBranding flips, and
+    // The panel's PageTransitionSwitcher swaps only when _inSettings flips, and
     // that swap drops keyboard focus to the root scope (the outgoing panel holds
     // it through the crossfade, so the incoming panel's autofocus is lost).
     // Re-assert focus on the now-active panel so shell shortcuts (?, t, Space)
     // have a focused descendant to bubble from. Only on the boundary, so it
     // doesn't yank focus away from an editor opened within settings.
-    if (_inBranding != wasInBranding) {
+    if (_inSettings != wasInSettings) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focusPanel();
       });
@@ -299,8 +299,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       setState(() => _detail = _Invoice(project));
 
   // App Settings home.
-  void _openBranding() => _navigateTo(const _Branding());
-  void _showBrandingHome() => _navigateTo(const _Branding());
+  void _openSettings() => _navigateTo(const _Settings());
+  void _showSettingsHome() => _navigateTo(const _Settings());
   void _addTemplate() => _navigateTo(const _TemplateEditorDetail(null));
   void _editTemplate(InvoiceTemplate t, {bool startEditing = false}) =>
       _navigateTo(_TemplateEditorDetail(t, startEditing: startEditing));
@@ -363,14 +363,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         project: project,
         onDone: _showTracker,
       ),
-      _Branding() => const SettingsHome(),
+      _Settings() => const SettingsHome(),
       _TemplateEditorDetail(:final template, :final startEditing) =>
         TemplateEditor(
           key: ValueKey(('template', template?.id)),
           db: widget.db,
           initial: template,
           startEditing: startEditing,
-          onDone: _showBrandingHome,
+          onDone: _showSettingsHome,
           onDirtyChanged: (d) => setState(() => _editorDirty = d),
           onSaveHandleReady: (save) => _currentEditorSave = save,
         ),
@@ -380,7 +380,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           db: widget.db,
           initial: profile,
           startEditing: startEditing,
-          onDone: _showBrandingHome,
+          onDone: _showSettingsHome,
           onDirtyChanged: (d) => setState(() => _editorDirty = d),
           onSaveHandleReady: (save) => _currentEditorSave = save,
         ),
@@ -402,7 +402,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         child: detailView,
       ),
     );
-    // Preview pages (branding + per-project invoice) keep the left edge aligned with
+    // Preview pages (settings + per-project invoice) keep the left edge aligned with
     // the page header (same inset as the centred content column) but stretch
     // right to the panel divider so the preview + controls use the extra width.
     // Other pages stay centred within ContentBody's reading width.
@@ -437,9 +437,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         action();
       }
 
-      // In Branding mode the right column is the branding panel instead of the
+      // In Settings mode the right column is the settings panel instead of the
       // client/project tree; the content pane shows the matching preview.
-      if (_inBranding) {
+      if (_inSettings) {
         final detail = _detail;
         return SettingsPanel(
           db: widget.db,
@@ -458,7 +458,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               run(() => _editProfile(p, startEditing: startEditing)),
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
-          onOpenSettings: () => run(_openBranding),
+          onOpenSettings: () => run(_openSettings),
           showFooter: showFooter,
           autofocus: keyboardNav,
           // Keyboard nav wired only where the panel is persistent (wide) —
@@ -484,7 +484,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // `?` while the panel is focused: the panel consumes `/`-family keys, so
         // it routes the help request back up rather than letting it bubble.
         onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
-        onOpenSettings: () => run(_openBranding),
+        onOpenSettings: () => run(_openSettings),
         showFooter: showFooter,
         autofocus: keyboardNav,
       );
@@ -515,7 +515,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                           PageHeader(
                             alignLogoStart: _wideContentPage,
                             onShowHelp: () => showShortcutsHelp(context),
-                            onOpenSettings: _openBranding,
+                            onOpenSettings: _openSettings,
                           ),
                           Expanded(child: content),
                         ],
@@ -545,7 +545,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                               child: child,
                             ),
                         child: KeyedSubtree(
-                          key: ValueKey(_inBranding),
+                          key: ValueKey(_inSettings),
                           child: panel(keyboardNav: true, showFooter: false),
                         ),
                       ),

@@ -22,7 +22,7 @@ class PageHeader extends StatelessWidget {
   });
 
   /// Left-align the logo inside the bar (instead of centring it over the content
-  /// column). Used on settings/branding pages, whose content stretches wider so
+  /// column). Used on settings pages, whose content stretches wider so
   /// a centred logo would drift off the reading column.
   final bool alignLogoStart;
 
@@ -30,7 +30,7 @@ class PageHeader extends StatelessWidget {
   /// right edge (just left of the panel divider).
   final VoidCallback? onShowHelp;
 
-  /// Open App Settings (Branding). When set, a gear shows beside the `?`.
+  /// Open App Settings. When set, a gear shows beside the `?`.
   final VoidCallback? onOpenSettings;
 
   @override

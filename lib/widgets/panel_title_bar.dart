@@ -4,7 +4,7 @@ import 'package:time_tracker/constants/tokens.dart';
 
 /// A panel title bar styled like the side-panel search field — a filled,
 /// flush-left / rounded-right bar sitting at the same top inset — but carrying a
-/// back arrow and a title instead of an input. Used by settings/branding panels
+/// back arrow and a title instead of an input. Used by settings panels
 /// (and any subsequent panel mode) so their header lines up with the search
 /// field's position and shape in the normal panel.
 class PanelTitleBar extends StatelessWidget {
