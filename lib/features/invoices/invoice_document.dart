@@ -14,6 +14,13 @@ import 'dart:typed_data';
 
 import 'package:time_tracker/data/database.dart';
 
+/// What a renderer shows in the masthead when [InvoiceDocument.logo] is null.
+enum LogoFallback {
+  brand, // the app's timedart mark — only the default profile
+  placeholder, // a neutral "[Logo]" box — template-editor previews only
+  none, // nothing at all — a real invoice for a profile with no logo
+}
+
 /// One billable line: a task/entry with its date, tracked time, and rate.
 class InvoiceLineItem {
   final String item; // task title, plus the entry's own note when set
@@ -59,9 +66,7 @@ class InvoiceDocument {
   // Sender (from the profile)
   final String businessName;
   final Uint8List? logo; // business logo bytes (PNG/JPG)
-  // What to render when [logo] is null: true → the app's timedart mark (only the
-  // default profile does this), false → a neutral "[Logo]" placeholder.
-  final bool brandLogoFallback;
+  final LogoFallback logoFallback; // what to show when [logo] is null
   final String? senderEmail;
   final String? senderPhone;
   final String? senderWebsite;
@@ -96,7 +101,7 @@ class InvoiceDocument {
     required this.reference,
     required this.businessName,
     required this.logo,
-    required this.brandLogoFallback,
+    required this.logoFallback,
     required this.senderEmail,
     required this.senderPhone,
     required this.senderWebsite,
@@ -171,7 +176,9 @@ InvoiceDocument buildInvoiceDocument({
     reference: project.code,
     businessName: profile.businessName,
     logo: profile.logo,
-    brandLogoFallback: profile.isDefault,
+    // A real invoice: the default profile falls back to the timedart mark;
+    // any other logo-less profile shows nothing.
+    logoFallback: profile.isDefault ? LogoFallback.brand : LogoFallback.none,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,
@@ -242,7 +249,7 @@ InvoiceDocument sampleInvoiceDocument({
     // A template preview is about the visual style, not identity — the logo
     // comes from the profile — so it always shows the neutral placeholder.
     logo: null,
-    brandLogoFallback: false,
+    logoFallback: LogoFallback.placeholder,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,
@@ -292,7 +299,8 @@ InvoiceDocument profilePreviewDocument({
     reference: '—',
     businessName: profile.businessName,
     logo: profile.logo,
-    brandLogoFallback: profile.isDefault,
+    // Mirror the real invoice: brand mark for the default, nothing otherwise.
+    logoFallback: profile.isDefault ? LogoFallback.brand : LogoFallback.none,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,
