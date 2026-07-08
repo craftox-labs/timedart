@@ -41,12 +41,6 @@ Future<Uint8List> buildBrandedInvoicePdf({
     await rootBundle.load('assets/fonts/MonaSans-SemiBold.ttf'),
   ); // w600 — headings (fontWeightBold)
 
-  final logoBytes =
-      doc.logo ??
-      (await rootBundle.load('assets/logo/timedart_logo_horizontal.png'))
-          .buffer
-          .asUint8List();
-
   final bg = PdfColor.fromInt(template.colorBackground);
   final surface = PdfColor.fromInt(template.colorSurface);
   final primary = PdfColor.fromInt(template.colorPrimary);
@@ -60,6 +54,46 @@ Future<Uint8List> buildBrandedInvoicePdf({
     primary.blue,
     InvoiceLayout.mutedAlpha,
   ).flatten(background: bg);
+
+  // The masthead logo: the profile's own logo, else the timedart mark for the
+  // default profile, else a neutral "[Logo]" placeholder. Built here (async can
+  // load the asset) so the sync page builder just drops it in. Mirrors the
+  // preview's three-way choice in invoice_preview.dart.
+  final pw.Widget logoWidget;
+  if (doc.logo != null) {
+    logoWidget = pw.Image(
+      pw.MemoryImage(doc.logo!),
+      height: _p(InvoiceLayout.logoHeight),
+    );
+  } else if (doc.brandLogoFallback) {
+    final bytes = (await rootBundle.load(
+      'assets/logo/timedart_logo_horizontal.png',
+    )).buffer.asUint8List();
+    logoWidget = pw.Image(
+      pw.MemoryImage(bytes),
+      height: _p(InvoiceLayout.logoHeight),
+    );
+  } else {
+    logoWidget = pw.Container(
+      width: _p(InvoiceLayout.logoPlaceholderWidth),
+      height: _p(InvoiceLayout.logoHeight),
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: muted),
+        borderRadius: pw.BorderRadius.circular(
+          _p(InvoiceLayout.logoPlaceholderRadius),
+        ),
+      ),
+      child: pw.Text(
+        'Logo',
+        style: pw.TextStyle(
+          font: medium,
+          color: muted,
+          fontSize: _p(InvoiceLayout.fontValue),
+        ),
+      ),
+    );
+  }
 
   // Small-caps labels (ATT:/RE:/field + table-header labels): [fontWeightLabel]
   // (w500) → the [medium] instance.
@@ -202,7 +236,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
               ),
             ),
             pw.SizedBox(width: _p(InvoiceLayout.sectionGap)),
-            pw.Image(pw.MemoryImage(logoBytes), height: _p(InvoiceLayout.logoHeight)),
+            logoWidget,
           ],
         ),
         pw.SizedBox(height: _p(InvoiceLayout.sectionGap)),

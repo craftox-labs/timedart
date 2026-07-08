@@ -58,7 +58,10 @@ class InvoiceDocument {
 
   // Sender (from the profile)
   final String businessName;
-  final Uint8List? logo; // business logo bytes (PNG/JPG); null → default asset
+  final Uint8List? logo; // business logo bytes (PNG/JPG)
+  // What to render when [logo] is null: true → the app's timedart mark (only the
+  // default profile does this), false → a neutral "[Logo]" placeholder.
+  final bool brandLogoFallback;
   final String? senderEmail;
   final String? senderPhone;
   final String? senderWebsite;
@@ -93,6 +96,7 @@ class InvoiceDocument {
     required this.reference,
     required this.businessName,
     required this.logo,
+    required this.brandLogoFallback,
     required this.senderEmail,
     required this.senderPhone,
     required this.senderWebsite,
@@ -167,6 +171,7 @@ InvoiceDocument buildInvoiceDocument({
     reference: project.code,
     businessName: profile.businessName,
     logo: profile.logo,
+    brandLogoFallback: profile.isDefault,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,
@@ -234,7 +239,10 @@ InvoiceDocument sampleInvoiceDocument({
     periodTo: issueDate,
     reference: 'SAMPLE',
     businessName: profile.businessName,
-    logo: profile.logo,
+    // A template preview is about the visual style, not identity — the logo
+    // comes from the profile — so it always shows the neutral placeholder.
+    logo: null,
+    brandLogoFallback: false,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,
@@ -284,6 +292,7 @@ InvoiceDocument profilePreviewDocument({
     reference: '—',
     businessName: profile.businessName,
     logo: profile.logo,
+    brandLogoFallback: profile.isDefault,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,

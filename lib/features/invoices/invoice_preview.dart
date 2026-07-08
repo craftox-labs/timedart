@@ -175,11 +175,33 @@ class InvoicePreview extends StatelessWidget {
       const SizedBox(width: InvoiceLayout.sectionGap),
       doc.logo != null
           ? Image.memory(doc.logo!, height: InvoiceLayout.logoHeight)
-          : Image.asset(
+          : doc.brandLogoFallback
+          ? Image.asset(
               'assets/logo/timedart_logo_horizontal.png',
               height: InvoiceLayout.logoHeight,
-            ),
+            )
+          : _logoPlaceholder(),
     ],
+  );
+
+  // Shown when a profile has no logo and isn't the default: a neutral outlined
+  // box so the masthead keeps its shape without borrowing the app's brand mark.
+  Widget _logoPlaceholder() => Container(
+    width: InvoiceLayout.logoPlaceholderWidth,
+    height: InvoiceLayout.logoHeight,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      border: Border.all(color: _muted),
+      borderRadius: BorderRadius.circular(InvoiceLayout.logoPlaceholderRadius),
+    ),
+    child: Text(
+      'Logo',
+      style: TextStyle(
+        color: _muted,
+        fontSize: InvoiceLayout.fontValue,
+        fontWeight: InvoiceLayout.fontWeightLabel,
+      ),
+    ),
   );
 
   // Masthead contact line: bold "e." / "t." / "w." prefixes, regular values,

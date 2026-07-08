@@ -304,7 +304,10 @@ class _ProfileEditorState extends State<ProfileEditor> {
   }
 
   Future<void> _pickLogo() async {
-    const group = XTypeGroup(label: 'Image', extensions: ['png', 'jpg', 'jpeg']);
+    const group = XTypeGroup(
+      label: 'Image',
+      extensions: ['png', 'jpg', 'jpeg'],
+    );
     final file = await openFile(acceptedTypeGroups: const [group]);
     if (file == null) return;
     final bytes = await file.readAsBytes();
@@ -387,11 +390,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
                 }),
               ),
             ),
-          ]),
-        ]),
-        FieldGroup('Business', [
-          FieldRow([
             Field(
+              flex: 0,
               _LogoField(
                 logo: _logo,
                 onPick: _pickLogo,
@@ -405,6 +405,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
               ),
             ),
           ]),
+        ]),
+        FieldGroup('Business', [
           FieldRow([
             Field(_field('businessName', 'Business name')),
             Field(_field('website', 'Website')),

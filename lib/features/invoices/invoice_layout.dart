@@ -62,6 +62,11 @@ abstract class InvoiceLayout {
 
   // ── Logo ───────────────────────────────────────────────────────────
   static const double logoHeight = 38.0;
+  // The "[Logo]" placeholder shown when a profile has no logo (and isn't the
+  // default, which falls back to the timedart mark). A fixed box so preview and
+  // PDF match; the PDF scales both by pdfScale.
+  static const double logoPlaceholderWidth = 68.0;
+  static const double logoPlaceholderRadius = 4.0;
 
   // ── Table columns ─────────────────────────────────────────────────
   // Flex weights for the 5-column line-items grid (ITEM / DATE / RATE / TIME / TOTAL).
