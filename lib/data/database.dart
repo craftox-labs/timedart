@@ -275,22 +275,26 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('DROP TABLE _pairing_old');
       }
       // v6 → v7: rename jobs→projects and job_id→project_id throughout.
-      // Every pre-v7 database has a `jobs` table, so the table rename is
-      // unconditional. Column renames are guarded:
+      // Guarded to from<7 — a v7+ database already has `projects` (renaming a
+      // non-existent `jobs` throws, which is what broke the v7→v8 upgrade).
+      // Every pre-v7 database has a `jobs` table, so the table rename runs for
+      // all of them. Column renames are further guarded:
       //   - tasks.job_id: from<2 creates tasks fresh (project_id already); from≥2
       //     databases have job_id from a prior migration run.
       //   - time_entries.job_id: from<3 TableMigration already maps job_id→project_id
       //     via columnTransformer; from≥3 databases still have job_id.
-      await customStatement('ALTER TABLE jobs RENAME TO projects');
-      if (from >= 2) {
-        await customStatement(
-          'ALTER TABLE tasks RENAME COLUMN job_id TO project_id',
-        );
-      }
-      if (from >= 3) {
-        await customStatement(
-          'ALTER TABLE time_entries RENAME COLUMN job_id TO project_id',
-        );
+      if (from < 7) {
+        await customStatement('ALTER TABLE jobs RENAME TO projects');
+        if (from >= 2) {
+          await customStatement(
+            'ALTER TABLE tasks RENAME COLUMN job_id TO project_id',
+          );
+        }
+        if (from >= 3) {
+          await customStatement(
+            'ALTER TABLE time_entries RENAME COLUMN job_id TO project_id',
+          );
+        }
       }
       // v7 → v8: the logo moves from the template (visual style) to the profile
       // (business identity). Add logo/logo_mime to profiles, backfill each from

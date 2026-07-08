@@ -85,6 +85,53 @@ AppDatabase _openV5() {
   return AppDatabase(NativeDatabase.opened(raw));
 }
 
+// Hand-built schema-v7 DDL: post Job→Project rename (projects/project_id), the
+// clients v5 columns, and the branding tables in their v6/v7 shape — templates
+// carrying the logo, profiles carrying template_id but no logo. A default
+// template + a default profile pointed at it, so the v7→v8 upgrade has real
+// rows to preserve. user_version = 7 so opening runs only the v7→v8 step.
+AppDatabase _openV7() {
+  final raw = sqlite3.openInMemory();
+  raw.execute('''
+    CREATE TABLE clients (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL, contact_name TEXT, email TEXT, phone TEXT,
+      address TEXT, abn TEXT, default_rate REAL NOT NULL, archived_at INTEGER);
+    CREATE TABLE projects (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients (id), code TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL, rate REAL, status TEXT NOT NULL DEFAULT 'active',
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')));
+    CREATE TABLE tasks (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects (id), title TEXT NOT NULL,
+      rate REAL, status TEXT NOT NULL DEFAULT 'active',
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')));
+    CREATE TABLE time_entries (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects (id),
+      task_id INTEGER REFERENCES tasks (id), description TEXT,
+      started_at INTEGER NOT NULL, ended_at INTEGER NOT NULL, seconds INTEGER NOT NULL);
+    CREATE TABLE templates (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL, logo BLOB, logo_mime TEXT,
+      color_background INTEGER NOT NULL, color_surface INTEGER NOT NULL,
+      color_primary INTEGER NOT NULL, color_text INTEGER NOT NULL,
+      color_accent INTEGER NOT NULL, font_family TEXT NOT NULL DEFAULT 'Mona',
+      is_default INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE profiles (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL, business_name TEXT NOT NULL DEFAULT '', email TEXT,
+      phone TEXT, website TEXT, address TEXT, abn TEXT, payee_name TEXT,
+      bank_name TEXT, bank_bsb TEXT, bank_account TEXT, swift TEXT,
+      payment_link TEXT, currency TEXT NOT NULL DEFAULT 'USD', tax_label TEXT,
+      tax_rate REAL, is_default INTEGER NOT NULL DEFAULT 0,
+      template_id INTEGER REFERENCES templates (id));
+    INSERT INTO clients (id, name, default_rate) VALUES (1, 'Acme', 100);
+    INSERT INTO templates (id, name, logo, logo_mime, color_background,
+      color_surface, color_primary, color_text, color_accent, is_default)
+      VALUES (5, 'timedart', x'CAFE', 'image/png', 1, 2, 3, 4, 5, 1);
+    INSERT INTO profiles (id, name, is_default, template_id)
+      VALUES (2, 'Default', 1, 5);
+    PRAGMA user_version = 7;
+  ''');
+  return AppDatabase(NativeDatabase.opened(raw));
+}
+
 void main() {
   test('v4→v8 builds the template + profile tables and Client columns', () async {
     final db = _openV4();
@@ -124,6 +171,28 @@ void main() {
     expect(profile.templateId, 7);
     // …and the v7→v8 step carried that template's logo onto the profile.
     expect(profile.logo, [0xDE, 0xAD, 0xBE, 0xEF]);
+    expect(profile.logoMime, 'image/png');
+  });
+
+  test('v7→v8 preserves the default template + profile and moves the logo',
+      () async {
+    // Regression: the v6→v7 jobs→projects rename was unconditional, so a v7 DB
+    // upgrading to v8 tried to rename a non-existent `jobs` table and blew up
+    // the whole migration. This exercises that exact path.
+    final db = _openV7();
+    addTearDown(db.close);
+
+    // Existing branding rows survive the upgrade (the bug wiped them).
+    final tpl = await db.defaultTemplate();
+    expect(tpl, isNotNull);
+    expect(tpl!.id, 5);
+    expect(tpl.name, 'timedart');
+    final profile = await db.defaultProfile();
+    expect(profile, isNotNull);
+    expect(profile!.id, 2);
+    expect(profile.templateId, 5);
+    // The logo moved off the template and onto the profile.
+    expect(profile.logo, [0xCA, 0xFE]);
     expect(profile.logoMime, 'image/png');
   });
 
