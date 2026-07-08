@@ -81,6 +81,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // logo — the branding pages plus the per-project invoice view (a preview page too).
   bool get _wideContentPage => _inBranding || _detail is _Invoice;
 
+  // Content stretches to the divider only where a live invoice preview needs the
+  // width — the two editors and the per-project invoice. The Settings home is a
+  // centred placeholder, so it uses ContentBody's 800px column like the tracker.
+  bool get _stretchContent =>
+      _detail is _TemplateEditorDetail ||
+      _detail is _ProfileEditorDetail ||
+      _detail is _Invoice;
+
   // Keyboard-nav focus (wide layout only). The panel's row cursor lives here so
   // the shell can move focus *into* the panel; the tracker pane is a scope we
   // hand focus to (its own widgets take over from there — content-pane keymap
@@ -242,7 +250,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   // Client/project editing are modals (like task/entry), so they open over the
   // content pane rather than replacing it.
-  void _editProject(Project project) => showProjectEditor(context, db: widget.db, project: project);
+  void _editProject(Project project) =>
+      showProjectEditor(context, db: widget.db, project: project);
   Future<void> _addProject(int clientId) async {
     final createdProjectId = await showProjectEditor(
       context,
@@ -256,7 +265,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _editClient(Client c) =>
       showClientEditor(context, db: widget.db, client: c);
   void _addClient() => showClientEditor(context, db: widget.db);
-  void _invoiceProject(Project project) => setState(() => _detail = _Invoice(project));
+  void _invoiceProject(Project project) =>
+      setState(() => _detail = _Invoice(project));
 
   // App Settings home.
   void _openBranding() => _navigateTo(const _Branding());
@@ -285,7 +295,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       final ids = projects.map((j) => j.id).toSet();
       final selected = _selectedProjectId;
       if (selected != null && !ids.contains(selected)) {
-        setState(() => _selectedProjectId = projects.isNotEmpty ? projects.first.id : null);
+        setState(
+          () => _selectedProjectId = projects.isNotEmpty
+              ? projects.first.id
+              : null,
+        );
       }
     });
   }
@@ -344,7 +358,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     // the page header (same inset as the centred content column) but stretch
     // right to the panel divider so the preview + controls use the extra width.
     // Other pages stay centred within ContentBody's reading width.
-    final Widget content = _wideContentPage
+    final Widget content = _stretchContent
         ? LayoutBuilder(
             builder: (context, c) {
               final margin = ((c.maxWidth - AppTokens.maxContentWidth) / 2)

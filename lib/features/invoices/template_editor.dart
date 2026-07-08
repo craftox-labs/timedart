@@ -48,6 +48,13 @@ class _TemplateEditorState extends State<TemplateEditor> {
     accent: 0xFF2E6C0F,
   );
 
+  // The fonts the template picker offers. Single source of truth: the dropdown
+  // items are built from this list, and a loaded template's stored family is
+  // validated against it (a value the picker can't show would trip
+  // DropdownButton's one-matching-item assertion). Legacy rows written before
+  // a font change fall back to the first entry and self-heal on next save.
+  static const _fontFamilies = ['Mona'];
+
   late final TextEditingController _name;
   late int _bg, _surface, _primary, _text, _accent;
   Uint8List? _logo;
@@ -87,7 +94,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
     _accent = t?.colorAccent ?? _defaults.accent;
     _logo = t?.logo;
     _logoMime = t?.logoMime;
-    _fontFamily = t?.fontFamily ?? 'Mona';
+    _fontFamily = _fontFamilies.contains(t?.fontFamily)
+        ? t!.fontFamily
+        : _fontFamilies.first;
     _isDefault = t?.isDefault ?? false;
     _baseName = _name.text.trim();
     _baseBg = _bg;
@@ -350,8 +359,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
               EditorDropdown<String>(
                 label: 'Font',
                 value: _fontFamily,
-                items: const [
-                  DropdownMenuItem(value: 'Mona', child: Text('Mona')),
+                items: [
+                  for (final f in _fontFamilies)
+                    DropdownMenuItem(value: f, child: Text(f)),
                 ],
                 onChanged: (v) => setState(() {
                   _fontFamily = v ?? _fontFamily;
