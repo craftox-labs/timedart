@@ -192,7 +192,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
                           if (doc.senderWebsite != null) ('w.', doc.senderWebsite!),
                         ].indexed) ...[
                           if (i > 0) const pw.TextSpan(text: '    '),
-                          pw.TextSpan(text: entry.$1, style: pw.TextStyle(font: medium)),
+                          pw.TextSpan(text: entry.$1, style: pw.TextStyle(font: medium, color: primary)),
                           pw.TextSpan(text: ' ${entry.$2}'),
                         ],
                       ],

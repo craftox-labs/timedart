@@ -30,7 +30,8 @@ class SidePanel extends StatefulWidget {
   final int? selectedProjectId;
   final void Function(int)? onSelect; // select a project for the timer
   final void Function(Project) onEditProject;
-  final void Function(int clientId) onAddProject; // add a project under this client
+  final void Function(int clientId)
+  onAddProject; // add a project under this client
   final void Function(Client) onEditClient;
   final VoidCallback onAddClient;
   // Row-cursor focus, owned by the shell so it can move focus *into* the panel.
@@ -295,14 +296,18 @@ class _SidePanelState extends State<SidePanel> {
           widget.onExitToTracker?.call();
           return KeyEventResult.handled;
         }
-        if (right) return KeyEventResult.handled; // Ctrl-w l → panel; already here
+        if (right) {
+          return KeyEventResult.handled; // Ctrl-w l → panel; already here
+        }
         // any other key: abandon the chord, fall through to normal handling
       } else {
         if (ctrl && left) {
           widget.onExitToTracker?.call();
           return KeyEventResult.handled;
         }
-        if (ctrl && right) return KeyEventResult.handled; // Ctrl-l → already here
+        if (ctrl && right) {
+          return KeyEventResult.handled; // Ctrl-l → already here
+        }
       }
     }
     // Any other Ctrl-combo isn't a row-nav key — let it bubble (Tab and the
@@ -505,7 +510,8 @@ class _SidePanelState extends State<SidePanel> {
         // used to provide.
         final dividerBefore = i > 0 && row is ClientRow;
         final lastProjectOfClient =
-            row is ProjectRow && (i + 1 >= _rows.length || _rows[i + 1] is ClientRow);
+            row is ProjectRow &&
+            (i + 1 >= _rows.length || _rows[i + 1] is ClientRow);
         if (!dividerBefore && !lastProjectOfClient) return tile;
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -677,9 +683,7 @@ class _ClientHeaderTile extends StatelessWidget {
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
       minTileHeight: 36,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppTokens.spaceMd,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceMd),
       horizontalTitleGap: AppTokens.space2xs,
       onTap: onToggle,
       leading: Icon(
@@ -786,17 +790,13 @@ class PanelFooter extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Divider(
-          height: AppTokens.strokeThin,
-          thickness: AppTokens.strokeThin,
-          color: AppTokens.colorBorder,
-        ),
         Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppTokens.spaceMd,
-            vertical: AppTokens.space3xs,
+            vertical: AppTokens.spaceMd,
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (onShowHelp != null)
                 InkWell(
@@ -838,7 +838,8 @@ class PanelFooter extends StatelessWidget {
                     ),
                   ),
                 ),
-              const Spacer(),
+              if (onShowHelp != null && onOpenSettings != null)
+                const SizedBox(width: AppTokens.spaceLg),
               if (onOpenSettings != null)
                 IconButton(
                   icon: const Icon(Icons.settings),
@@ -880,9 +881,7 @@ class CraftoxBadge extends StatelessWidget {
           child: InkWell(
             onTap: () => launchUrl(_uri),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: AppTokens.spaceSm,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
               child: Center(
                 child: SvgPicture.asset(
                   'assets/logo/co_logo_horizontal.svg',

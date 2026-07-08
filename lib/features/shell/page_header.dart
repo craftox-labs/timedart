@@ -75,12 +75,20 @@ class PageHeader extends StatelessWidget {
                 ),
                 // Logo centred to the pane (== centred over the centred content
                 // column), or left-aligned inside the bar on settings pages.
+                // Logo: centred over the content column on the tracker, sliding
+                // to the bar's left edge on settings/invoice pages. Both the
+                // alignment and the inset animate so it glides across on the
+                // tracker↔settings transition instead of snapping.
                 Positioned.fill(
-                  child: Align(
+                  child: AnimatedAlign(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
                     alignment: alignLogoStart
                         ? Alignment.centerLeft
                         : Alignment.center,
-                    child: Padding(
+                    child: AnimatedPadding(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
                       padding: EdgeInsets.only(
                         left: alignLogoStart
                             ? leftInset + AppTokens.spaceMd

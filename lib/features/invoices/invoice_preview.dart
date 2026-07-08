@@ -185,7 +185,10 @@ class InvoicePreview extends StatelessWidget {
   // Masthead contact line: bold "e." / "t." / "w." prefixes, regular values,
   // four spaces between entries. Only present fields appear.
   List<InlineSpan> _contactSpans() {
-    const prefixStyle = TextStyle(fontWeight: InvoiceLayout.fontWeightLabel);
+    final prefixStyle = TextStyle(
+      fontWeight: InvoiceLayout.fontWeightLabel,
+      color: _primary,
+    );
     final entries = <(String, String)>[
       if (doc.senderEmail != null) ('e.', doc.senderEmail!),
       if (doc.senderPhone != null) ('t.', doc.senderPhone!),

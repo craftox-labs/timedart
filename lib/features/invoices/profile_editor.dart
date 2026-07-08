@@ -333,8 +333,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
     return Column(
       spacing: AppTokens.spaceXl,
       children: [
-        FieldGroup('Template', [
+        FieldGroup('Profile name / Template', [
           FieldRow([
+            Field(_field('name', 'Name')),
             Field(
               EditorDropdown<int>(
                 label: 'Template',
@@ -353,15 +354,14 @@ class _ProfileEditorState extends State<ProfileEditor> {
         ]),
         FieldGroup('Business', [
           FieldRow([
-            Field(_field('name', 'Name')),
             Field(_field('businessName', 'Business name')),
+            Field(_field('website', 'Website')),
           ]),
           // Equal thirds: Website lines up above ABN, Email/Phone span the width
           // that Address occupies below.
           FieldRow([
             Field(_field('email', 'Email')),
             Field(_field('phone', 'Phone')),
-            Field(_field('website', 'Website')),
           ]),
           FieldRow([
             Field(_field('address', 'Address'), flex: 2),
@@ -424,7 +424,11 @@ class _ProfileEditorState extends State<ProfileEditor> {
     );
     // scrollable: false — the editor's outer scroll owns vertical scrolling.
     return brandingPreviewFrame(
-      child: invoicePreviewPage(doc: doc, template: template, scrollable: false),
+      child: invoicePreviewPage(
+        doc: doc,
+        template: template,
+        scrollable: false,
+      ),
     );
   }
 }

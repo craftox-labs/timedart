@@ -27,8 +27,8 @@ abstract class AppTokens {
   // ── 4. Typography ──
   static const String fontFamily = 'Mona';
   static const double fontHeightDefault = 1.4;
-  static const double fontSizeXs = 14.0;
-  static const double fontSizeSm = 16.0;
+  static const double fontSizeXs = 13.0;
+  static const double fontSizeSm = 14.0;
   static const double fontSizeMd = 18.0;
 
   // ── 5. Color Palette ──

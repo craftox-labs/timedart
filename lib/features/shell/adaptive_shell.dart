@@ -17,6 +17,7 @@ import 'package:time_tracker/features/invoices/template_editor.dart';
 import 'package:time_tracker/features/shell/settings_home.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
 import 'package:time_tracker/widgets/content_body.dart';
+import 'package:animations/animations.dart';
 
 // What the detail pane is currently showing. One value instead of a pile of
 // nullable flags, so the content is a single exhaustive switch.
@@ -94,6 +95,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // hand focus to (its own widgets take over from there — content-pane keymap
   // is a follow-up, see issue).
   final FocusNode _panelCursor = FocusNode(debugLabel: 'panelCursor');
+  final FocusNode _settingsCursor = FocusNode(debugLabel: 'settingsCursor');
   final FocusScopeNode _trackerScope = FocusScopeNode(
     debugLabel: 'trackerScope',
   );
@@ -106,7 +108,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   final TimerController _timer = TimerController();
   bool _pendingCtrlW = false; // saw Ctrl-w, awaiting an h/l
 
-  void _focusPanel() => _panelCursor.requestFocus();
+  void _focusPanel() =>
+      (_inBranding ? _settingsCursor : _panelCursor).requestFocus();
   void _focusTracker() => _trackerCursor.requestFocus();
   void _focusSearch() => _panelSearch.requestFocus();
 
@@ -121,7 +124,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   // "In the panel" means either its row cursor or its search field has focus —
   // otherwise Tab out of a focused search would wrongly jump to the tracker.
-  void _togglePane() => (_panelCursor.hasFocus || _panelSearch.hasFocus)
+  void _togglePane() =>
+      (_panelCursor.hasFocus ||
+          _settingsCursor.hasFocus ||
+          _panelSearch.hasFocus)
       ? _focusTracker()
       : _focusPanel();
 
@@ -163,6 +169,17 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         key == LogicalKeyboardKey.space &&
         _detail is _Tracker) {
       if (event is KeyDownEvent) _timer.primary?.call();
+      return KeyEventResult.handled;
+    }
+
+    // `t` returns to the tracker from anywhere it isn't already showing (e.g.
+    // out of Settings). Guarded like the other single-key globals so it types
+    // normally in a text field.
+    if (!ctrl &&
+        !editing &&
+        key == LogicalKeyboardKey.keyT &&
+        _detail is! _Tracker) {
+      if (event is KeyDownEvent) _showTracker();
       return KeyEventResult.handled;
     }
 
@@ -234,12 +251,25 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         if (!ok) return; // validation failed; stay on the editor
       }
     }
+
     if (!mounted) return;
+    final wasInBranding = _inBranding; // reads the *old* _detail
     setState(() {
       _detail = next;
       _editorDirty = false;
       _currentEditorSave = null;
     });
+    // The panel's PageTransitionSwitcher swaps only when _inBranding flips, and
+    // that swap drops keyboard focus to the root scope (the outgoing panel holds
+    // it through the crossfade, so the incoming panel's autofocus is lost).
+    // Re-assert focus on the now-active panel so shell shortcuts (?, t, Space)
+    // have a focused descendant to bubble from. Only on the boundary, so it
+    // doesn't yank focus away from an editor opened within settings.
+    if (_inBranding != wasInBranding) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusPanel();
+      });
+    }
   }
 
   void _showTracker() => _navigateTo(const _Tracker());
@@ -308,6 +338,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void dispose() {
     _projectsSub?.cancel();
     _panelCursor.dispose();
+    _settingsCursor.dispose();
     _trackerScope.dispose();
     _trackerCursor.dispose();
     _panelSearch.dispose();
@@ -354,6 +385,23 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onSaveHandleReady: (save) => _currentEditorSave = save,
         ),
     };
+    // Cross-fade between content-pane pages on a _detail change. PageTransitionSwitcher
+    // fires only when its child's Key changes, so key by the page *type* — switching
+    // between two templates keeps the same key here and is handled by the editor's own
+    // ValueKey below, rather than fading between two editors.
+    final animatedDetail = PageTransitionSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (child, primary, secondary) => FadeThroughTransition(
+        animation: primary,
+        secondaryAnimation: secondary,
+        fillColor: Colors.transparent, // no flash of canvasColor between pages
+        child: child,
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(_detail.runtimeType),
+        child: detailView,
+      ),
+    );
     // Preview pages (branding + per-project invoice) keep the left edge aligned with
     // the page header (same inset as the centred content column) but stretch
     // right to the panel divider so the preview + controls use the extra width.
@@ -370,11 +418,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                   AppTokens.spaceLg,
                   AppTokens.spaceLg,
                 ),
-                child: detailView,
+                child: animatedDetail,
               );
             },
           )
-        : ContentBody(child: detailView);
+        : ContentBody(child: animatedDetail);
 
     // In the narrow layout the panel lives in a drawer, so every action must
     // close the drawer first to reveal the content pane it just changed.
@@ -417,7 +465,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           // mirrors SidePanel below, so Tab/Ctrl-h/Ctrl-l pane-switching can
           // actually reach this panel's row cursor instead of a focus node
           // nothing is listening on.
-          cursorFocusNode: keyboardNav ? _panelCursor : null,
+          cursorFocusNode: keyboardNav ? _settingsCursor : null,
         );
       }
 
@@ -483,7 +531,25 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                   // Footer suppressed: Shortcuts/Settings are in the header now.
                   SizedBox(
                     width: 320,
-                    child: panel(keyboardNav: true, showFooter: false),
+                    child: ClipRect(
+                      child: PageTransitionSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        reverse: true,
+                        transitionBuilder: (child, primary, secondary) =>
+                            SharedAxisTransition(
+                              animation: primary,
+                              secondaryAnimation: secondary,
+                              transitionType:
+                                  SharedAxisTransitionType.horizontal,
+                              fillColor: Colors.transparent,
+                              child: child,
+                            ),
+                        child: KeyedSubtree(
+                          key: ValueKey(_inBranding),
+                          child: panel(keyboardNav: true, showFooter: false),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
