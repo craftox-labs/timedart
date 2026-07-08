@@ -42,7 +42,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
   ); // w600 — headings (fontWeightBold)
 
   final logoBytes =
-      template.logo ??
+      doc.logo ??
       (await rootBundle.load('assets/logo/timedart_logo_horizontal.png'))
           .buffer
           .asUint8List();

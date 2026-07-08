@@ -173,8 +173,8 @@ class InvoicePreview extends StatelessWidget {
         ),
       ),
       const SizedBox(width: InvoiceLayout.sectionGap),
-      template.logo != null
-          ? Image.memory(template.logo!, height: InvoiceLayout.logoHeight)
+      doc.logo != null
+          ? Image.memory(doc.logo!, height: InvoiceLayout.logoHeight)
           : Image.asset(
               'assets/logo/timedart_logo_horizontal.png',
               height: InvoiceLayout.logoHeight,

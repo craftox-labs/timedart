@@ -10,6 +10,8 @@
 // portable and unit-testable in isolation. Money/time *formatting* lives in
 // `constants/format.dart` (also pure) and is applied by the renderers, so this
 // module holds raw numbers and the currency code.
+import 'dart:typed_data';
+
 import 'package:time_tracker/data/database.dart';
 
 /// One billable line: a task/entry with its date, tracked time, and rate.
@@ -56,6 +58,7 @@ class InvoiceDocument {
 
   // Sender (from the profile)
   final String businessName;
+  final Uint8List? logo; // business logo bytes (PNG/JPG); null → default asset
   final String? senderEmail;
   final String? senderPhone;
   final String? senderWebsite;
@@ -89,6 +92,7 @@ class InvoiceDocument {
     required this.periodTo,
     required this.reference,
     required this.businessName,
+    required this.logo,
     required this.senderEmail,
     required this.senderPhone,
     required this.senderWebsite,
@@ -162,6 +166,7 @@ InvoiceDocument buildInvoiceDocument({
     periodTo: to,
     reference: project.code,
     businessName: profile.businessName,
+    logo: profile.logo,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,
@@ -229,6 +234,7 @@ InvoiceDocument sampleInvoiceDocument({
     periodTo: issueDate,
     reference: 'SAMPLE',
     businessName: profile.businessName,
+    logo: profile.logo,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,
@@ -277,6 +283,7 @@ InvoiceDocument profilePreviewDocument({
     periodTo: issueDate,
     reference: '—',
     businessName: profile.businessName,
+    logo: profile.logo,
     senderEmail: profile.email,
     senderPhone: profile.phone,
     senderWebsite: profile.website,

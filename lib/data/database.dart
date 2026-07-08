@@ -57,16 +57,15 @@ class TimeEntries extends Table {
 // data layer stays UI-free — the UI/PDF convert to Color/PdfColor. A logo is
 // raw PNG/JPG bytes so it travels with the DB (no orphaned files).
 
-/// An invoice *template*: logo + colour scheme + font — the visual style a
-/// profile is rendered with. Named "template" (not "theme") to leave "theme"
-/// free for future app-wide UI theming. Exactly one row is the default (see
-/// [AppDatabase.setDefaultTemplate]).
+/// An invoice *template*: colour scheme + font — the visual style a profile is
+/// rendered with. Named "template" (not "theme") to leave "theme" free for
+/// future app-wide UI theming. The logo lives on the [Profiles] (business
+/// identity), not here — a template is pure look, reusable across profiles.
+/// Exactly one row is the default (see [AppDatabase.setDefaultTemplate]).
 @DataClassName('InvoiceTemplate')
 class Templates extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 100)();
-  BlobColumn get logo => blob().nullable()(); // PNG/JPG bytes; null = no logo
-  TextColumn get logoMime => text().nullable()(); // e.g. image/png
   IntColumn get colorBackground => integer()();
   IntColumn get colorSurface => integer()();
   IntColumn get colorPrimary => integer()();
@@ -76,14 +75,18 @@ class Templates extends Table {
   BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
 }
 
-/// The *details* of an invoice: sender identity + payment + currency + optional
-/// tax. Tax is null-by-default and international-neutral (a [taxLabel] + percent
-/// [taxRate], or nothing). Reusable across templates; one row is the default.
+/// The *details* of an invoice: sender identity + logo + payment + currency +
+/// optional tax. Tax is null-by-default and international-neutral (a [taxLabel]
+/// + percent [taxRate], or nothing). The logo lives here (business identity),
+/// set once with the other business details, so it survives a change of visual
+/// [Templates]. Reusable across templates; one row is the default.
 @DataClassName('InvoiceProfile')
 class Profiles extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 100)(); // internal label
   TextColumn get businessName => text().withDefault(const Constant(''))();
+  BlobColumn get logo => blob().nullable()(); // PNG/JPG bytes; null = no logo
+  TextColumn get logoMime => text().nullable()(); // e.g. image/png
   TextColumn get email => text().nullable()();
   TextColumn get phone => text().nullable()();
   TextColumn get website => text().nullable()();
@@ -170,7 +173,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -288,6 +291,28 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE time_entries RENAME COLUMN job_id TO project_id',
         );
+      }
+      // v7 → v8: the logo moves from the template (visual style) to the profile
+      // (business identity). Add logo/logo_mime to profiles, backfill each from
+      // its resolved template (its templateId, else the default template), then
+      // drop logo/logo_mime from templates via a rebuild to the current shape.
+      // Guarded to from>=5: a from<5 upgrade built the current tables directly
+      // above (logo already on profiles, absent from templates), so it must not
+      // re-run these column ops. from∈{5,6,7} all reach here with the logo still
+      // on templates (v5's themes had it; the v5→v6 rename kept it).
+      if (from >= 5) {
+        await m.addColumn(profiles, profiles.logo);
+        await m.addColumn(profiles, profiles.logoMime);
+        await customStatement(
+          'UPDATE profiles SET '
+          'logo = (SELECT t.logo FROM templates t WHERE t.id = coalesce('
+          'profiles.template_id, (SELECT id FROM templates WHERE is_default = 1 LIMIT 1))), '
+          'logo_mime = (SELECT t.logo_mime FROM templates t WHERE t.id = coalesce('
+          'profiles.template_id, (SELECT id FROM templates WHERE is_default = 1 LIMIT 1)))',
+        );
+        // Rebuild templates to the current schema — logo/logo_mime are no longer
+        // declared, so the copy drops them; all remaining columns carry over.
+        await m.alterTable(TableMigration(templates));
       }
     },
     beforeOpen: (details) async {
@@ -530,7 +555,7 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  // Templates (the visual style: colours, logo, font)
+  // Templates (the visual style: colours, font)
   Stream<List<InvoiceTemplate>> watchTemplates() =>
       (select(templates)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
   Future<InvoiceTemplate> templateById(int id) =>

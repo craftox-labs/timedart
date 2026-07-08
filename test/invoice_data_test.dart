@@ -5,7 +5,8 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:time_tracker/data/database.dart';
 
 // Data-layer coverage for the invoice-branding tables (PRD #79): the migrations
-// (v4→v6 and v5→v6), idempotent seeding, and single-default resolution.
+// (v4→v8 and v5→v8, incl. the v7→v8 logo move onto the profile), idempotent
+// seeding, and single-default resolution.
 
 // Hand-built schema-v4 DDL: clients has the NOT NULL default_rate (from v4) but
 // NOT the v5 contactName/phone; time_entries is the v3+ shape (description, no
@@ -73,9 +74,9 @@ AppDatabase _openV5() {
       profile_id INTEGER NOT NULL REFERENCES profiles (id),
       is_default INTEGER NOT NULL DEFAULT 0);
     INSERT INTO clients (id, name, default_rate) VALUES (1, 'Acme', 100);
-    INSERT INTO themes (id, name, color_background, color_surface, color_primary,
-      color_text, color_accent, is_default)
-      VALUES (7, 'brand', 1, 2, 3, 4, 5, 1);
+    INSERT INTO themes (id, name, logo, logo_mime, color_background, color_surface,
+      color_primary, color_text, color_accent, is_default)
+      VALUES (7, 'brand', x'DEADBEEF', 'image/png', 1, 2, 3, 4, 5, 1);
     INSERT INTO profiles (id, name, is_default) VALUES (3, 'Mine', 1);
     INSERT INTO templates (id, name, theme_id, profile_id, is_default)
       VALUES (1, 'pair', 7, 3, 1);
@@ -85,7 +86,7 @@ AppDatabase _openV5() {
 }
 
 void main() {
-  test('v4→v6 builds the template + profile tables and Client columns', () async {
+  test('v4→v8 builds the template + profile tables and Client columns', () async {
     final db = _openV4();
     addTearDown(db.close);
 
@@ -108,7 +109,7 @@ void main() {
     expect(c.phone, '+61 400 000 000');
   });
 
-  test('v5→v6 renames themes→templates and backfills profile.templateId',
+  test('v5→v8 renames themes→templates, backfills templateId, moves the logo',
       () async {
     final db = _openV5();
     addTearDown(db.close);
@@ -118,9 +119,12 @@ void main() {
     expect(tpl.name, 'brand');
     expect(tpl.isDefault, isTrue);
 
-    // The profile's templateId was backfilled from the old pairing (theme 7).
+    // The profile's templateId was backfilled from the old pairing (theme 7)…
     final profile = await db.profileById(3);
     expect(profile.templateId, 7);
+    // …and the v7→v8 step carried that template's logo onto the profile.
+    expect(profile.logo, [0xDE, 0xAD, 0xBE, 0xEF]);
+    expect(profile.logoMime, 'image/png');
   });
 
   test('ensureInvoiceDefaults seeds a template + linked profile (idempotent)',
