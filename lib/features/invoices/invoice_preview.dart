@@ -144,42 +144,81 @@ class InvoicePreview extends StatelessWidget {
   // Business details sit at the left edge; the logo anchors the right edge on
   // the same top line. Separating the two gives whatever icon/logo the user
   // supplies its own room rather than stacking text beneath it.
-  Widget _masthead() => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(
-        child: Column(
-          spacing: InvoiceLayout.mastheadContactGap,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              doc.businessName,
-              style: TextStyle(
-                color: _primary,
-                fontSize: InvoiceLayout.fontPaymentsHeading,
-                fontWeight: InvoiceLayout.fontWeightBold,
-              ),
-            ),
-            Text.rich(
-              TextSpan(
+  Widget _masthead() {
+    final logo = _logo();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            spacing: InvoiceLayout.mastheadContactGap,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                doc.businessName,
                 style: TextStyle(
-                  color: _muted,
-                  fontSize: InvoiceLayout.fontValue,
+                  color: _primary,
+                  fontSize: InvoiceLayout.fontPaymentsHeading,
+                  fontWeight: InvoiceLayout.fontWeightBold,
                 ),
-                children: _contactSpans(),
               ),
-            ),
-          ],
+              Text.rich(
+                TextSpan(
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: InvoiceLayout.fontValue,
+                  ),
+                  children: _contactSpans(),
+                ),
+              ),
+            ],
+          ),
         ),
+        // No gap or logo at all when there's nothing to show (a real invoice
+        // for a logo-less profile).
+        if (logo != null) const SizedBox(width: InvoiceLayout.sectionGap),
+        ?logo,
+      ],
+    );
+  }
+
+  // The masthead logo: the profile's own logo, else the fallback chosen by the
+  // document (timedart mark / placeholder box / nothing → null).
+  Widget? _logo() {
+    if (doc.logo != null) {
+      return Image.memory(doc.logo!, height: InvoiceLayout.logoHeight);
+    }
+    switch (doc.logoFallback) {
+      case LogoFallback.brand:
+        return Image.asset(
+          'assets/logo/timedart_logo_horizontal.png',
+          height: InvoiceLayout.logoHeight,
+        );
+      case LogoFallback.placeholder:
+        return _logoPlaceholder();
+      case LogoFallback.none:
+        return null;
+    }
+  }
+
+  // Shown only in template-editor previews: a neutral outlined box so the
+  // masthead keeps its shape without borrowing the app's brand mark.
+  Widget _logoPlaceholder() => Container(
+    width: InvoiceLayout.logoPlaceholderWidth,
+    height: InvoiceLayout.logoHeight,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      border: Border.all(color: _muted),
+      borderRadius: BorderRadius.circular(InvoiceLayout.logoPlaceholderRadius),
+    ),
+    child: Text(
+      'Logo',
+      style: TextStyle(
+        color: _muted,
+        fontSize: InvoiceLayout.fontValue,
+        fontWeight: InvoiceLayout.fontWeightLabel,
       ),
-      const SizedBox(width: InvoiceLayout.sectionGap),
-      template.logo != null
-          ? Image.memory(template.logo!, height: InvoiceLayout.logoHeight)
-          : Image.asset(
-              'assets/logo/timedart_logo_horizontal.png',
-              height: InvoiceLayout.logoHeight,
-            ),
-    ],
+    ),
   );
 
   // Masthead contact line: bold "e." / "t." / "w." prefixes, regular values,

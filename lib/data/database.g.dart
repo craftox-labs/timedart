@@ -1889,26 +1889,6 @@ class $TemplatesTable extends Templates
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _logoMeta = const VerificationMeta('logo');
-  @override
-  late final GeneratedColumn<Uint8List> logo = GeneratedColumn<Uint8List>(
-    'logo',
-    aliasedName,
-    true,
-    type: DriftSqlType.blob,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _logoMimeMeta = const VerificationMeta(
-    'logoMime',
-  );
-  @override
-  late final GeneratedColumn<String> logoMime = GeneratedColumn<String>(
-    'logo_mime',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _colorBackgroundMeta = const VerificationMeta(
     'colorBackground',
   );
@@ -1995,8 +1975,6 @@ class $TemplatesTable extends Templates
   List<GeneratedColumn> get $columns => [
     id,
     name,
-    logo,
-    logoMime,
     colorBackground,
     colorSurface,
     colorPrimary,
@@ -2027,18 +2005,6 @@ class $TemplatesTable extends Templates
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
-    }
-    if (data.containsKey('logo')) {
-      context.handle(
-        _logoMeta,
-        logo.isAcceptableOrUnknown(data['logo']!, _logoMeta),
-      );
-    }
-    if (data.containsKey('logo_mime')) {
-      context.handle(
-        _logoMimeMeta,
-        logoMime.isAcceptableOrUnknown(data['logo_mime']!, _logoMimeMeta),
-      );
     }
     if (data.containsKey('color_background')) {
       context.handle(
@@ -2121,14 +2087,6 @@ class $TemplatesTable extends Templates
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
-      logo: attachedDatabase.typeMapping.read(
-        DriftSqlType.blob,
-        data['${effectivePrefix}logo'],
-      ),
-      logoMime: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}logo_mime'],
-      ),
       colorBackground: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}color_background'],
@@ -2169,8 +2127,6 @@ class $TemplatesTable extends Templates
 class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
   final int id;
   final String name;
-  final Uint8List? logo;
-  final String? logoMime;
   final int colorBackground;
   final int colorSurface;
   final int colorPrimary;
@@ -2181,8 +2137,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
   const InvoiceTemplate({
     required this.id,
     required this.name,
-    this.logo,
-    this.logoMime,
     required this.colorBackground,
     required this.colorSurface,
     required this.colorPrimary,
@@ -2196,12 +2150,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
-    if (!nullToAbsent || logo != null) {
-      map['logo'] = Variable<Uint8List>(logo);
-    }
-    if (!nullToAbsent || logoMime != null) {
-      map['logo_mime'] = Variable<String>(logoMime);
-    }
     map['color_background'] = Variable<int>(colorBackground);
     map['color_surface'] = Variable<int>(colorSurface);
     map['color_primary'] = Variable<int>(colorPrimary);
@@ -2216,10 +2164,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
     return TemplatesCompanion(
       id: Value(id),
       name: Value(name),
-      logo: logo == null && nullToAbsent ? const Value.absent() : Value(logo),
-      logoMime: logoMime == null && nullToAbsent
-          ? const Value.absent()
-          : Value(logoMime),
       colorBackground: Value(colorBackground),
       colorSurface: Value(colorSurface),
       colorPrimary: Value(colorPrimary),
@@ -2238,8 +2182,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
     return InvoiceTemplate(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
-      logo: serializer.fromJson<Uint8List?>(json['logo']),
-      logoMime: serializer.fromJson<String?>(json['logoMime']),
       colorBackground: serializer.fromJson<int>(json['colorBackground']),
       colorSurface: serializer.fromJson<int>(json['colorSurface']),
       colorPrimary: serializer.fromJson<int>(json['colorPrimary']),
@@ -2255,8 +2197,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
-      'logo': serializer.toJson<Uint8List?>(logo),
-      'logoMime': serializer.toJson<String?>(logoMime),
       'colorBackground': serializer.toJson<int>(colorBackground),
       'colorSurface': serializer.toJson<int>(colorSurface),
       'colorPrimary': serializer.toJson<int>(colorPrimary),
@@ -2270,8 +2210,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
   InvoiceTemplate copyWith({
     int? id,
     String? name,
-    Value<Uint8List?> logo = const Value.absent(),
-    Value<String?> logoMime = const Value.absent(),
     int? colorBackground,
     int? colorSurface,
     int? colorPrimary,
@@ -2282,8 +2220,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
   }) => InvoiceTemplate(
     id: id ?? this.id,
     name: name ?? this.name,
-    logo: logo.present ? logo.value : this.logo,
-    logoMime: logoMime.present ? logoMime.value : this.logoMime,
     colorBackground: colorBackground ?? this.colorBackground,
     colorSurface: colorSurface ?? this.colorSurface,
     colorPrimary: colorPrimary ?? this.colorPrimary,
@@ -2296,8 +2232,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
     return InvoiceTemplate(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
-      logo: data.logo.present ? data.logo.value : this.logo,
-      logoMime: data.logoMime.present ? data.logoMime.value : this.logoMime,
       colorBackground: data.colorBackground.present
           ? data.colorBackground.value
           : this.colorBackground,
@@ -2323,8 +2257,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
     return (StringBuffer('InvoiceTemplate(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('logo: $logo, ')
-          ..write('logoMime: $logoMime, ')
           ..write('colorBackground: $colorBackground, ')
           ..write('colorSurface: $colorSurface, ')
           ..write('colorPrimary: $colorPrimary, ')
@@ -2340,8 +2272,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
   int get hashCode => Object.hash(
     id,
     name,
-    $driftBlobEquality.hash(logo),
-    logoMime,
     colorBackground,
     colorSurface,
     colorPrimary,
@@ -2356,8 +2286,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
       (other is InvoiceTemplate &&
           other.id == this.id &&
           other.name == this.name &&
-          $driftBlobEquality.equals(other.logo, this.logo) &&
-          other.logoMime == this.logoMime &&
           other.colorBackground == this.colorBackground &&
           other.colorSurface == this.colorSurface &&
           other.colorPrimary == this.colorPrimary &&
@@ -2370,8 +2298,6 @@ class InvoiceTemplate extends DataClass implements Insertable<InvoiceTemplate> {
 class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
   final Value<int> id;
   final Value<String> name;
-  final Value<Uint8List?> logo;
-  final Value<String?> logoMime;
   final Value<int> colorBackground;
   final Value<int> colorSurface;
   final Value<int> colorPrimary;
@@ -2382,8 +2308,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
   const TemplatesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
-    this.logo = const Value.absent(),
-    this.logoMime = const Value.absent(),
     this.colorBackground = const Value.absent(),
     this.colorSurface = const Value.absent(),
     this.colorPrimary = const Value.absent(),
@@ -2395,8 +2319,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
   TemplatesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
-    this.logo = const Value.absent(),
-    this.logoMime = const Value.absent(),
     required int colorBackground,
     required int colorSurface,
     required int colorPrimary,
@@ -2413,8 +2335,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
   static Insertable<InvoiceTemplate> custom({
     Expression<int>? id,
     Expression<String>? name,
-    Expression<Uint8List>? logo,
-    Expression<String>? logoMime,
     Expression<int>? colorBackground,
     Expression<int>? colorSurface,
     Expression<int>? colorPrimary,
@@ -2426,8 +2346,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
-      if (logo != null) 'logo': logo,
-      if (logoMime != null) 'logo_mime': logoMime,
       if (colorBackground != null) 'color_background': colorBackground,
       if (colorSurface != null) 'color_surface': colorSurface,
       if (colorPrimary != null) 'color_primary': colorPrimary,
@@ -2441,8 +2359,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
   TemplatesCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
-    Value<Uint8List?>? logo,
-    Value<String?>? logoMime,
     Value<int>? colorBackground,
     Value<int>? colorSurface,
     Value<int>? colorPrimary,
@@ -2454,8 +2370,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
     return TemplatesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
-      logo: logo ?? this.logo,
-      logoMime: logoMime ?? this.logoMime,
       colorBackground: colorBackground ?? this.colorBackground,
       colorSurface: colorSurface ?? this.colorSurface,
       colorPrimary: colorPrimary ?? this.colorPrimary,
@@ -2474,12 +2388,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
-    }
-    if (logo.present) {
-      map['logo'] = Variable<Uint8List>(logo.value);
-    }
-    if (logoMime.present) {
-      map['logo_mime'] = Variable<String>(logoMime.value);
     }
     if (colorBackground.present) {
       map['color_background'] = Variable<int>(colorBackground.value);
@@ -2510,8 +2418,6 @@ class TemplatesCompanion extends UpdateCompanion<InvoiceTemplate> {
     return (StringBuffer('TemplatesCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('logo: $logo, ')
-          ..write('logoMime: $logoMime, ')
           ..write('colorBackground: $colorBackground, ')
           ..write('colorSurface: $colorSurface, ')
           ..write('colorPrimary: $colorPrimary, ')
@@ -2567,6 +2473,26 @@ class $ProfilesTable extends Profiles
     type: DriftSqlType.string,
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _logoMeta = const VerificationMeta('logo');
+  @override
+  late final GeneratedColumn<Uint8List> logo = GeneratedColumn<Uint8List>(
+    'logo',
+    aliasedName,
+    true,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _logoMimeMeta = const VerificationMeta(
+    'logoMime',
+  );
+  @override
+  late final GeneratedColumn<String> logoMime = GeneratedColumn<String>(
+    'logo_mime',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _emailMeta = const VerificationMeta('email');
   @override
@@ -2749,6 +2675,8 @@ class $ProfilesTable extends Profiles
     id,
     name,
     businessName,
+    logo,
+    logoMime,
     email,
     phone,
     website,
@@ -2796,6 +2724,18 @@ class $ProfilesTable extends Profiles
           data['business_name']!,
           _businessNameMeta,
         ),
+      );
+    }
+    if (data.containsKey('logo')) {
+      context.handle(
+        _logoMeta,
+        logo.isAcceptableOrUnknown(data['logo']!, _logoMeta),
+      );
+    }
+    if (data.containsKey('logo_mime')) {
+      context.handle(
+        _logoMimeMeta,
+        logoMime.isAcceptableOrUnknown(data['logo_mime']!, _logoMimeMeta),
       );
     }
     if (data.containsKey('email')) {
@@ -2921,6 +2861,14 @@ class $ProfilesTable extends Profiles
         DriftSqlType.string,
         data['${effectivePrefix}business_name'],
       )!,
+      logo: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}logo'],
+      ),
+      logoMime: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logo_mime'],
+      ),
       email: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}email'],
@@ -2998,6 +2946,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
   final int id;
   final String name;
   final String businessName;
+  final Uint8List? logo;
+  final String? logoMime;
   final String? email;
   final String? phone;
   final String? website;
@@ -3018,6 +2968,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     required this.id,
     required this.name,
     required this.businessName,
+    this.logo,
+    this.logoMime,
     this.email,
     this.phone,
     this.website,
@@ -3041,6 +2993,12 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
     map['business_name'] = Variable<String>(businessName);
+    if (!nullToAbsent || logo != null) {
+      map['logo'] = Variable<Uint8List>(logo);
+    }
+    if (!nullToAbsent || logoMime != null) {
+      map['logo_mime'] = Variable<String>(logoMime);
+    }
     if (!nullToAbsent || email != null) {
       map['email'] = Variable<String>(email);
     }
@@ -3093,6 +3051,10 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       id: Value(id),
       name: Value(name),
       businessName: Value(businessName),
+      logo: logo == null && nullToAbsent ? const Value.absent() : Value(logo),
+      logoMime: logoMime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logoMime),
       email: email == null && nullToAbsent
           ? const Value.absent()
           : Value(email),
@@ -3147,6 +3109,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       businessName: serializer.fromJson<String>(json['businessName']),
+      logo: serializer.fromJson<Uint8List?>(json['logo']),
+      logoMime: serializer.fromJson<String?>(json['logoMime']),
       email: serializer.fromJson<String?>(json['email']),
       phone: serializer.fromJson<String?>(json['phone']),
       website: serializer.fromJson<String?>(json['website']),
@@ -3172,6 +3136,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'businessName': serializer.toJson<String>(businessName),
+      'logo': serializer.toJson<Uint8List?>(logo),
+      'logoMime': serializer.toJson<String?>(logoMime),
       'email': serializer.toJson<String?>(email),
       'phone': serializer.toJson<String?>(phone),
       'website': serializer.toJson<String?>(website),
@@ -3195,6 +3161,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     int? id,
     String? name,
     String? businessName,
+    Value<Uint8List?> logo = const Value.absent(),
+    Value<String?> logoMime = const Value.absent(),
     Value<String?> email = const Value.absent(),
     Value<String?> phone = const Value.absent(),
     Value<String?> website = const Value.absent(),
@@ -3215,6 +3183,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     id: id ?? this.id,
     name: name ?? this.name,
     businessName: businessName ?? this.businessName,
+    logo: logo.present ? logo.value : this.logo,
+    logoMime: logoMime.present ? logoMime.value : this.logoMime,
     email: email.present ? email.value : this.email,
     phone: phone.present ? phone.value : this.phone,
     website: website.present ? website.value : this.website,
@@ -3239,6 +3209,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       businessName: data.businessName.present
           ? data.businessName.value
           : this.businessName,
+      logo: data.logo.present ? data.logo.value : this.logo,
+      logoMime: data.logoMime.present ? data.logoMime.value : this.logoMime,
       email: data.email.present ? data.email.value : this.email,
       phone: data.phone.present ? data.phone.value : this.phone,
       website: data.website.present ? data.website.value : this.website,
@@ -3270,6 +3242,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('businessName: $businessName, ')
+          ..write('logo: $logo, ')
+          ..write('logoMime: $logoMime, ')
           ..write('email: $email, ')
           ..write('phone: $phone, ')
           ..write('website: $website, ')
@@ -3291,10 +3265,12 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     name,
     businessName,
+    $driftBlobEquality.hash(logo),
+    logoMime,
     email,
     phone,
     website,
@@ -3311,7 +3287,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     taxRate,
     isDefault,
     templateId,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3319,6 +3295,8 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           other.id == this.id &&
           other.name == this.name &&
           other.businessName == this.businessName &&
+          $driftBlobEquality.equals(other.logo, this.logo) &&
+          other.logoMime == this.logoMime &&
           other.email == this.email &&
           other.phone == this.phone &&
           other.website == this.website &&
@@ -3341,6 +3319,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
   final Value<int> id;
   final Value<String> name;
   final Value<String> businessName;
+  final Value<Uint8List?> logo;
+  final Value<String?> logoMime;
   final Value<String?> email;
   final Value<String?> phone;
   final Value<String?> website;
@@ -3361,6 +3341,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.businessName = const Value.absent(),
+    this.logo = const Value.absent(),
+    this.logoMime = const Value.absent(),
     this.email = const Value.absent(),
     this.phone = const Value.absent(),
     this.website = const Value.absent(),
@@ -3382,6 +3364,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.id = const Value.absent(),
     required String name,
     this.businessName = const Value.absent(),
+    this.logo = const Value.absent(),
+    this.logoMime = const Value.absent(),
     this.email = const Value.absent(),
     this.phone = const Value.absent(),
     this.website = const Value.absent(),
@@ -3403,6 +3387,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Expression<int>? id,
     Expression<String>? name,
     Expression<String>? businessName,
+    Expression<Uint8List>? logo,
+    Expression<String>? logoMime,
     Expression<String>? email,
     Expression<String>? phone,
     Expression<String>? website,
@@ -3424,6 +3410,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (businessName != null) 'business_name': businessName,
+      if (logo != null) 'logo': logo,
+      if (logoMime != null) 'logo_mime': logoMime,
       if (email != null) 'email': email,
       if (phone != null) 'phone': phone,
       if (website != null) 'website': website,
@@ -3447,6 +3435,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Value<int>? id,
     Value<String>? name,
     Value<String>? businessName,
+    Value<Uint8List?>? logo,
+    Value<String?>? logoMime,
     Value<String?>? email,
     Value<String?>? phone,
     Value<String?>? website,
@@ -3468,6 +3458,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       id: id ?? this.id,
       name: name ?? this.name,
       businessName: businessName ?? this.businessName,
+      logo: logo ?? this.logo,
+      logoMime: logoMime ?? this.logoMime,
       email: email ?? this.email,
       phone: phone ?? this.phone,
       website: website ?? this.website,
@@ -3498,6 +3490,12 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     }
     if (businessName.present) {
       map['business_name'] = Variable<String>(businessName.value);
+    }
+    if (logo.present) {
+      map['logo'] = Variable<Uint8List>(logo.value);
+    }
+    if (logoMime.present) {
+      map['logo_mime'] = Variable<String>(logoMime.value);
     }
     if (email.present) {
       map['email'] = Variable<String>(email.value);
@@ -3556,6 +3554,8 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('businessName: $businessName, ')
+          ..write('logo: $logo, ')
+          ..write('logoMime: $logoMime, ')
           ..write('email: $email, ')
           ..write('phone: $phone, ')
           ..write('website: $website, ')
@@ -5368,8 +5368,6 @@ typedef $$TemplatesTableCreateCompanionBuilder =
     TemplatesCompanion Function({
       Value<int> id,
       required String name,
-      Value<Uint8List?> logo,
-      Value<String?> logoMime,
       required int colorBackground,
       required int colorSurface,
       required int colorPrimary,
@@ -5382,8 +5380,6 @@ typedef $$TemplatesTableUpdateCompanionBuilder =
     TemplatesCompanion Function({
       Value<int> id,
       Value<String> name,
-      Value<Uint8List?> logo,
-      Value<String?> logoMime,
       Value<int> colorBackground,
       Value<int> colorSurface,
       Value<int> colorPrimary,
@@ -5432,16 +5428,6 @@ class $$TemplatesTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<Uint8List> get logo => $composableBuilder(
-    column: $table.logo,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get logoMime => $composableBuilder(
-    column: $table.logoMime,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5525,16 +5511,6 @@ class $$TemplatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<Uint8List> get logo => $composableBuilder(
-    column: $table.logo,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get logoMime => $composableBuilder(
-    column: $table.logoMime,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get colorBackground => $composableBuilder(
     column: $table.colorBackground,
     builder: (column) => ColumnOrderings(column),
@@ -5585,12 +5561,6 @@ class $$TemplatesTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<Uint8List> get logo =>
-      $composableBuilder(column: $table.logo, builder: (column) => column);
-
-  GeneratedColumn<String> get logoMime =>
-      $composableBuilder(column: $table.logoMime, builder: (column) => column);
 
   GeneratedColumn<int> get colorBackground => $composableBuilder(
     column: $table.colorBackground,
@@ -5679,8 +5649,6 @@ class $$TemplatesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
-                Value<Uint8List?> logo = const Value.absent(),
-                Value<String?> logoMime = const Value.absent(),
                 Value<int> colorBackground = const Value.absent(),
                 Value<int> colorSurface = const Value.absent(),
                 Value<int> colorPrimary = const Value.absent(),
@@ -5691,8 +5659,6 @@ class $$TemplatesTableTableManager
               }) => TemplatesCompanion(
                 id: id,
                 name: name,
-                logo: logo,
-                logoMime: logoMime,
                 colorBackground: colorBackground,
                 colorSurface: colorSurface,
                 colorPrimary: colorPrimary,
@@ -5705,8 +5671,6 @@ class $$TemplatesTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
-                Value<Uint8List?> logo = const Value.absent(),
-                Value<String?> logoMime = const Value.absent(),
                 required int colorBackground,
                 required int colorSurface,
                 required int colorPrimary,
@@ -5717,8 +5681,6 @@ class $$TemplatesTableTableManager
               }) => TemplatesCompanion.insert(
                 id: id,
                 name: name,
-                logo: logo,
-                logoMime: logoMime,
                 colorBackground: colorBackground,
                 colorSurface: colorSurface,
                 colorPrimary: colorPrimary,
@@ -5788,6 +5750,8 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       Value<int> id,
       required String name,
       Value<String> businessName,
+      Value<Uint8List?> logo,
+      Value<String?> logoMime,
       Value<String?> email,
       Value<String?> phone,
       Value<String?> website,
@@ -5810,6 +5774,8 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> name,
       Value<String> businessName,
+      Value<Uint8List?> logo,
+      Value<String?> logoMime,
       Value<String?> email,
       Value<String?> phone,
       Value<String?> website,
@@ -5871,6 +5837,16 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<String> get businessName => $composableBuilder(
     column: $table.businessName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get logo => $composableBuilder(
+    column: $table.logo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logoMime => $composableBuilder(
+    column: $table.logoMime,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5997,6 +5973,16 @@ class $$ProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<Uint8List> get logo => $composableBuilder(
+    column: $table.logo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logoMime => $composableBuilder(
+    column: $table.logoMime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get email => $composableBuilder(
     column: $table.email,
     builder: (column) => ColumnOrderings(column),
@@ -6116,6 +6102,12 @@ class $$ProfilesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<Uint8List> get logo =>
+      $composableBuilder(column: $table.logo, builder: (column) => column);
+
+  GeneratedColumn<String> get logoMime =>
+      $composableBuilder(column: $table.logoMime, builder: (column) => column);
+
   GeneratedColumn<String> get email =>
       $composableBuilder(column: $table.email, builder: (column) => column);
 
@@ -6220,6 +6212,8 @@ class $$ProfilesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> businessName = const Value.absent(),
+                Value<Uint8List?> logo = const Value.absent(),
+                Value<String?> logoMime = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<String?> website = const Value.absent(),
@@ -6240,6 +6234,8 @@ class $$ProfilesTableTableManager
                 id: id,
                 name: name,
                 businessName: businessName,
+                logo: logo,
+                logoMime: logoMime,
                 email: email,
                 phone: phone,
                 website: website,
@@ -6262,6 +6258,8 @@ class $$ProfilesTableTableManager
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<String> businessName = const Value.absent(),
+                Value<Uint8List?> logo = const Value.absent(),
+                Value<String?> logoMime = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<String?> website = const Value.absent(),
@@ -6282,6 +6280,8 @@ class $$ProfilesTableTableManager
                 id: id,
                 name: name,
                 businessName: businessName,
+                logo: logo,
+                logoMime: logoMime,
                 email: email,
                 phone: phone,
                 website: website,

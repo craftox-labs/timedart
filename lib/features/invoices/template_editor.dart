@@ -1,8 +1,6 @@
 import 'package:drift/drift.dart' show Value;
-import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/editor_common.dart';
@@ -10,8 +8,9 @@ import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_preview.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
 
-/// Content-pane editor for an invoice [InvoiceTemplate] — colours, logo, font —
-/// as a compact settings block above a full-width live [InvoicePreview] (the
+/// Content-pane editor for an invoice [InvoiceTemplate] — colours and font (the
+/// logo lives on the profile now) — as a compact settings block above a
+/// full-width live [InvoicePreview] (the
 /// controls run horizontally so the preview gets the height). Creates when
 /// [initial] is null, otherwise edits. Mirrors [InvoiceView]'s shape: a State
 /// that talks to the db and calls [onDone] to return to the previous pane.
@@ -57,8 +56,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
 
   late final TextEditingController _name;
   late int _bg, _surface, _primary, _text, _accent;
-  Uint8List? _logo;
-  String? _logoMime;
   late String _fontFamily;
   late bool _isDefault;
 
@@ -68,8 +65,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
   // baseline forward without the shell re-mounting this widget.
   late String _baseName;
   late int _baseBg, _baseSurface, _basePrimary, _baseText, _baseAccent;
-  Uint8List? _baseLogo;
-  String? _baseLogoMime;
   late String _baseFontFamily;
   late bool _baseIsDefault;
 
@@ -92,8 +87,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
     _primary = t?.colorPrimary ?? _defaults.primary;
     _text = t?.colorText ?? _defaults.text;
     _accent = t?.colorAccent ?? _defaults.accent;
-    _logo = t?.logo;
-    _logoMime = t?.logoMime;
     _fontFamily = _fontFamilies.contains(t?.fontFamily)
         ? t!.fontFamily
         : _fontFamilies.first;
@@ -104,8 +97,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
     _basePrimary = _primary;
     _baseText = _text;
     _baseAccent = _accent;
-    _baseLogo = _logo;
-    _baseLogoMime = _logoMime;
     _baseFontFamily = _fontFamily;
     _baseIsDefault = _isDefault;
     _editing = !_isEdit || widget.startEditing;
@@ -131,8 +122,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
     if (_accent != _baseAccent) return true;
     if (_fontFamily != _baseFontFamily) return true;
     if (_isDefault != _baseIsDefault) return true;
-    if (!listEquals(_logo, _baseLogo)) return true;
-    if (_logoMime != _baseLogoMime) return true;
     return false;
   }
 
@@ -153,8 +142,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
   InvoiceTemplate _draft() => InvoiceTemplate(
     id: widget.initial?.id ?? 0,
     name: _name.text.trim().isEmpty ? 'Untitled' : _name.text.trim(),
-    logo: _logo,
-    logoMime: _logoMime,
     colorBackground: _bg,
     colorSurface: _surface,
     colorPrimary: _primary,
@@ -166,8 +153,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
 
   TemplatesCompanion _companion() => TemplatesCompanion(
     name: Value(_name.text.trim()),
-    logo: Value(_logo),
-    logoMime: Value(_logoMime),
     colorBackground: Value(_bg),
     colorSurface: Value(_surface),
     colorPrimary: Value(_primary),
@@ -177,22 +162,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
     // isDefault is driven through setDefaultTemplate (a transaction), not here,
     // so we never end up with two defaults.
   );
-
-  Future<void> _pickLogo() async {
-    const group = XTypeGroup(
-      label: 'Image',
-      extensions: ['png', 'jpg', 'jpeg'],
-    );
-    final file = await openFile(acceptedTypeGroups: const [group]);
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
-    final name = file.name.toLowerCase();
-    setState(() {
-      _logo = bytes;
-      _logoMime = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    });
-    _checkDirty();
-  }
 
   /// Validates and persists, returning whether it succeeded — used both by
   /// the editor's own Save action and by the shell's unsaved-changes dialog.
@@ -221,8 +190,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
       _basePrimary = _primary;
       _baseText = _text;
       _baseAccent = _accent;
-      _baseLogo = _logo;
-      _baseLogoMime = _logoMime;
       _baseFontFamily = _fontFamily;
       _baseIsDefault = _isDefault;
       return true;
@@ -271,8 +238,6 @@ class _TemplateEditorState extends State<TemplateEditor> {
       _primary = _basePrimary;
       _text = _baseText;
       _accent = _baseAccent;
-      _logo = _baseLogo;
-      _logoMime = _baseLogoMime;
       _fontFamily = _baseFontFamily;
       _isDefault = _baseIsDefault;
       _editing = false;
@@ -341,9 +306,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Top row spans the same 5 tracks as the colours below: Name and Font
-        // take one each, the (wider) Logo control two, the Default toggle the
-        // trailing one — so Name·Font·Logo·Default sit over Background·Surface·
-        // (Primary+Text)·Accent.
+        // take one each over Background·Surface, and the Default toggle fills the
+        // trailing three (right-aligned) over Primary·Text·Accent. (The logo
+        // control used to sit here; it now lives on the profile editor.)
         FieldRow(
           stackBelow: _gridStackBelow,
           [
@@ -370,20 +335,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
               ),
             ),
             Field(
-              flex: 2,
-              _LogoField(
-                logo: _logo,
-                onPick: _pickLogo,
-                onRemove: _logo == null
-                    ? null
-                    : () => setState(() {
-                        _logo = null;
-                        _logoMime = null;
-                        _checkDirty();
-                      }),
-              ),
-            ),
-            Field(
+              flex: 3,
               Align(
                 alignment: Alignment.centerRight,
                 child: brandingDefaultToggle(
@@ -536,56 +488,6 @@ class _ColorFieldState extends State<_ColorField> {
         LengthLimitingTextInputFormatter(6),
       ],
       onChanged: _apply,
-    );
-  }
-}
-
-// --- Logo picker: thumbnail (or placeholder) + Choose / Remove. ---
-class _LogoField extends StatelessWidget {
-  const _LogoField({required this.logo, required this.onPick, this.onRemove});
-  final Uint8List? logo;
-  final VoidCallback onPick;
-  final VoidCallback? onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context);
-    // Compact and inline so it sits in the top settings row without adding
-    // height: a small thumbnail + Choose (+ Remove when a logo is set).
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 72,
-          // Matches the dense input height so the pill lines up with the fields.
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: t.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            border: Border.all(color: AppTokens.colorBorder),
-          ),
-          child: logo == null
-              ? Icon(
-                  Icons.image_outlined,
-                  size: AppTokens.iconSm,
-                  color: t.colorScheme.onSurfaceVariant,
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(AppTokens.space3xs),
-                  child: Image.memory(logo!, fit: BoxFit.contain),
-                ),
-        ),
-        const SizedBox(width: AppTokens.spaceXs),
-        TextButton(onPressed: onPick, child: const Text('Logo…')),
-        if (onRemove != null)
-          IconButton(
-            icon: const Icon(Icons.close, size: AppTokens.iconSm),
-            visualDensity: VisualDensity.compact,
-            tooltip: 'Remove logo',
-            onPressed: onRemove,
-          ),
-      ],
     );
   }
 }

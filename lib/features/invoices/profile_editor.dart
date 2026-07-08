@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/editor_common.dart';
@@ -7,9 +11,10 @@ import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_preview.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
 
-/// Content-pane editor for an invoice [InvoiceProfile] — business identity,
-/// payment details, currency and optional tax — with a live A4 preview below the
-/// form (dressed with the default theme). Creates when [initial] is null.
+/// Content-pane editor for an invoice [InvoiceProfile] — business identity
+/// (including the logo), payment details, currency and optional tax — with a
+/// live A4 preview below the form (dressed with the default theme). Creates
+/// when [initial] is null.
 class ProfileEditor extends StatefulWidget {
   const ProfileEditor({
     super.key,
@@ -37,6 +42,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
   // One controller per text field, keyed for the draft + companion.
   late final Map<String, TextEditingController> _c;
   late bool _isDefault;
+  // The business logo (PNG/JPG bytes) — identity, so it lives on the profile.
+  Uint8List? _logo;
+  String? _logoMime;
   // The template (visual style) this profile renders with; null → default.
   int? _templateId;
   // Available templates for the picker + preview, loaded once.
@@ -46,6 +54,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
   // Reassigned after every successful save (the new baseline) — not `final`.
   late Map<String, String> _initialTexts;
   late bool _initialIsDefault;
+  Uint8List? _initialLogo;
+  String? _initialLogoMime;
   // Resolved once templates finish loading — see initState. Comparing against
   // the pre-resolution `null` would falsely flag the auto-picked default
   // template as a user edit.
@@ -83,9 +93,13 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _c['currency']!.text = 'USD';
     }
     _isDefault = p?.isDefault ?? false;
+    _logo = p?.logo;
+    _logoMime = p?.logoMime;
     _templateId = p?.templateId;
     _initialTexts = {for (final f in _fields) f: _c[f]!.text};
     _initialIsDefault = _isDefault;
+    _initialLogo = _logo;
+    _initialLogoMime = _logoMime;
     _editing = !_isEdit || widget.startEditing;
     widget.onSaveHandleReady(_persist);
     // Load templates for the picker + preview. Default the selection to the
@@ -109,6 +123,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
     }
     if (_isDefault != _initialIsDefault) return true;
     if (_templateId != _initialTemplateId) return true;
+    if (!listEquals(_logo, _initialLogo)) return true;
+    if (_logoMime != _initialLogoMime) return true;
     return false;
   }
 
@@ -170,6 +186,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
     id: widget.initial?.id ?? 0,
     name: _t('name').isEmpty ? 'Untitled' : _t('name'),
     businessName: _t('businessName'),
+    logo: _logo,
+    logoMime: _logoMime,
     email: _n('email'),
     phone: _n('phone'),
     website: _n('website'),
@@ -191,6 +209,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
   ProfilesCompanion _companion() => ProfilesCompanion(
     name: Value(_t('name')),
     businessName: Value(_t('businessName')),
+    logo: Value(_logo),
+    logoMime: Value(_logoMime),
     email: Value(_n('email')),
     phone: Value(_n('phone')),
     website: Value(_n('website')),
@@ -229,6 +249,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _initialTexts = {for (final f in _fields) f: _c[f]!.text};
       _initialIsDefault = _isDefault;
       _initialTemplateId = _templateId;
+      _initialLogo = _logo;
+      _initialLogoMime = _logoMime;
       return true;
     } catch (e) {
       if (mounted) {
@@ -274,7 +296,25 @@ class _ProfileEditorState extends State<ProfileEditor> {
       }
       _isDefault = _initialIsDefault;
       _templateId = _initialTemplateId;
+      _logo = _initialLogo;
+      _logoMime = _initialLogoMime;
       _editing = false;
+    });
+    _checkDirty();
+  }
+
+  Future<void> _pickLogo() async {
+    const group = XTypeGroup(
+      label: 'Image',
+      extensions: ['png', 'jpg', 'jpeg'],
+    );
+    final file = await openFile(acceptedTypeGroups: const [group]);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    final name = file.name.toLowerCase();
+    setState(() {
+      _logo = bytes;
+      _logoMime = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
     });
     _checkDirty();
   }
@@ -348,6 +388,20 @@ class _ProfileEditorState extends State<ProfileEditor> {
                   _templateId = v;
                   _checkDirty();
                 }),
+              ),
+            ),
+            Field(
+              flex: 0,
+              _LogoField(
+                logo: _logo,
+                onPick: _pickLogo,
+                onRemove: _logo == null
+                    ? null
+                    : () => setState(() {
+                        _logo = null;
+                        _logoMime = null;
+                        _checkDirty();
+                      }),
               ),
             ),
           ]),
@@ -429,6 +483,56 @@ class _ProfileEditorState extends State<ProfileEditor> {
         template: template,
         scrollable: false,
       ),
+    );
+  }
+}
+
+// --- Logo picker: thumbnail (or placeholder) + Choose / Remove. The logo is
+// business identity, so it lives on the profile (was on the template editor). ---
+class _LogoField extends StatelessWidget {
+  const _LogoField({required this.logo, required this.onPick, this.onRemove});
+  final Uint8List? logo;
+  final VoidCallback onPick;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    // Compact and inline: a small thumbnail + Choose (+ Remove when set).
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 72,
+          // Matches the dense input height so the pill lines up with the fields.
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: t.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            border: Border.all(color: AppTokens.colorBorder),
+          ),
+          child: logo == null
+              ? Icon(
+                  Icons.image_outlined,
+                  size: AppTokens.iconSm,
+                  color: t.colorScheme.onSurfaceVariant,
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(AppTokens.space3xs),
+                  child: Image.memory(logo!, fit: BoxFit.contain),
+                ),
+        ),
+        const SizedBox(width: AppTokens.spaceXs),
+        TextButton(onPressed: onPick, child: const Text('Logo…')),
+        if (onRemove != null)
+          IconButton(
+            icon: const Icon(Icons.close, size: AppTokens.iconSm),
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Remove logo',
+            onPressed: onRemove,
+          ),
+      ],
     );
   }
 }
