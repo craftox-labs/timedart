@@ -54,7 +54,8 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     ),
     sectionHeader: TextStyle(
       fontFamily: AppTokens.fontFamily,
-      fontSize: AppTokens.fontSizeMd,
+      // Matches the tracker side panel's client heading (rowTitle) size.
+      fontSize: AppTokens.fontSizeSm,
       fontWeight: FontWeight.w400,
       color: scheme.onSurface,
     ),
