@@ -516,6 +516,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                             alignLogoStart: _wideContentPage,
                             onShowHelp: () => showShortcutsHelp(context),
                             onOpenSettings: _openSettings,
+                            onOpenTracker: _showTracker,
+                            settingsActive: _inSettings,
                           ),
                           Expanded(child: content),
                         ],

@@ -19,6 +19,8 @@ class PageHeader extends StatelessWidget {
     this.alignLogoStart = false,
     this.onShowHelp,
     this.onOpenSettings,
+    this.onOpenTracker,
+    this.settingsActive = false,
   });
 
   /// Left-align the logo inside the bar (instead of centring it over the content
@@ -30,8 +32,16 @@ class PageHeader extends StatelessWidget {
   /// right edge (just left of the panel divider).
   final VoidCallback? onShowHelp;
 
-  /// Open App Settings. When set, a gear shows beside the `?`.
+  /// Open App Settings. When set, a gear shows in the right cluster.
   final VoidCallback? onOpenSettings;
+
+  /// Go to the tracker. When set, the timedart symbol shows beside the gear —
+  /// together they read as a Tracker/Settings switch, the current one primary.
+  final VoidCallback? onOpenTracker;
+
+  /// Whether Settings (not the tracker) is the active section — drives which of
+  /// the two nav icons is tinted primary vs muted.
+  final bool settingsActive;
 
   @override
   Widget build(BuildContext context) {
@@ -101,9 +111,13 @@ class PageHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Shortcuts + Settings at the bar's right edge — just left of the
-                // panel divider. Icon-only; the tooltip carries the label + key.
-                if (onShowHelp != null || onOpenSettings != null)
+                // Shortcuts + Tracker/Settings switch at the bar's right edge —
+                // just left of the panel divider. Icon-only; the tooltip carries
+                // the label + key. The tracker/gear pair tint to show the active
+                // section (primary) vs the other (muted); `?` stays muted.
+                if (onShowHelp != null ||
+                    onOpenSettings != null ||
+                    onOpenTracker != null)
                   Positioned(
                     right: AppTokens.spaceMd,
                     top: 0,
@@ -113,13 +127,38 @@ class PageHeader extends StatelessWidget {
                       children: [
                         if (onShowHelp != null)
                           _HeaderAction(
-                            icon: Icons.help_outline,
+                            icon: Icon(
+                              Icons.help_outline,
+                              size: AppTokens.iconMd,
+                              color: scheme.onSurfaceVariant,
+                            ),
                             tooltip: 'Shortcuts  (?)',
                             onPressed: onShowHelp!,
                           ),
+                        if (onOpenTracker != null)
+                          _HeaderAction(
+                            icon: SvgPicture.asset(
+                              'assets/logo/timedart_symbol.svg',
+                              height: AppTokens.iconMd,
+                              colorFilter: ColorFilter.mode(
+                                settingsActive
+                                    ? scheme.onSurfaceVariant
+                                    : scheme.primary,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            tooltip: 'Tracker  (t)',
+                            onPressed: onOpenTracker!,
+                          ),
                         if (onOpenSettings != null)
                           _HeaderAction(
-                            icon: Icons.settings,
+                            icon: Icon(
+                              Icons.settings,
+                              size: AppTokens.iconMd,
+                              color: settingsActive
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                            ),
                             tooltip: 'Settings  (Ctrl+,)',
                             onPressed: onOpenSettings!,
                           ),
@@ -135,20 +174,22 @@ class PageHeader extends StatelessWidget {
   }
 }
 
-/// A compact icon button sized to sit inside the 36px header bar.
+/// A compact icon button sized to sit inside the 36px header bar. Takes a
+/// pre-built [icon] widget so callers control size + colour (Material icon or
+/// tinted SVG).
 class _HeaderAction extends StatelessWidget {
   const _HeaderAction({
     required this.icon,
     required this.tooltip,
     required this.onPressed,
   });
-  final IconData icon;
+  final Widget icon;
   final String tooltip;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => IconButton(
-    icon: Icon(icon, size: AppTokens.iconMd),
+    icon: icon,
     tooltip: tooltip,
     visualDensity: VisualDensity.compact,
     padding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceXs),
