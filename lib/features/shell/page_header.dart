@@ -99,10 +99,12 @@ class PageHeader extends StatelessWidget {
                     child: AnimatedPadding(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
+                      // Inset off the bar's left edge so the logo has breathing
+                      // room. The stretch content pane (adaptive_shell) adds the
+                      // SAME leftInset + spaceMd to its left pad, so the logo
+                      // stays aligned with the title/fields below. Keep in sync.
                       padding: EdgeInsets.only(
-                        left: alignLogoStart
-                            ? leftInset + AppTokens.spaceMd
-                            : 0,
+                        left: alignLogoStart ? leftInset + AppTokens.spaceMd : 0,
                       ),
                       child: SvgPicture.asset(
                         'assets/logo/timedart_logo_horizontal.svg',

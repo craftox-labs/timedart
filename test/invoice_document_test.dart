@@ -380,14 +380,14 @@ void main() {
       ]);
     });
 
-    test('US shows routing + account (no SWIFT/BSB) + ACH/wire note', () {
+    test('US shows routing + account + SWIFT/BIC (for wires) + ACH/wire note', () {
       final doc = _doc(
         profile: _profile(
           region: InvoiceRegion.us,
           payeeName: 'Acme LLC',
           routingNumber: '021000021',
           bankAccount: '000123456789',
-          swift: 'CMFGUS33', // present but NOT in US's field set → omitted
+          swift: 'CMFGUS33', // needed for the international wire the note offers
         ),
         entries: [_entry()],
       );
@@ -395,6 +395,7 @@ void main() {
         ('NAME', 'Acme LLC'),
         ('ROUTING (ABA)', '021000021'),
         ('ACCOUNT', '000123456789'),
+        ('SWIFT/BIC', 'CMFGUS33'),
       ]);
       expect(doc.region.paymentNote, contains('ACH'));
     });

@@ -202,9 +202,7 @@ class FieldRow extends StatelessWidget {
   // so e.g. "Website" lines up over "ABN".
   Widget _visualRow(List<Field> cells) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      for (var i = 0; i < cells.length; i++) _cell(cells[i], i == 0),
-    ],
+    children: [for (var i = 0; i < cells.length; i++) _cell(cells[i], i == 0)],
   );
 
   Widget _cell(Field f, bool first) {
@@ -240,24 +238,53 @@ class FieldGroup extends StatelessWidget {
   );
 }
 
-/// The compact "Default" toggle shared by the branding editors — a small switch
-/// beside its label.
-Widget brandingDefaultToggle({
+/// The app's compact switch — a shrunk [Switch] used for every inline toggle in
+/// the editors (invoice-inclusion defaults, the "Default" flag). Small and
+/// tap-target-tight so it reads as a control beside a label without dominating
+/// the row. Single source of switch sizing so they stay uniform app-wide.
+Widget appSwitch({
+  required bool value,
+  required ValueChanged<bool> onChanged,
+}) => Transform.scale(
+  scale: 0.7,
+  child: Switch(
+    value: value,
+    onChanged: onChanged,
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  ),
+);
+
+/// A label with the shared [appSwitch] beside it — the inline toggle used
+/// throughout the branding editors.
+Widget labelledSwitch({
+  required String label,
   required bool value,
   required ValueChanged<bool> onChanged,
 }) => Row(
   mainAxisSize: MainAxisSize.min,
   children: [
-    const Text('Default'),
+    Text(label),
     const SizedBox(width: AppTokens.space2xs),
-    Transform.scale(
-      scale: 0.8,
-      child: Switch(
-        value: value,
-        onChanged: onChanged,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    ),
+    appSwitch(value: value, onChanged: onChanged),
+  ],
+);
+
+/// The compact "Default" toggle shared by the branding editors.
+Widget brandingDefaultToggle({
+  required bool value,
+  required ValueChanged<bool> onChanged,
+}) => labelledSwitch(label: 'Default', value: value, onChanged: onChanged);
+
+/// A column whose group title sits directly above its single [child] control
+/// cluster. Drop two of these into a [FieldRow] to place independently-titled
+/// clusters side by side, each header aligned over its own controls — the
+/// split-header layout (e.g. "Profile name" | "Template").
+Widget titledField(BuildContext context, String title, Widget child) => Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Text(title, style: Theme.of(context).textTheme.bodyMedium),
+    const SizedBox(height: AppTokens.spaceMd),
+    child,
   ],
 );
 
