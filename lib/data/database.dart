@@ -499,6 +499,8 @@ class AppDatabase extends _$AppDatabase {
     String? contactName,
     String? email,
     String? phone,
+    String? address,
+    String? abn,
     required double defaultRate,
   }) => into(clients).insert(
     ClientsCompanion.insert(
@@ -506,6 +508,8 @@ class AppDatabase extends _$AppDatabase {
       contactName: Value(contactName),
       email: email == null ? const Value.absent() : Value(email),
       phone: Value(phone),
+      address: Value(address),
+      abn: Value(abn),
       defaultRate: defaultRate,
     ),
   );
@@ -516,6 +520,8 @@ class AppDatabase extends _$AppDatabase {
     String? contactName,
     String? email,
     String? phone,
+    String? address,
+    String? abn,
     required double defaultRate,
   }) => (update(clients)..where((c) => c.id.equals(id))).write(
     ClientsCompanion(
@@ -523,6 +529,8 @@ class AppDatabase extends _$AppDatabase {
       contactName: Value(contactName),
       email: Value(email),
       phone: Value(phone),
+      address: Value(address),
+      abn: Value(abn),
       defaultRate: Value(defaultRate),
     ),
   );

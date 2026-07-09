@@ -79,6 +79,8 @@ class InvoiceDocument {
   final String organisation; // client.name (ORGANISATION)
   final String? recipientEmail;
   final String? recipientPhone;
+  final String? recipientAddress; // client.address
+  final String? recipientAbn; // client.abn (buyer tax ID)
 
   // Lines + money
   final List<InvoiceLineItem> lines;
@@ -112,6 +114,8 @@ class InvoiceDocument {
     required this.organisation,
     required this.recipientEmail,
     required this.recipientPhone,
+    required this.recipientAddress,
+    required this.recipientAbn,
     required this.lines,
     required this.currency,
     required this.tax,
@@ -189,6 +193,8 @@ InvoiceDocument buildInvoiceDocument({
     organisation: client.name,
     recipientEmail: client.email,
     recipientPhone: client.phone,
+    recipientAddress: _blankToNull(client.address),
+    recipientAbn: _blankToNull(client.abn),
     lines: lines,
     currency: profile.currency,
     tax: tax,
@@ -260,6 +266,8 @@ InvoiceDocument sampleInvoiceDocument({
     organisation: 'Sample Client Co.',
     recipientEmail: 'accounts@example.com',
     recipientPhone: '+61 400 000 000',
+    recipientAddress: '10 Sample Street, Sydney NSW 2000',
+    recipientAbn: '12 345 678 901',
     lines: lines,
     currency: profile.currency,
     tax: tax,
@@ -311,6 +319,8 @@ InvoiceDocument profilePreviewDocument({
     organisation: '',
     recipientEmail: null,
     recipientPhone: null,
+    recipientAddress: null,
+    recipientAbn: null,
     lines: const [],
     currency: profile.currency,
     tax: tax,
