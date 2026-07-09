@@ -575,6 +575,24 @@ class _ProfileEditorState extends State<ProfileEditor> {
                 },
               ),
             );
+            // Currency pairs with region (region sets its default) and must stay
+            // editable regardless of the Tax toggle, so it lives here — not in
+            // the tax group.
+            final currency = titledField(
+              context,
+              'Currency',
+              _field('currency', 'Currency'),
+            );
+            // Region + currency share the left cluster (2:1); the toggles pack
+            // tight on the right.
+            final regionCurrency = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 2, child: region),
+                const SizedBox(width: AppTokens.spaceLg),
+                Expanded(flex: 1, child: currency),
+              ],
+            );
             final toggles = titledField(
               context,
               'Show on invoice',
@@ -597,7 +615,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: region),
+                  Expanded(child: regionCurrency),
                   const SizedBox(width: AppTokens.spaceLg),
                   toggles,
                 ],
@@ -606,7 +624,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                region,
+                regionCurrency,
                 const SizedBox(height: AppTokens.spaceMd),
                 toggles,
               ],
@@ -634,9 +652,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
           ]),
 
         if (_showTax == true)
-          FieldGroup('Currency & tax', [
+          FieldGroup('Tax', [
             FieldRow([
-              Field(_field('currency', 'Currency')),
               Field(_field('taxLabel', 'Tax label')),
               Field(_field('taxRate', 'Tax %', number: true)),
             ]),
