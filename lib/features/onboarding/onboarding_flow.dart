@@ -536,7 +536,7 @@ class _FlowCard extends StatelessWidget {
           Icon(
             icon,
             size: 64,
-            weight: 200,
+            weight: 300,
             opticalSize: 48,
             color: t.colorScheme.primary,
           ),
