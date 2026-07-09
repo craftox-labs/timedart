@@ -13,6 +13,14 @@ InvoiceProfile _profile({
   String currency = 'AUD',
   String? taxLabel,
   double? taxRate,
+  String? address,
+  String? abn,
+  String? payeeName,
+  String? bankName,
+  String? bankBsb,
+  String? bankAccount,
+  String? swift,
+  String? paymentLink,
 }) => InvoiceProfile(
   id: 1,
   name: 'Default',
@@ -20,6 +28,14 @@ InvoiceProfile _profile({
   currency: currency,
   taxLabel: taxLabel,
   taxRate: taxRate,
+  address: address,
+  abn: abn,
+  payeeName: payeeName,
+  bankName: bankName,
+  bankBsb: bankBsb,
+  bankAccount: bankAccount,
+  swift: swift,
+  paymentLink: paymentLink,
   isDefault: true,
 );
 
@@ -231,6 +247,58 @@ void main() {
       expect(doc.invoiceNumber, isNull);
       expect(doc.attention, isNull);
       expect(doc.recipientContact, isNull);
+    });
+  });
+
+  group('payment fields + sender identity', () {
+    test('sender address carries through from the profile', () {
+      final doc = _doc(
+        profile: _profile(address: '12 Wallaby Way, Sydney'),
+        entries: [_entry()],
+      );
+      expect(doc.senderAddress, '12 Wallaby Way, Sydney');
+    });
+
+    test('paymentFields lists present bank fields in order — incl. BSB '
+        'and account number (the previously-unrendered P0 fields)', () {
+      final doc = _doc(
+        profile: _profile(
+          payeeName: 'tmox Pty Ltd',
+          bankBsb: '062-000',
+          bankAccount: '12345678',
+          abn: '12 345 678 901',
+          swift: 'CTBAAU2S',
+          bankName: 'Commonwealth Bank',
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.paymentFields, [
+        ('NAME', 'tmox Pty Ltd'),
+        ('BSB', '062-000'),
+        ('ACCOUNT', '12345678'),
+        ('ACN/ABN', '12 345 678 901'),
+        ('SWIFT/BIC', 'CTBAAU2S'),
+        ('BANK', 'Commonwealth Bank'),
+      ]);
+    });
+
+    test('blank/absent bank fields are dropped from paymentFields', () {
+      final doc = _doc(
+        profile: _profile(
+          payeeName: 'tmox Pty Ltd',
+          bankBsb: '   ', // blank → dropped
+          bankAccount: '12345678',
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.paymentFields, [
+        ('NAME', 'tmox Pty Ltd'),
+        ('ACCOUNT', '12345678'),
+      ]);
+    });
+
+    test('no bank details → paymentFields is empty', () {
+      expect(_doc(entries: [_entry()]).paymentFields, isEmpty);
     });
   });
 }
