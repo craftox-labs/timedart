@@ -83,7 +83,8 @@ class Templates extends Table {
 @DataClassName('InvoiceProfile')
 class Profiles extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get name => text().withLength(min: 1, max: 100)(); // internal label
+  TextColumn get name =>
+      text().withLength(min: 1, max: 100)(); // internal label
   TextColumn get businessName => text().withDefault(const Constant(''))();
   BlobColumn get logo => blob().nullable()(); // PNG/JPG bytes; null = no logo
   TextColumn get logoMime => text().nullable()(); // e.g. image/png
@@ -99,13 +100,13 @@ class Profiles extends Table {
   TextColumn get swift => text().nullable()(); // SWIFT/BIC
   TextColumn get paymentLink => text().nullable()();
   TextColumn get currency => text().withDefault(const Constant('USD'))();
-  TextColumn get taxLabel => text().nullable()(); // e.g. GST, VAT; null = no tax
+  TextColumn get taxLabel =>
+      text().nullable()(); // e.g. GST, VAT; null = no tax
   RealColumn get taxRate => real().nullable()(); // percent, e.g. 10.0
   BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
   // The template (visual style) this profile is rendered with. Null → the
   // default template. Replaces the old Theme+Profile pairing table.
-  IntColumn get templateId =>
-      integer().nullable().references(Templates, #id)();
+  IntColumn get templateId => integer().nullable().references(Templates, #id)();
   // ── Region-aware invoicing (PRD #117, schema v9) ────────────────────────
   // The region shapes tax label + buyer-tax-ID label + invoice title, and
   // which bank fields the editor exposes. Stored as InvoiceRegion.name.
@@ -132,6 +133,18 @@ class Profiles extends Table {
   // Reverse-charge (EU/UK B2B) — wired by slice #123.
   BoolColumn get reverseCharge =>
       boolean().withDefault(const Constant(false))();
+}
+
+/// App-level key-value preferences (PRD #133, schema v10). The single home for
+/// flags that are app *state* rather than Profile *data* — first use is the
+/// onboarding-complete flag; future app prefs (page size, theme) belong here
+/// too. Values are stored as strings; typed accessors on [AppDatabase] (e.g.
+/// [AppDatabase.isOnboardingComplete]) hide the key names and the encoding.
+class AppSettings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+  @override
+  Set<Column> get primaryKey => {key};
 }
 
 /// One itemised line of a [ProjectInvoice]: an entry with its hours and amount.
@@ -192,14 +205,22 @@ class ProjectInvoice {
 }
 
 @DriftDatabase(
-  tables: [Clients, Projects, Tasks, TimeEntries, Templates, Profiles],
+  tables: [
+    Clients,
+    Projects,
+    Tasks,
+    TimeEntries,
+    Templates,
+    Profiles,
+    AppSettings,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   // _$AppDatabase is generated
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -375,6 +396,13 @@ class AppDatabase extends _$AppDatabase {
           "ELSE 'other' END",
         );
       }
+      // v9 → v10: app-level key-value settings (PRD #133). A brand-new table —
+      // no existing DB at any prior version has it — so every upgrade path
+      // (from∈1..9) must create it. Guarded from<10 so a future bump can't
+      // re-run createTable on a v10 DB (which would throw "table exists").
+      if (from < 10) {
+        await m.createTable(appSettings);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -490,10 +518,9 @@ class AppDatabase extends _$AppDatabase {
       innerJoin(clients, clients.id.equalsExp(projects.clientId)),
     ])..where(projects.id.equals(id));
     return q.watchSingleOrNull().map(
-      (row) =>
-          row == null
-              ? null
-              : (row.readTable(projects), row.readTable(clients)),
+      (row) => row == null
+          ? null
+          : (row.readTable(projects), row.readTable(clients)),
     );
   }
 
@@ -629,11 +656,10 @@ class AppDatabase extends _$AppDatabase {
       (select(templates)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
   Future<InvoiceTemplate> templateById(int id) =>
       (select(templates)..where((t) => t.id.equals(id))).getSingle();
-  Future<InvoiceTemplate?> defaultTemplate() =>
-      (select(templates)..where((t) => t.isDefault.equals(true)))
-          .getSingleOrNull();
-  Future<int> insertTemplate(TemplatesCompanion t) =>
-      into(templates).insert(t);
+  Future<InvoiceTemplate?> defaultTemplate() => (select(
+    templates,
+  )..where((t) => t.isDefault.equals(true))).getSingleOrNull();
+  Future<int> insertTemplate(TemplatesCompanion t) => into(templates).insert(t);
   Future<void> updateTemplateById(int id, TemplatesCompanion t) =>
       (update(templates)..where((x) => x.id.equals(id))).write(t);
   // FK pragma is on, so this throws if a profile still references the template.
@@ -653,9 +679,9 @@ class AppDatabase extends _$AppDatabase {
       (select(profiles)..orderBy([(p) => OrderingTerm.asc(p.name)])).watch();
   Future<InvoiceProfile> profileById(int id) =>
       (select(profiles)..where((p) => p.id.equals(id))).getSingle();
-  Future<InvoiceProfile?> defaultProfile() =>
-      (select(profiles)..where((p) => p.isDefault.equals(true)))
-          .getSingleOrNull();
+  Future<InvoiceProfile?> defaultProfile() => (select(
+    profiles,
+  )..where((p) => p.isDefault.equals(true))).getSingleOrNull();
   Future<int> insertProfile(ProfilesCompanion p) => into(profiles).insert(p);
   Future<void> updateProfileById(int id, ProfilesCompanion p) =>
       (update(profiles)..where((x) => x.id.equals(id))).write(p);
@@ -669,6 +695,36 @@ class AppDatabase extends _$AppDatabase {
       const ProfilesCompanion(isDefault: Value(true)),
     );
   });
+
+  // ── App settings (key-value; PRD #133) ─────────────────────────────────────
+  // A deep module: the string key/value encoding stays private; callers use the
+  // typed helpers below. `_onboardingCompleteKey` is the only key so far.
+  static const _onboardingCompleteKey = 'onboarding_complete';
+
+  Future<String?> _getSetting(String key) async {
+    final row = await (select(
+      appSettings,
+    )..where((s) => s.key.equals(key))).getSingleOrNull();
+    return row?.value;
+  }
+
+  Future<void> _setSetting(String key, String value) =>
+      into(appSettings).insertOnConflictUpdate(
+        AppSettingsCompanion(key: Value(key), value: Value(value)),
+      );
+
+  Future<bool> _getFlag(String key) async => (await _getSetting(key)) == 'true';
+  Future<void> _setFlag(String key, bool value) =>
+      _setSetting(key, value ? 'true' : 'false');
+
+  /// Whether the first-run onboarding flow has been completed (or skipped).
+  /// A fresh install has no row → false, so onboarding shows once.
+  Future<bool> isOnboardingComplete() => _getFlag(_onboardingCompleteKey);
+
+  /// Mark onboarding complete (default) — or clear it (`false`) to replay the
+  /// flow, which the Settings "Re-run setup" action and tests rely on.
+  Future<void> setOnboardingComplete([bool value = true]) =>
+      _setFlag(_onboardingCompleteKey, value);
 
   // Row getters for assembling an InvoiceDocument (the pure builder lives in
   // features/invoices — the data layer only hands back rows).
@@ -717,8 +773,9 @@ class AppDatabase extends _$AppDatabase {
               )
               ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
             .get();
-    final taskRows =
-        await (select(tasks)..where((t) => t.projectId.equals(projectId))).get();
+    final taskRows = await (select(
+      tasks,
+    )..where((t) => t.projectId.equals(projectId))).get();
     return ProjectInvoice(
       project: project,
       client: client,
