@@ -53,6 +53,11 @@ class _ClientFormState extends State<ClientForm> {
     text: widget.initial?.contactName ?? '',
   );
   late final _email = TextEditingController(text: widget.initial?.email ?? '');
+  late final _phone = TextEditingController(text: widget.initial?.phone ?? '');
+  late final _address = TextEditingController(
+    text: widget.initial?.address ?? '',
+  );
+  late final _abn = TextEditingController(text: widget.initial?.abn ?? '');
   late final _rate = TextEditingController(
     text: widget.initial?.defaultRate.toString() ?? '',
   );
@@ -65,6 +70,9 @@ class _ClientFormState extends State<ClientForm> {
     _name.dispose();
     _contact.dispose();
     _email.dispose();
+    _phone.dispose();
+    _address.dispose();
+    _abn.dispose();
     _rate.dispose();
     super.dispose();
   }
@@ -85,8 +93,13 @@ class _ClientFormState extends State<ClientForm> {
     }
     setState(() => _rateError = null);
 
-    final email = _email.text.trim().isEmpty ? null : _email.text.trim();
-    final contact = _contact.text.trim().isEmpty ? null : _contact.text.trim();
+    String? clean(TextEditingController c) =>
+        c.text.trim().isEmpty ? null : c.text.trim();
+    final email = clean(_email);
+    final contact = clean(_contact);
+    final phone = clean(_phone);
+    final address = clean(_address);
+    final abn = clean(_abn);
     try {
       if (_isEdit) {
         await widget.db.updateClient(
@@ -94,6 +107,9 @@ class _ClientFormState extends State<ClientForm> {
           name: _name.text.trim(),
           contactName: contact,
           email: email,
+          phone: phone,
+          address: address,
+          abn: abn,
           defaultRate: rate,
         );
       } else {
@@ -101,6 +117,9 @@ class _ClientFormState extends State<ClientForm> {
           name: _name.text.trim(),
           contactName: contact,
           email: email,
+          phone: phone,
+          address: address,
+          abn: abn,
           defaultRate: rate,
         );
       }
@@ -152,6 +171,26 @@ class _ClientFormState extends State<ClientForm> {
           controller: _email,
           onSubmitted: (_) => _submit(),
           decoration: const InputDecoration(labelText: 'Email'),
+        ),
+        const SizedBox(height: AppTokens.spaceLg),
+        TextField(
+          controller: _phone,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(labelText: 'Phone'),
+        ),
+        const SizedBox(height: AppTokens.spaceLg),
+        TextField(
+          controller: _address,
+          onSubmitted: (_) => _submit(),
+          minLines: 1,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: 'Address'),
+        ),
+        const SizedBox(height: AppTokens.spaceLg),
+        TextField(
+          controller: _abn,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(labelText: 'ABN / Tax number'),
         ),
         const SizedBox(height: AppTokens.spaceXl),
         TextField(

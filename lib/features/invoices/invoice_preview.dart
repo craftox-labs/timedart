@@ -308,6 +308,28 @@ class InvoicePreview extends StatelessWidget {
           Expanded(child: _field('PHONE', doc.recipientPhone)),
         ],
       ),
+      // Buyer address + tax number — required on compliant invoices above the
+      // local threshold. Shown only when present (unlike the fields above,
+      // which keep a '—' placeholder), so a client without them adds no rows.
+      if (doc.recipientAddress != null || doc.recipientAbn != null) ...[
+        const SizedBox(height: InvoiceLayout.totalsGap),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: doc.recipientAddress != null
+                  ? _field('ADDRESS', doc.recipientAddress)
+                  : const SizedBox(),
+            ),
+            const SizedBox(width: InvoiceLayout.gridGutter),
+            Expanded(
+              child: doc.recipientAbn != null
+                  ? _field('ABN / TAX NO.', doc.recipientAbn)
+                  : const SizedBox(),
+            ),
+          ],
+        ),
+      ],
     ],
   );
 

@@ -44,6 +44,8 @@ Client _client({
   String? contactName = 'Julien Remond',
   String? email = 'julien@dispensedirect.com.au',
   String? phone,
+  String? address,
+  String? abn,
   double defaultRate = 46,
 }) => Client(
   id: 1,
@@ -51,6 +53,8 @@ Client _client({
   contactName: contactName,
   email: email,
   phone: phone,
+  address: address,
+  abn: abn,
   defaultRate: defaultRate,
 );
 
@@ -247,6 +251,29 @@ void main() {
       expect(doc.invoiceNumber, isNull);
       expect(doc.attention, isNull);
       expect(doc.recipientContact, isNull);
+    });
+  });
+
+  group('buyer address + tax number', () {
+    test('client address and ABN carry into the document', () {
+      final doc = _doc(
+        client: _client(
+          address: '10 Sample St, Sydney NSW 2000',
+          abn: '12 345 678 901',
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.recipientAddress, '10 Sample St, Sydney NSW 2000');
+      expect(doc.recipientAbn, '12 345 678 901');
+    });
+
+    test('blank/absent buyer address and ABN resolve to null', () {
+      final doc = _doc(
+        client: _client(address: '   ', abn: null),
+        entries: [_entry()],
+      );
+      expect(doc.recipientAddress, isNull);
+      expect(doc.recipientAbn, isNull);
     });
   });
 
