@@ -229,9 +229,10 @@ Future<Uint8List> buildBrandedInvoicePdf({
             pw.FullPage(ignoreMargins: true, child: pw.Container(color: bg)),
       ),
       build: (context) => [
-        // ── Masthead: business details at the left edge, logo at the right ──
+        // ── Masthead: business details at the left edge, logo at the right,
+        // both vertically centred so the logo sits on the details' midline ──
         pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             pw.Expanded(
               child: pw.Column(
@@ -322,10 +323,13 @@ Future<Uint8List> buildBrandedInvoicePdf({
             ),
           ),
         pw.SizedBox(height: _p(InvoiceLayout.headlineGap)),
+        // ATT takes ORGANISATION's half-width (two quarters) so RE lands on
+        // the EMAIL column's left edge below, not the org/email seam.
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Expanded(
+            pw.SizedBox(
+              width: _p(2 * InvoiceLayout.recipientCol),
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -341,7 +345,6 @@ Future<Uint8List> buildBrandedInvoicePdf({
                 ],
               ),
             ),
-            // Same gutter as the recipient grid so RE lines up over EMAIL.
             pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
             pw.Expanded(
               child: pw.Column(

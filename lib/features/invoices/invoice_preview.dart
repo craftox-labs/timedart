@@ -152,13 +152,14 @@ class InvoicePreview extends StatelessWidget {
     );
   }
 
-  // Business details sit at the left edge; the logo anchors the right edge on
-  // the same top line. Separating the two gives whatever icon/logo the user
-  // supplies its own room rather than stacking text beneath it.
+  // Business details sit at the left edge; the logo anchors the right edge,
+  // both vertically centred so the logo sits on the details block's midline.
+  // Separating the two gives whatever icon/logo the user supplies its own room
+  // rather than stacking text beneath it.
   Widget _masthead() {
     final logo = _logo();
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Column(
@@ -287,43 +288,36 @@ class InvoicePreview extends StatelessWidget {
           ),
         ),
       const SizedBox(height: InvoiceLayout.headlineGap),
-      Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ATT:', style: _label),
-                Text(
-                  doc.attention ?? doc.organisation,
-                  style: TextStyle(
-                    color: _primary,
-                    fontSize: InvoiceLayout.fontHeadline,
-                    fontWeight: InvoiceLayout.fontWeightBold,
-                  ),
+      // ATT takes ORGANISATION's half-width (two quarters) so RE starts on
+      // the EMAIL column's left edge below, not the org/email seam.
+      LayoutBuilder(
+        builder: (context, c) {
+          final quarter = (c.maxWidth - 2 * InvoiceLayout.gridGutter) / 4;
+          Widget headField(String label, String value) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: _label),
+              Text(
+                value,
+                style: TextStyle(
+                  color: _primary,
+                  fontSize: InvoiceLayout.fontHeadline,
+                  fontWeight: InvoiceLayout.fontWeightBold,
                 ),
-              ],
-            ),
-          ),
-          // Same gutter as the recipient grid so RE lines up over the EMAIL column.
-          const SizedBox(width: InvoiceLayout.gridGutter),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('RE:', style: _label),
-                Text(
-                  doc.reference,
-                  style: TextStyle(
-                    color: _primary,
-                    fontSize: InvoiceLayout.fontHeadline,
-                    fontWeight: InvoiceLayout.fontWeightBold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+          return Row(
+            children: [
+              SizedBox(
+                width: 2 * quarter,
+                child: headField('ATT:', doc.attention ?? doc.organisation),
+              ),
+              const SizedBox(width: InvoiceLayout.gridGutter),
+              Expanded(child: headField('RE:', doc.reference)),
+            ],
+          );
+        },
       ),
     ],
   );
