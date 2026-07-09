@@ -253,6 +253,15 @@ class InvoicePreview extends StatelessWidget {
   Widget _party() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      Text(
+        doc.title.toUpperCase(),
+        style: TextStyle(
+          color: _primary,
+          fontSize: InvoiceLayout.fontPaymentsHeading,
+          fontWeight: InvoiceLayout.fontWeightBold,
+        ),
+      ),
+      const SizedBox(height: InvoiceLayout.headlineGap),
       Text('ATT:', style: _label),
       Text(
         doc.attention ?? doc.organisation,
@@ -324,7 +333,7 @@ class InvoicePreview extends StatelessWidget {
             const SizedBox(width: InvoiceLayout.gridGutter),
             Expanded(
               child: doc.recipientAbn != null
-                  ? _field('ABN / TAX NO.', doc.recipientAbn)
+                  ? _field(doc.recipientAbnLabel, doc.recipientAbn)
                   : const SizedBox(),
             ),
           ],

@@ -9,6 +9,7 @@ import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/editor_common.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
 import 'package:time_tracker/features/invoices/invoice_preview.dart';
+import 'package:time_tracker/features/invoices/invoice_region.dart';
 import 'package:time_tracker/widgets/confirm_dialog.dart';
 
 /// Content-pane editor for an invoice [InvoiceProfile] — business identity
@@ -42,6 +43,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
   // One controller per text field, keyed for the draft + companion.
   late final Map<String, TextEditingController> _c;
   late bool _isDefault;
+  // The sender's region — shapes tax label/title + buyer tax-ID label, and
+  // (from slice #121) which bank fields the editor exposes.
+  late InvoiceRegion _region;
   // The business logo (PNG/JPG bytes) — identity, so it lives on the profile.
   Uint8List? _logo;
   String? _logoMime;
@@ -54,6 +58,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
   // Reassigned after every successful save (the new baseline) — not `final`.
   late Map<String, String> _initialTexts;
   late bool _initialIsDefault;
+  late InvoiceRegion _initialRegion;
   Uint8List? _initialLogo;
   String? _initialLogoMime;
   // Resolved once templates finish loading — see initState. Comparing against
@@ -93,11 +98,15 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _c['currency']!.text = 'USD';
     }
     _isDefault = p?.isDefault ?? false;
+    // Existing profile keeps its region; a new one defaults to AU (the app's
+    // seeded heritage — GST/BSB), switchable in the picker.
+    _region = p != null ? InvoiceRegion.fromName(p.region) : InvoiceRegion.au;
     _logo = p?.logo;
     _logoMime = p?.logoMime;
     _templateId = p?.templateId;
     _initialTexts = {for (final f in _fields) f: _c[f]!.text};
     _initialIsDefault = _isDefault;
+    _initialRegion = _region;
     _initialLogo = _logo;
     _initialLogoMime = _logoMime;
     _editing = !_isEdit || widget.startEditing;
@@ -122,6 +131,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
       if (_c[f]!.text != _initialTexts[f]) return true;
     }
     if (_isDefault != _initialIsDefault) return true;
+    if (_region != _initialRegion) return true;
     if (_templateId != _initialTemplateId) return true;
     if (!listEquals(_logo, _initialLogo)) return true;
     if (_logoMime != _initialLogoMime) return true;
@@ -204,6 +214,21 @@ class _ProfileEditorState extends State<ProfileEditor> {
     taxRate: double.tryParse(_t('taxRate')),
     isDefault: _isDefault,
     templateId: _templateId,
+    region: _region.name,
+    // Not yet edited here (slices #121–#123) — carry the profile's stored
+    // values through so the preview reflects them; defaults for a new profile.
+    iban: widget.initial?.iban,
+    sortCode: widget.initial?.sortCode,
+    routingNumber: widget.initial?.routingNumber,
+    payid: widget.initial?.payid,
+    institutionNumber: widget.initial?.institutionNumber,
+    transitNumber: widget.initial?.transitNumber,
+    showBank: widget.initial?.showBank ?? true,
+    showPaymentLink: widget.initial?.showPaymentLink ?? true,
+    showTax: widget.initial?.showTax ?? true,
+    showRateColumn: widget.initial?.showRateColumn ?? true,
+    showTimeColumn: widget.initial?.showTimeColumn ?? true,
+    reverseCharge: widget.initial?.reverseCharge ?? false,
   );
 
   ProfilesCompanion _companion() => ProfilesCompanion(
@@ -226,6 +251,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     taxLabel: Value(_n('taxLabel')),
     taxRate: Value(double.tryParse(_t('taxRate'))),
     templateId: Value(_templateId),
+    region: Value(_region.name),
     // isDefault flows through setDefaultProfile so there's only ever one.
   );
 
@@ -248,6 +274,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
       // needing widget.initial to change (this widget stays mounted).
       _initialTexts = {for (final f in _fields) f: _c[f]!.text};
       _initialIsDefault = _isDefault;
+      _initialRegion = _region;
       _initialTemplateId = _templateId;
       _initialLogo = _logo;
       _initialLogoMime = _logoMime;
@@ -295,6 +322,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
         _c[f]!.text = _initialTexts[f] ?? '';
       }
       _isDefault = _initialIsDefault;
+      _region = _initialRegion;
       _templateId = _initialTemplateId;
       _logo = _initialLogo;
       _logoMime = _initialLogoMime;
@@ -434,9 +462,38 @@ class _ProfileEditorState extends State<ProfileEditor> {
           ]),
           FieldRow([Field(_field('paymentLink', 'Payment link'))]),
         ]),
-        FieldGroup('Currency & tax', [
+        FieldGroup('Region, currency & tax', [
           FieldRow([
+            Field(
+              EditorDropdown<InvoiceRegion>(
+                label: 'Region',
+                value: _region,
+                items: [
+                  for (final r in InvoiceRegion.values)
+                    DropdownMenuItem(value: r, child: Text(r.label)),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  final previous = _region;
+                  setState(() {
+                    _region = v;
+                    // Keep an auto-filled tax label in sync as the region
+                    // changes, but never clobber one the user typed. A label
+                    // counts as auto-filled when it's empty or still exactly the
+                    // previous region's default (US/Other clear it to blank).
+                    final current = _c['taxLabel']!.text.trim();
+                    if (current.isEmpty ||
+                        current == previous.defaultTaxLabel) {
+                      _c['taxLabel']!.text = v.defaultTaxLabel ?? '';
+                    }
+                    _checkDirty();
+                  });
+                },
+              ),
+            ),
             Field(_field('currency', 'Currency')),
+          ]),
+          FieldRow([
             Field(_field('taxLabel', 'Tax label')),
             Field(_field('taxRate', 'Tax %', number: true)),
             Field(

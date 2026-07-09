@@ -106,6 +106,32 @@ class Profiles extends Table {
   // default template. Replaces the old Theme+Profile pairing table.
   IntColumn get templateId =>
       integer().nullable().references(Templates, #id)();
+  // ── Region-aware invoicing (PRD #117, schema v9) ────────────────────────
+  // The region shapes tax label + buyer-tax-ID label + invoice title, and
+  // which bank fields the editor exposes. Stored as InvoiceRegion.name.
+  TextColumn get region => text().withDefault(const Constant('au'))();
+  // Region-specific bank identifiers (reuse bankAccount/swift/bankBsb for the
+  // universal account no. / BIC / AU BSB). Wired into the editor + renderers
+  // by slice #121.
+  TextColumn get iban => text().nullable()();
+  TextColumn get sortCode => text().nullable()(); // UK
+  TextColumn get routingNumber => text().nullable()(); // US ABA
+  TextColumn get payid => text().nullable()(); // AU
+  TextColumn get institutionNumber => text().nullable()(); // CA
+  TextColumn get transitNumber => text().nullable()(); // CA
+  // Invoice-inclusion defaults — deliberate omission of a block even when the
+  // data exists. Overridable per invoice at export by slice #122.
+  BoolColumn get showBank => boolean().withDefault(const Constant(true))();
+  BoolColumn get showPaymentLink =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get showTax => boolean().withDefault(const Constant(true))();
+  BoolColumn get showRateColumn =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get showTimeColumn =>
+      boolean().withDefault(const Constant(true))();
+  // Reverse-charge (EU/UK B2B) — wired by slice #123.
+  BoolColumn get reverseCharge =>
+      boolean().withDefault(const Constant(false))();
 }
 
 /// One itemised line of a [ProjectInvoice]: an entry with its hours and amount.
@@ -173,7 +199,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -319,6 +345,35 @@ class AppDatabase extends _$AppDatabase {
         // Rebuild templates to the current schema — logo/logo_mime are no longer
         // declared, so the copy drops them; all remaining columns carry over.
         await m.alterTable(TableMigration(templates));
+      }
+      // v8 → v9: region-aware invoicing (PRD #117). Add the region plus the
+      // whole feature's remaining columns in one bump (region-specific bank
+      // ids, invoice-inclusion flags, reverse-charge) — later slices wire them.
+      // Bounded from>=5 && from<9: a from<5 upgrade built profiles at the
+      // current shape above (all these columns already present, so addColumn
+      // would throw), and the upper bound stops a future bump re-running these
+      // on a v9 DB. from∈{5,6,7,8} all reach here without the v9 columns.
+      if (from >= 5 && from < 9) {
+        await m.addColumn(profiles, profiles.region);
+        await m.addColumn(profiles, profiles.iban);
+        await m.addColumn(profiles, profiles.sortCode);
+        await m.addColumn(profiles, profiles.routingNumber);
+        await m.addColumn(profiles, profiles.payid);
+        await m.addColumn(profiles, profiles.institutionNumber);
+        await m.addColumn(profiles, profiles.transitNumber);
+        await m.addColumn(profiles, profiles.showBank);
+        await m.addColumn(profiles, profiles.showPaymentLink);
+        await m.addColumn(profiles, profiles.showTax);
+        await m.addColumn(profiles, profiles.showRateColumn);
+        await m.addColumn(profiles, profiles.showTimeColumn);
+        await m.addColumn(profiles, profiles.reverseCharge);
+        // Backfill region from the AU-shaped heuristic: a profile carrying a
+        // BSB is Australian; everything else defaults to Other.
+        await customStatement(
+          "UPDATE profiles SET region = CASE "
+          "WHEN bank_bsb IS NOT NULL AND bank_bsb != '' THEN 'au' "
+          "ELSE 'other' END",
+        );
       }
     },
     beforeOpen: (details) async {

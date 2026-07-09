@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:time_tracker/constants/format.dart';
 import 'package:time_tracker/data/database.dart';
 import 'package:time_tracker/features/invoices/invoice_document.dart';
+import 'package:time_tracker/features/invoices/invoice_region.dart';
 
 // Pure-logic coverage for the invoice view-model (PRD #79). Constructs domain
 // rows directly (no DB) and asserts the resolved values + arithmetic.
@@ -21,6 +22,7 @@ InvoiceProfile _profile({
   String? bankAccount,
   String? swift,
   String? paymentLink,
+  InvoiceRegion region = InvoiceRegion.au,
 }) => InvoiceProfile(
   id: 1,
   name: 'Default',
@@ -37,6 +39,13 @@ InvoiceProfile _profile({
   swift: swift,
   paymentLink: paymentLink,
   isDefault: true,
+  region: region.name,
+  showBank: true,
+  showPaymentLink: true,
+  showTax: true,
+  showRateColumn: true,
+  showTimeColumn: true,
+  reverseCharge: false,
 );
 
 Client _client({
@@ -326,6 +335,52 @@ void main() {
 
     test('no bank details → paymentFields is empty', () {
       expect(_doc(entries: [_entry()]).paymentFields, isEmpty);
+    });
+  });
+
+  group('region → title + buyer tax-ID label', () {
+    test('AU with tax → "Tax Invoice"; buyer label "ABN"', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.au,
+          taxLabel: 'GST',
+          taxRate: 10,
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.region, InvoiceRegion.au);
+      expect(doc.title, 'Tax Invoice');
+      expect(doc.recipientAbnLabel, 'ABN');
+    });
+
+    test('AU without tax → plain "Invoice"', () {
+      final doc = _doc(
+        profile: _profile(region: InvoiceRegion.au), // no tax label/rate
+        entries: [_entry()],
+      );
+      expect(doc.title, 'Invoice');
+    });
+
+    test('UK → "Invoice"; buyer label "VAT NO." even when taxed', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.uk,
+          taxLabel: 'VAT',
+          taxRate: 20,
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.title, 'Invoice');
+      expect(doc.recipientAbnLabel, 'VAT NO.');
+    });
+
+    test('US → "Invoice"; buyer label "TAX NO."', () {
+      final doc = _doc(
+        profile: _profile(region: InvoiceRegion.us),
+        entries: [_entry()],
+      );
+      expect(doc.title, 'Invoice');
+      expect(doc.recipientAbnLabel, 'TAX NO.');
     });
   });
 }

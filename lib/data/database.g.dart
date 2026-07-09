@@ -2670,6 +2670,169 @@ class $ProfilesTable extends Profiles
       'REFERENCES templates (id)',
     ),
   );
+  static const VerificationMeta _regionMeta = const VerificationMeta('region');
+  @override
+  late final GeneratedColumn<String> region = GeneratedColumn<String>(
+    'region',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('au'),
+  );
+  static const VerificationMeta _ibanMeta = const VerificationMeta('iban');
+  @override
+  late final GeneratedColumn<String> iban = GeneratedColumn<String>(
+    'iban',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sortCodeMeta = const VerificationMeta(
+    'sortCode',
+  );
+  @override
+  late final GeneratedColumn<String> sortCode = GeneratedColumn<String>(
+    'sort_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _routingNumberMeta = const VerificationMeta(
+    'routingNumber',
+  );
+  @override
+  late final GeneratedColumn<String> routingNumber = GeneratedColumn<String>(
+    'routing_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _payidMeta = const VerificationMeta('payid');
+  @override
+  late final GeneratedColumn<String> payid = GeneratedColumn<String>(
+    'payid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _institutionNumberMeta = const VerificationMeta(
+    'institutionNumber',
+  );
+  @override
+  late final GeneratedColumn<String> institutionNumber =
+      GeneratedColumn<String>(
+        'institution_number',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _transitNumberMeta = const VerificationMeta(
+    'transitNumber',
+  );
+  @override
+  late final GeneratedColumn<String> transitNumber = GeneratedColumn<String>(
+    'transit_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _showBankMeta = const VerificationMeta(
+    'showBank',
+  );
+  @override
+  late final GeneratedColumn<bool> showBank = GeneratedColumn<bool>(
+    'show_bank',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_bank" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showPaymentLinkMeta = const VerificationMeta(
+    'showPaymentLink',
+  );
+  @override
+  late final GeneratedColumn<bool> showPaymentLink = GeneratedColumn<bool>(
+    'show_payment_link',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_payment_link" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showTaxMeta = const VerificationMeta(
+    'showTax',
+  );
+  @override
+  late final GeneratedColumn<bool> showTax = GeneratedColumn<bool>(
+    'show_tax',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_tax" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showRateColumnMeta = const VerificationMeta(
+    'showRateColumn',
+  );
+  @override
+  late final GeneratedColumn<bool> showRateColumn = GeneratedColumn<bool>(
+    'show_rate_column',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_rate_column" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showTimeColumnMeta = const VerificationMeta(
+    'showTimeColumn',
+  );
+  @override
+  late final GeneratedColumn<bool> showTimeColumn = GeneratedColumn<bool>(
+    'show_time_column',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_time_column" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _reverseChargeMeta = const VerificationMeta(
+    'reverseCharge',
+  );
+  @override
+  late final GeneratedColumn<bool> reverseCharge = GeneratedColumn<bool>(
+    'reverse_charge',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("reverse_charge" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2693,6 +2856,19 @@ class $ProfilesTable extends Profiles
     taxRate,
     isDefault,
     templateId,
+    region,
+    iban,
+    sortCode,
+    routingNumber,
+    payid,
+    institutionNumber,
+    transitNumber,
+    showBank,
+    showPaymentLink,
+    showTax,
+    showRateColumn,
+    showTimeColumn,
+    reverseCharge,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2840,6 +3016,105 @@ class $ProfilesTable extends Profiles
         templateId.isAcceptableOrUnknown(data['template_id']!, _templateIdMeta),
       );
     }
+    if (data.containsKey('region')) {
+      context.handle(
+        _regionMeta,
+        region.isAcceptableOrUnknown(data['region']!, _regionMeta),
+      );
+    }
+    if (data.containsKey('iban')) {
+      context.handle(
+        _ibanMeta,
+        iban.isAcceptableOrUnknown(data['iban']!, _ibanMeta),
+      );
+    }
+    if (data.containsKey('sort_code')) {
+      context.handle(
+        _sortCodeMeta,
+        sortCode.isAcceptableOrUnknown(data['sort_code']!, _sortCodeMeta),
+      );
+    }
+    if (data.containsKey('routing_number')) {
+      context.handle(
+        _routingNumberMeta,
+        routingNumber.isAcceptableOrUnknown(
+          data['routing_number']!,
+          _routingNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payid')) {
+      context.handle(
+        _payidMeta,
+        payid.isAcceptableOrUnknown(data['payid']!, _payidMeta),
+      );
+    }
+    if (data.containsKey('institution_number')) {
+      context.handle(
+        _institutionNumberMeta,
+        institutionNumber.isAcceptableOrUnknown(
+          data['institution_number']!,
+          _institutionNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('transit_number')) {
+      context.handle(
+        _transitNumberMeta,
+        transitNumber.isAcceptableOrUnknown(
+          data['transit_number']!,
+          _transitNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_bank')) {
+      context.handle(
+        _showBankMeta,
+        showBank.isAcceptableOrUnknown(data['show_bank']!, _showBankMeta),
+      );
+    }
+    if (data.containsKey('show_payment_link')) {
+      context.handle(
+        _showPaymentLinkMeta,
+        showPaymentLink.isAcceptableOrUnknown(
+          data['show_payment_link']!,
+          _showPaymentLinkMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_tax')) {
+      context.handle(
+        _showTaxMeta,
+        showTax.isAcceptableOrUnknown(data['show_tax']!, _showTaxMeta),
+      );
+    }
+    if (data.containsKey('show_rate_column')) {
+      context.handle(
+        _showRateColumnMeta,
+        showRateColumn.isAcceptableOrUnknown(
+          data['show_rate_column']!,
+          _showRateColumnMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_time_column')) {
+      context.handle(
+        _showTimeColumnMeta,
+        showTimeColumn.isAcceptableOrUnknown(
+          data['show_time_column']!,
+          _showTimeColumnMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reverse_charge')) {
+      context.handle(
+        _reverseChargeMeta,
+        reverseCharge.isAcceptableOrUnknown(
+          data['reverse_charge']!,
+          _reverseChargeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2933,6 +3208,58 @@ class $ProfilesTable extends Profiles
         DriftSqlType.int,
         data['${effectivePrefix}template_id'],
       ),
+      region: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}region'],
+      )!,
+      iban: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}iban'],
+      ),
+      sortCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sort_code'],
+      ),
+      routingNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}routing_number'],
+      ),
+      payid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payid'],
+      ),
+      institutionNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}institution_number'],
+      ),
+      transitNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transit_number'],
+      ),
+      showBank: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_bank'],
+      )!,
+      showPaymentLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_payment_link'],
+      )!,
+      showTax: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_tax'],
+      )!,
+      showRateColumn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_rate_column'],
+      )!,
+      showTimeColumn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_time_column'],
+      )!,
+      reverseCharge: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}reverse_charge'],
+      )!,
     );
   }
 
@@ -2964,6 +3291,19 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
   final double? taxRate;
   final bool isDefault;
   final int? templateId;
+  final String region;
+  final String? iban;
+  final String? sortCode;
+  final String? routingNumber;
+  final String? payid;
+  final String? institutionNumber;
+  final String? transitNumber;
+  final bool showBank;
+  final bool showPaymentLink;
+  final bool showTax;
+  final bool showRateColumn;
+  final bool showTimeColumn;
+  final bool reverseCharge;
   const InvoiceProfile({
     required this.id,
     required this.name,
@@ -2986,6 +3326,19 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     this.taxRate,
     required this.isDefault,
     this.templateId,
+    required this.region,
+    this.iban,
+    this.sortCode,
+    this.routingNumber,
+    this.payid,
+    this.institutionNumber,
+    this.transitNumber,
+    required this.showBank,
+    required this.showPaymentLink,
+    required this.showTax,
+    required this.showRateColumn,
+    required this.showTimeColumn,
+    required this.reverseCharge,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3043,6 +3396,31 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     if (!nullToAbsent || templateId != null) {
       map['template_id'] = Variable<int>(templateId);
     }
+    map['region'] = Variable<String>(region);
+    if (!nullToAbsent || iban != null) {
+      map['iban'] = Variable<String>(iban);
+    }
+    if (!nullToAbsent || sortCode != null) {
+      map['sort_code'] = Variable<String>(sortCode);
+    }
+    if (!nullToAbsent || routingNumber != null) {
+      map['routing_number'] = Variable<String>(routingNumber);
+    }
+    if (!nullToAbsent || payid != null) {
+      map['payid'] = Variable<String>(payid);
+    }
+    if (!nullToAbsent || institutionNumber != null) {
+      map['institution_number'] = Variable<String>(institutionNumber);
+    }
+    if (!nullToAbsent || transitNumber != null) {
+      map['transit_number'] = Variable<String>(transitNumber);
+    }
+    map['show_bank'] = Variable<bool>(showBank);
+    map['show_payment_link'] = Variable<bool>(showPaymentLink);
+    map['show_tax'] = Variable<bool>(showTax);
+    map['show_rate_column'] = Variable<bool>(showRateColumn);
+    map['show_time_column'] = Variable<bool>(showTimeColumn);
+    map['reverse_charge'] = Variable<bool>(reverseCharge);
     return map;
   }
 
@@ -3097,6 +3475,29 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       templateId: templateId == null && nullToAbsent
           ? const Value.absent()
           : Value(templateId),
+      region: Value(region),
+      iban: iban == null && nullToAbsent ? const Value.absent() : Value(iban),
+      sortCode: sortCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sortCode),
+      routingNumber: routingNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(routingNumber),
+      payid: payid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payid),
+      institutionNumber: institutionNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(institutionNumber),
+      transitNumber: transitNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transitNumber),
+      showBank: Value(showBank),
+      showPaymentLink: Value(showPaymentLink),
+      showTax: Value(showTax),
+      showRateColumn: Value(showRateColumn),
+      showTimeColumn: Value(showTimeColumn),
+      reverseCharge: Value(reverseCharge),
     );
   }
 
@@ -3127,6 +3528,21 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       taxRate: serializer.fromJson<double?>(json['taxRate']),
       isDefault: serializer.fromJson<bool>(json['isDefault']),
       templateId: serializer.fromJson<int?>(json['templateId']),
+      region: serializer.fromJson<String>(json['region']),
+      iban: serializer.fromJson<String?>(json['iban']),
+      sortCode: serializer.fromJson<String?>(json['sortCode']),
+      routingNumber: serializer.fromJson<String?>(json['routingNumber']),
+      payid: serializer.fromJson<String?>(json['payid']),
+      institutionNumber: serializer.fromJson<String?>(
+        json['institutionNumber'],
+      ),
+      transitNumber: serializer.fromJson<String?>(json['transitNumber']),
+      showBank: serializer.fromJson<bool>(json['showBank']),
+      showPaymentLink: serializer.fromJson<bool>(json['showPaymentLink']),
+      showTax: serializer.fromJson<bool>(json['showTax']),
+      showRateColumn: serializer.fromJson<bool>(json['showRateColumn']),
+      showTimeColumn: serializer.fromJson<bool>(json['showTimeColumn']),
+      reverseCharge: serializer.fromJson<bool>(json['reverseCharge']),
     );
   }
   @override
@@ -3154,6 +3570,19 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       'taxRate': serializer.toJson<double?>(taxRate),
       'isDefault': serializer.toJson<bool>(isDefault),
       'templateId': serializer.toJson<int?>(templateId),
+      'region': serializer.toJson<String>(region),
+      'iban': serializer.toJson<String?>(iban),
+      'sortCode': serializer.toJson<String?>(sortCode),
+      'routingNumber': serializer.toJson<String?>(routingNumber),
+      'payid': serializer.toJson<String?>(payid),
+      'institutionNumber': serializer.toJson<String?>(institutionNumber),
+      'transitNumber': serializer.toJson<String?>(transitNumber),
+      'showBank': serializer.toJson<bool>(showBank),
+      'showPaymentLink': serializer.toJson<bool>(showPaymentLink),
+      'showTax': serializer.toJson<bool>(showTax),
+      'showRateColumn': serializer.toJson<bool>(showRateColumn),
+      'showTimeColumn': serializer.toJson<bool>(showTimeColumn),
+      'reverseCharge': serializer.toJson<bool>(reverseCharge),
     };
   }
 
@@ -3179,6 +3608,19 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     Value<double?> taxRate = const Value.absent(),
     bool? isDefault,
     Value<int?> templateId = const Value.absent(),
+    String? region,
+    Value<String?> iban = const Value.absent(),
+    Value<String?> sortCode = const Value.absent(),
+    Value<String?> routingNumber = const Value.absent(),
+    Value<String?> payid = const Value.absent(),
+    Value<String?> institutionNumber = const Value.absent(),
+    Value<String?> transitNumber = const Value.absent(),
+    bool? showBank,
+    bool? showPaymentLink,
+    bool? showTax,
+    bool? showRateColumn,
+    bool? showTimeColumn,
+    bool? reverseCharge,
   }) => InvoiceProfile(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -3201,6 +3643,25 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     taxRate: taxRate.present ? taxRate.value : this.taxRate,
     isDefault: isDefault ?? this.isDefault,
     templateId: templateId.present ? templateId.value : this.templateId,
+    region: region ?? this.region,
+    iban: iban.present ? iban.value : this.iban,
+    sortCode: sortCode.present ? sortCode.value : this.sortCode,
+    routingNumber: routingNumber.present
+        ? routingNumber.value
+        : this.routingNumber,
+    payid: payid.present ? payid.value : this.payid,
+    institutionNumber: institutionNumber.present
+        ? institutionNumber.value
+        : this.institutionNumber,
+    transitNumber: transitNumber.present
+        ? transitNumber.value
+        : this.transitNumber,
+    showBank: showBank ?? this.showBank,
+    showPaymentLink: showPaymentLink ?? this.showPaymentLink,
+    showTax: showTax ?? this.showTax,
+    showRateColumn: showRateColumn ?? this.showRateColumn,
+    showTimeColumn: showTimeColumn ?? this.showTimeColumn,
+    reverseCharge: reverseCharge ?? this.reverseCharge,
   );
   InvoiceProfile copyWithCompanion(ProfilesCompanion data) {
     return InvoiceProfile(
@@ -3233,6 +3694,33 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       templateId: data.templateId.present
           ? data.templateId.value
           : this.templateId,
+      region: data.region.present ? data.region.value : this.region,
+      iban: data.iban.present ? data.iban.value : this.iban,
+      sortCode: data.sortCode.present ? data.sortCode.value : this.sortCode,
+      routingNumber: data.routingNumber.present
+          ? data.routingNumber.value
+          : this.routingNumber,
+      payid: data.payid.present ? data.payid.value : this.payid,
+      institutionNumber: data.institutionNumber.present
+          ? data.institutionNumber.value
+          : this.institutionNumber,
+      transitNumber: data.transitNumber.present
+          ? data.transitNumber.value
+          : this.transitNumber,
+      showBank: data.showBank.present ? data.showBank.value : this.showBank,
+      showPaymentLink: data.showPaymentLink.present
+          ? data.showPaymentLink.value
+          : this.showPaymentLink,
+      showTax: data.showTax.present ? data.showTax.value : this.showTax,
+      showRateColumn: data.showRateColumn.present
+          ? data.showRateColumn.value
+          : this.showRateColumn,
+      showTimeColumn: data.showTimeColumn.present
+          ? data.showTimeColumn.value
+          : this.showTimeColumn,
+      reverseCharge: data.reverseCharge.present
+          ? data.reverseCharge.value
+          : this.reverseCharge,
     );
   }
 
@@ -3259,7 +3747,20 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           ..write('taxLabel: $taxLabel, ')
           ..write('taxRate: $taxRate, ')
           ..write('isDefault: $isDefault, ')
-          ..write('templateId: $templateId')
+          ..write('templateId: $templateId, ')
+          ..write('region: $region, ')
+          ..write('iban: $iban, ')
+          ..write('sortCode: $sortCode, ')
+          ..write('routingNumber: $routingNumber, ')
+          ..write('payid: $payid, ')
+          ..write('institutionNumber: $institutionNumber, ')
+          ..write('transitNumber: $transitNumber, ')
+          ..write('showBank: $showBank, ')
+          ..write('showPaymentLink: $showPaymentLink, ')
+          ..write('showTax: $showTax, ')
+          ..write('showRateColumn: $showRateColumn, ')
+          ..write('showTimeColumn: $showTimeColumn, ')
+          ..write('reverseCharge: $reverseCharge')
           ..write(')'))
         .toString();
   }
@@ -3287,6 +3788,19 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     taxRate,
     isDefault,
     templateId,
+    region,
+    iban,
+    sortCode,
+    routingNumber,
+    payid,
+    institutionNumber,
+    transitNumber,
+    showBank,
+    showPaymentLink,
+    showTax,
+    showRateColumn,
+    showTimeColumn,
+    reverseCharge,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -3312,7 +3826,20 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           other.taxLabel == this.taxLabel &&
           other.taxRate == this.taxRate &&
           other.isDefault == this.isDefault &&
-          other.templateId == this.templateId);
+          other.templateId == this.templateId &&
+          other.region == this.region &&
+          other.iban == this.iban &&
+          other.sortCode == this.sortCode &&
+          other.routingNumber == this.routingNumber &&
+          other.payid == this.payid &&
+          other.institutionNumber == this.institutionNumber &&
+          other.transitNumber == this.transitNumber &&
+          other.showBank == this.showBank &&
+          other.showPaymentLink == this.showPaymentLink &&
+          other.showTax == this.showTax &&
+          other.showRateColumn == this.showRateColumn &&
+          other.showTimeColumn == this.showTimeColumn &&
+          other.reverseCharge == this.reverseCharge);
 }
 
 class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
@@ -3337,6 +3864,19 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
   final Value<double?> taxRate;
   final Value<bool> isDefault;
   final Value<int?> templateId;
+  final Value<String> region;
+  final Value<String?> iban;
+  final Value<String?> sortCode;
+  final Value<String?> routingNumber;
+  final Value<String?> payid;
+  final Value<String?> institutionNumber;
+  final Value<String?> transitNumber;
+  final Value<bool> showBank;
+  final Value<bool> showPaymentLink;
+  final Value<bool> showTax;
+  final Value<bool> showRateColumn;
+  final Value<bool> showTimeColumn;
+  final Value<bool> reverseCharge;
   const ProfilesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -3359,6 +3899,19 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.taxRate = const Value.absent(),
     this.isDefault = const Value.absent(),
     this.templateId = const Value.absent(),
+    this.region = const Value.absent(),
+    this.iban = const Value.absent(),
+    this.sortCode = const Value.absent(),
+    this.routingNumber = const Value.absent(),
+    this.payid = const Value.absent(),
+    this.institutionNumber = const Value.absent(),
+    this.transitNumber = const Value.absent(),
+    this.showBank = const Value.absent(),
+    this.showPaymentLink = const Value.absent(),
+    this.showTax = const Value.absent(),
+    this.showRateColumn = const Value.absent(),
+    this.showTimeColumn = const Value.absent(),
+    this.reverseCharge = const Value.absent(),
   });
   ProfilesCompanion.insert({
     this.id = const Value.absent(),
@@ -3382,6 +3935,19 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.taxRate = const Value.absent(),
     this.isDefault = const Value.absent(),
     this.templateId = const Value.absent(),
+    this.region = const Value.absent(),
+    this.iban = const Value.absent(),
+    this.sortCode = const Value.absent(),
+    this.routingNumber = const Value.absent(),
+    this.payid = const Value.absent(),
+    this.institutionNumber = const Value.absent(),
+    this.transitNumber = const Value.absent(),
+    this.showBank = const Value.absent(),
+    this.showPaymentLink = const Value.absent(),
+    this.showTax = const Value.absent(),
+    this.showRateColumn = const Value.absent(),
+    this.showTimeColumn = const Value.absent(),
+    this.reverseCharge = const Value.absent(),
   }) : name = Value(name);
   static Insertable<InvoiceProfile> custom({
     Expression<int>? id,
@@ -3405,6 +3971,19 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Expression<double>? taxRate,
     Expression<bool>? isDefault,
     Expression<int>? templateId,
+    Expression<String>? region,
+    Expression<String>? iban,
+    Expression<String>? sortCode,
+    Expression<String>? routingNumber,
+    Expression<String>? payid,
+    Expression<String>? institutionNumber,
+    Expression<String>? transitNumber,
+    Expression<bool>? showBank,
+    Expression<bool>? showPaymentLink,
+    Expression<bool>? showTax,
+    Expression<bool>? showRateColumn,
+    Expression<bool>? showTimeColumn,
+    Expression<bool>? reverseCharge,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3428,6 +4007,19 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       if (taxRate != null) 'tax_rate': taxRate,
       if (isDefault != null) 'is_default': isDefault,
       if (templateId != null) 'template_id': templateId,
+      if (region != null) 'region': region,
+      if (iban != null) 'iban': iban,
+      if (sortCode != null) 'sort_code': sortCode,
+      if (routingNumber != null) 'routing_number': routingNumber,
+      if (payid != null) 'payid': payid,
+      if (institutionNumber != null) 'institution_number': institutionNumber,
+      if (transitNumber != null) 'transit_number': transitNumber,
+      if (showBank != null) 'show_bank': showBank,
+      if (showPaymentLink != null) 'show_payment_link': showPaymentLink,
+      if (showTax != null) 'show_tax': showTax,
+      if (showRateColumn != null) 'show_rate_column': showRateColumn,
+      if (showTimeColumn != null) 'show_time_column': showTimeColumn,
+      if (reverseCharge != null) 'reverse_charge': reverseCharge,
     });
   }
 
@@ -3453,6 +4045,19 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Value<double?>? taxRate,
     Value<bool>? isDefault,
     Value<int?>? templateId,
+    Value<String>? region,
+    Value<String?>? iban,
+    Value<String?>? sortCode,
+    Value<String?>? routingNumber,
+    Value<String?>? payid,
+    Value<String?>? institutionNumber,
+    Value<String?>? transitNumber,
+    Value<bool>? showBank,
+    Value<bool>? showPaymentLink,
+    Value<bool>? showTax,
+    Value<bool>? showRateColumn,
+    Value<bool>? showTimeColumn,
+    Value<bool>? reverseCharge,
   }) {
     return ProfilesCompanion(
       id: id ?? this.id,
@@ -3476,6 +4081,19 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       taxRate: taxRate ?? this.taxRate,
       isDefault: isDefault ?? this.isDefault,
       templateId: templateId ?? this.templateId,
+      region: region ?? this.region,
+      iban: iban ?? this.iban,
+      sortCode: sortCode ?? this.sortCode,
+      routingNumber: routingNumber ?? this.routingNumber,
+      payid: payid ?? this.payid,
+      institutionNumber: institutionNumber ?? this.institutionNumber,
+      transitNumber: transitNumber ?? this.transitNumber,
+      showBank: showBank ?? this.showBank,
+      showPaymentLink: showPaymentLink ?? this.showPaymentLink,
+      showTax: showTax ?? this.showTax,
+      showRateColumn: showRateColumn ?? this.showRateColumn,
+      showTimeColumn: showTimeColumn ?? this.showTimeColumn,
+      reverseCharge: reverseCharge ?? this.reverseCharge,
     );
   }
 
@@ -3545,6 +4163,45 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     if (templateId.present) {
       map['template_id'] = Variable<int>(templateId.value);
     }
+    if (region.present) {
+      map['region'] = Variable<String>(region.value);
+    }
+    if (iban.present) {
+      map['iban'] = Variable<String>(iban.value);
+    }
+    if (sortCode.present) {
+      map['sort_code'] = Variable<String>(sortCode.value);
+    }
+    if (routingNumber.present) {
+      map['routing_number'] = Variable<String>(routingNumber.value);
+    }
+    if (payid.present) {
+      map['payid'] = Variable<String>(payid.value);
+    }
+    if (institutionNumber.present) {
+      map['institution_number'] = Variable<String>(institutionNumber.value);
+    }
+    if (transitNumber.present) {
+      map['transit_number'] = Variable<String>(transitNumber.value);
+    }
+    if (showBank.present) {
+      map['show_bank'] = Variable<bool>(showBank.value);
+    }
+    if (showPaymentLink.present) {
+      map['show_payment_link'] = Variable<bool>(showPaymentLink.value);
+    }
+    if (showTax.present) {
+      map['show_tax'] = Variable<bool>(showTax.value);
+    }
+    if (showRateColumn.present) {
+      map['show_rate_column'] = Variable<bool>(showRateColumn.value);
+    }
+    if (showTimeColumn.present) {
+      map['show_time_column'] = Variable<bool>(showTimeColumn.value);
+    }
+    if (reverseCharge.present) {
+      map['reverse_charge'] = Variable<bool>(reverseCharge.value);
+    }
     return map;
   }
 
@@ -3571,7 +4228,20 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
           ..write('taxLabel: $taxLabel, ')
           ..write('taxRate: $taxRate, ')
           ..write('isDefault: $isDefault, ')
-          ..write('templateId: $templateId')
+          ..write('templateId: $templateId, ')
+          ..write('region: $region, ')
+          ..write('iban: $iban, ')
+          ..write('sortCode: $sortCode, ')
+          ..write('routingNumber: $routingNumber, ')
+          ..write('payid: $payid, ')
+          ..write('institutionNumber: $institutionNumber, ')
+          ..write('transitNumber: $transitNumber, ')
+          ..write('showBank: $showBank, ')
+          ..write('showPaymentLink: $showPaymentLink, ')
+          ..write('showTax: $showTax, ')
+          ..write('showRateColumn: $showRateColumn, ')
+          ..write('showTimeColumn: $showTimeColumn, ')
+          ..write('reverseCharge: $reverseCharge')
           ..write(')'))
         .toString();
   }
@@ -5768,6 +6438,19 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       Value<double?> taxRate,
       Value<bool> isDefault,
       Value<int?> templateId,
+      Value<String> region,
+      Value<String?> iban,
+      Value<String?> sortCode,
+      Value<String?> routingNumber,
+      Value<String?> payid,
+      Value<String?> institutionNumber,
+      Value<String?> transitNumber,
+      Value<bool> showBank,
+      Value<bool> showPaymentLink,
+      Value<bool> showTax,
+      Value<bool> showRateColumn,
+      Value<bool> showTimeColumn,
+      Value<bool> reverseCharge,
     });
 typedef $$ProfilesTableUpdateCompanionBuilder =
     ProfilesCompanion Function({
@@ -5792,6 +6475,19 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<double?> taxRate,
       Value<bool> isDefault,
       Value<int?> templateId,
+      Value<String> region,
+      Value<String?> iban,
+      Value<String?> sortCode,
+      Value<String?> routingNumber,
+      Value<String?> payid,
+      Value<String?> institutionNumber,
+      Value<String?> transitNumber,
+      Value<bool> showBank,
+      Value<bool> showPaymentLink,
+      Value<bool> showTax,
+      Value<bool> showRateColumn,
+      Value<bool> showTimeColumn,
+      Value<bool> reverseCharge,
     });
 
 final class $$ProfilesTableReferences
@@ -5922,6 +6618,71 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<bool> get isDefault => $composableBuilder(
     column: $table.isDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get region => $composableBuilder(
+    column: $table.region,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iban => $composableBuilder(
+    column: $table.iban,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sortCode => $composableBuilder(
+    column: $table.sortCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get routingNumber => $composableBuilder(
+    column: $table.routingNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payid => $composableBuilder(
+    column: $table.payid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get institutionNumber => $composableBuilder(
+    column: $table.institutionNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transitNumber => $composableBuilder(
+    column: $table.transitNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showBank => $composableBuilder(
+    column: $table.showBank,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showPaymentLink => $composableBuilder(
+    column: $table.showPaymentLink,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showTax => $composableBuilder(
+    column: $table.showTax,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showRateColumn => $composableBuilder(
+    column: $table.showRateColumn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showTimeColumn => $composableBuilder(
+    column: $table.showTimeColumn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get reverseCharge => $composableBuilder(
+    column: $table.reverseCharge,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6058,6 +6819,71 @@ class $$ProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get region => $composableBuilder(
+    column: $table.region,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iban => $composableBuilder(
+    column: $table.iban,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sortCode => $composableBuilder(
+    column: $table.sortCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get routingNumber => $composableBuilder(
+    column: $table.routingNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payid => $composableBuilder(
+    column: $table.payid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get institutionNumber => $composableBuilder(
+    column: $table.institutionNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transitNumber => $composableBuilder(
+    column: $table.transitNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showBank => $composableBuilder(
+    column: $table.showBank,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showPaymentLink => $composableBuilder(
+    column: $table.showPaymentLink,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showTax => $composableBuilder(
+    column: $table.showTax,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showRateColumn => $composableBuilder(
+    column: $table.showRateColumn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showTimeColumn => $composableBuilder(
+    column: $table.showTimeColumn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get reverseCharge => $composableBuilder(
+    column: $table.reverseCharge,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$TemplatesTableOrderingComposer get templateId {
     final $$TemplatesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6157,6 +6983,59 @@ class $$ProfilesTableAnnotationComposer
   GeneratedColumn<bool> get isDefault =>
       $composableBuilder(column: $table.isDefault, builder: (column) => column);
 
+  GeneratedColumn<String> get region =>
+      $composableBuilder(column: $table.region, builder: (column) => column);
+
+  GeneratedColumn<String> get iban =>
+      $composableBuilder(column: $table.iban, builder: (column) => column);
+
+  GeneratedColumn<String> get sortCode =>
+      $composableBuilder(column: $table.sortCode, builder: (column) => column);
+
+  GeneratedColumn<String> get routingNumber => $composableBuilder(
+    column: $table.routingNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payid =>
+      $composableBuilder(column: $table.payid, builder: (column) => column);
+
+  GeneratedColumn<String> get institutionNumber => $composableBuilder(
+    column: $table.institutionNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get transitNumber => $composableBuilder(
+    column: $table.transitNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showBank =>
+      $composableBuilder(column: $table.showBank, builder: (column) => column);
+
+  GeneratedColumn<bool> get showPaymentLink => $composableBuilder(
+    column: $table.showPaymentLink,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showTax =>
+      $composableBuilder(column: $table.showTax, builder: (column) => column);
+
+  GeneratedColumn<bool> get showRateColumn => $composableBuilder(
+    column: $table.showRateColumn,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showTimeColumn => $composableBuilder(
+    column: $table.showTimeColumn,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get reverseCharge => $composableBuilder(
+    column: $table.reverseCharge,
+    builder: (column) => column,
+  );
+
   $$TemplatesTableAnnotationComposer get templateId {
     final $$TemplatesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -6230,6 +7109,19 @@ class $$ProfilesTableTableManager
                 Value<double?> taxRate = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
                 Value<int?> templateId = const Value.absent(),
+                Value<String> region = const Value.absent(),
+                Value<String?> iban = const Value.absent(),
+                Value<String?> sortCode = const Value.absent(),
+                Value<String?> routingNumber = const Value.absent(),
+                Value<String?> payid = const Value.absent(),
+                Value<String?> institutionNumber = const Value.absent(),
+                Value<String?> transitNumber = const Value.absent(),
+                Value<bool> showBank = const Value.absent(),
+                Value<bool> showPaymentLink = const Value.absent(),
+                Value<bool> showTax = const Value.absent(),
+                Value<bool> showRateColumn = const Value.absent(),
+                Value<bool> showTimeColumn = const Value.absent(),
+                Value<bool> reverseCharge = const Value.absent(),
               }) => ProfilesCompanion(
                 id: id,
                 name: name,
@@ -6252,6 +7144,19 @@ class $$ProfilesTableTableManager
                 taxRate: taxRate,
                 isDefault: isDefault,
                 templateId: templateId,
+                region: region,
+                iban: iban,
+                sortCode: sortCode,
+                routingNumber: routingNumber,
+                payid: payid,
+                institutionNumber: institutionNumber,
+                transitNumber: transitNumber,
+                showBank: showBank,
+                showPaymentLink: showPaymentLink,
+                showTax: showTax,
+                showRateColumn: showRateColumn,
+                showTimeColumn: showTimeColumn,
+                reverseCharge: reverseCharge,
               ),
           createCompanionCallback:
               ({
@@ -6276,6 +7181,19 @@ class $$ProfilesTableTableManager
                 Value<double?> taxRate = const Value.absent(),
                 Value<bool> isDefault = const Value.absent(),
                 Value<int?> templateId = const Value.absent(),
+                Value<String> region = const Value.absent(),
+                Value<String?> iban = const Value.absent(),
+                Value<String?> sortCode = const Value.absent(),
+                Value<String?> routingNumber = const Value.absent(),
+                Value<String?> payid = const Value.absent(),
+                Value<String?> institutionNumber = const Value.absent(),
+                Value<String?> transitNumber = const Value.absent(),
+                Value<bool> showBank = const Value.absent(),
+                Value<bool> showPaymentLink = const Value.absent(),
+                Value<bool> showTax = const Value.absent(),
+                Value<bool> showRateColumn = const Value.absent(),
+                Value<bool> showTimeColumn = const Value.absent(),
+                Value<bool> reverseCharge = const Value.absent(),
               }) => ProfilesCompanion.insert(
                 id: id,
                 name: name,
@@ -6298,6 +7216,19 @@ class $$ProfilesTableTableManager
                 taxRate: taxRate,
                 isDefault: isDefault,
                 templateId: templateId,
+                region: region,
+                iban: iban,
+                sortCode: sortCode,
+                routingNumber: routingNumber,
+                payid: payid,
+                institutionNumber: institutionNumber,
+                transitNumber: transitNumber,
+                showBank: showBank,
+                showPaymentLink: showPaymentLink,
+                showTax: showTax,
+                showRateColumn: showRateColumn,
+                showTimeColumn: showTimeColumn,
+                reverseCharge: reverseCharge,
               ),
           withReferenceMapper: (p0) => p0
               .map(
