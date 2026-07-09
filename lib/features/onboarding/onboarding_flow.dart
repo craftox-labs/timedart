@@ -145,17 +145,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         AppTokens.spaceMd,
         0,
       ),
-      child: Row(
-        children: [
-          _ProgressDots(count: _machine.steps.length, index: _machine.index),
-          const Spacer(),
-          if (showSkipAll)
-            TextButton(
-              onPressed: () => _apply(_machine.skipAll),
-              style: TextButton.styleFrom(shape: _buttonShape),
-              child: const Text('Skip setup'),
-            ),
-        ],
+      // Fixed height (a button's tap target) so the dots stay at the same
+      // vertical position even on the final step, which drops the Skip button.
+      child: SizedBox(
+        height: kMinInteractiveDimension,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _ProgressDots(count: _machine.steps.length, index: _machine.index),
+            const Spacer(),
+            if (showSkipAll)
+              TextButton(
+                onPressed: () => _apply(_machine.skipAll),
+                style: TextButton.styleFrom(shape: _buttonShape),
+                child: const Text('Skip setup'),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -163,7 +169,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   // Fixed bottom nav (steps 2..5): Back on the left, primary on the right,
   // aligned to the content column so the actions line up with the body above.
   Widget _bottomNav() => Padding(
-    padding: const EdgeInsets.all(AppTokens.spaceXl),
+    padding: const EdgeInsets.all(AppTokens.space2xl),
     child: Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -300,7 +306,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     children: [
       Icon(
         Icons.check_circle_outline,
-        size: 64,
+        size: 120,
         color: Theme.of(context).colorScheme.primary,
       ),
       const SizedBox(height: AppTokens.spaceLg),
@@ -309,6 +315,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _body(
         'Create your first client and project in the tracker to get going.',
       ),
+      const SizedBox(height: AppTokens.spaceXs),
+      _body('Visit settings at anytime to add/edit details.'),
     ],
   );
 
