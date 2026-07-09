@@ -83,14 +83,51 @@ class _RootGateState extends State<RootGate> {
     final Widget child = switch (_mode) {
       _Mode.intro => OnboardingIntro(onFinish: _onIntroFinished),
       _Mode.onboarding => OnboardingFlow(onDone: _finish),
-      _Mode.shell => AdaptiveShell(db: widget.db, onRerunOnboarding: _rerun),
+      // The shell settles in with a subtle scale on top of the cross-fade, so
+      // arriving at the tracker (from the intro or from finishing onboarding)
+      // eases in rather than snapping.
+      _Mode.shell => _ShellEntrance(
+        child: AdaptiveShell(db: widget.db, onRerunOnboarding: _rerun),
+      ),
     };
     // Cross-fade between phases. Because the intro mirrors the Welcome step's
     // logo geometry, a plain fade makes the logo read as staying put while the
     // welcome copy fades in around it.
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 450),
       child: KeyedSubtree(key: ValueKey(_mode), child: child),
     );
   }
+}
+
+// Eases the shell in on first mount: a gentle scale-up settle. The fade is
+// supplied by the gate's [AnimatedSwitcher]; this adds only the motion. Runs
+// once — later shell rebuilds keep the completed (identity) transform.
+class _ShellEntrance extends StatefulWidget {
+  const _ShellEntrance({required this.child});
+  final Widget child;
+  @override
+  State<_ShellEntrance> createState() => _ShellEntranceState();
+}
+
+class _ShellEntranceState extends State<_ShellEntrance>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  )..forward();
+  late final Animation<double> _scale = Tween(
+    begin: 0.97,
+    end: 1.0,
+  ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ScaleTransition(scale: _scale, child: widget.child);
 }
