@@ -519,6 +519,17 @@ Future<Uint8List> buildBrandedInvoicePdf({
             ),
           ],
         ),
+        if (doc.reverseCharge) ...[
+          pw.SizedBox(height: _p(InvoiceLayout.totalsGap)),
+          pw.Text(
+            InvoiceDocument.reverseChargeStatement,
+            style: pw.TextStyle(
+              font: medium,
+              color: primary,
+              fontSize: _p(InvoiceLayout.fontLabel),
+            ),
+          ),
+        ],
         pw.SizedBox(height: _p(InvoiceLayout.sectionGap)),
 
         // ── Payments ── (omitted entirely when there's nothing to show)

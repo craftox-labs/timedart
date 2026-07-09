@@ -97,6 +97,14 @@ class InvoiceDocument {
   // tax-exempt job. (showTax off is applied upstream: [tax] is already null.)
   final bool showBank;
   final bool showPaymentLink;
+  // EU/UK B2B: the customer accounts for VAT. When true, [tax] is null (no VAT
+  // amount) and the renderers print [reverseChargeStatement] in its place.
+  final bool reverseCharge;
+
+  /// The fixed reverse-charge wording. Not substitutable (EU VAT Directive
+  /// Art. 226(11a); CJEU C-247/21) — both renderers print exactly this.
+  static const reverseChargeStatement =
+      'Reverse charge — customer accounts for VAT.';
 
   // Payment (from the profile). Which of these appear on the invoice — and in
   // what order — is decided per region (see [paymentFields]); the columns not
@@ -143,6 +151,7 @@ class InvoiceDocument {
     required this.tax,
     this.showBank = true,
     this.showPaymentLink = true,
+    this.reverseCharge = false,
     required this.payeeName,
     required this.bankName,
     required this.bankBsb,
@@ -230,15 +239,20 @@ InvoiceDocument buildInvoiceDocument({
       ),
   ];
 
+  final region = InvoiceRegion.fromName(profile.region);
   final resolvedShowBank = showBank ?? profile.showBank;
   final resolvedShowLink = showPaymentLink ?? profile.showPaymentLink;
   final resolvedShowTax = showTax ?? profile.showTax;
+  // Reverse charge applies only to EU/UK; it removes the VAT amount (the
+  // customer accounts for it) — so it also suppresses the tax line.
+  final reverseCharge = region.supportsReverseCharge && profile.reverseCharge;
 
   final subtotal = lines.fold<double>(0, (sum, l) => sum + l.amount);
   final taxLabel = profile.taxLabel?.trim();
   final taxRate = profile.taxRate;
-  // showTax off removes the line AND its amount (a tax-exempt invoice).
+  // showTax off (or reverse charge) removes the line AND its amount.
   final tax = (resolvedShowTax &&
+          !reverseCharge &&
           taxLabel != null &&
           taxLabel.isNotEmpty &&
           taxRate != null)
@@ -248,8 +262,6 @@ InvoiceDocument buildInvoiceDocument({
           amount: subtotal * taxRate / 100,
         )
       : null;
-
-  final region = InvoiceRegion.fromName(profile.region);
 
   return InvoiceDocument(
     invoiceNumber: _blankToNull(invoiceNumber),
@@ -261,6 +273,7 @@ InvoiceDocument buildInvoiceDocument({
     title: region.invoiceTitle(hasTax: tax != null),
     showBank: resolvedShowBank,
     showPaymentLink: resolvedShowLink,
+    reverseCharge: reverseCharge,
     businessName: profile.businessName,
     logo: profile.logo,
     // A real invoice: the default profile falls back to the timedart mark;
@@ -328,23 +341,25 @@ InvoiceDocument sampleInvoiceDocument({
     ),
   ];
 
+  final region = InvoiceRegion.fromName(profile.region);
+  final reverseCharge = region.supportsReverseCharge && profile.reverseCharge;
   final subtotal = lines.fold<double>(0, (sum, l) => sum + l.amount);
   final taxLabel = profile.taxLabel?.trim();
   final taxRate = profile.taxRate;
   final tax =
       (profile.showTax &&
+          !reverseCharge &&
           taxLabel != null &&
           taxLabel.isNotEmpty &&
           taxRate != null)
       ? InvoiceTax(label: taxLabel, rate: taxRate, amount: subtotal * taxRate / 100)
       : null;
 
-  final region = InvoiceRegion.fromName(profile.region);
-
   return InvoiceDocument(
     invoiceNumber: 'INV-0001',
     showBank: profile.showBank,
     showPaymentLink: profile.showPaymentLink,
+    reverseCharge: reverseCharge,
     issueDate: issueDate,
     periodFrom: from,
     periodTo: issueDate,
@@ -398,24 +413,26 @@ InvoiceDocument profilePreviewDocument({
   required InvoiceProfile profile,
   required DateTime issueDate,
 }) {
+  final region = InvoiceRegion.fromName(profile.region);
+  final reverseCharge = region.supportsReverseCharge && profile.reverseCharge;
   final taxLabel = profile.taxLabel?.trim();
   final taxRate = profile.taxRate;
   // No lines to tax against, so amount is always 0 — the label/rate are the
   // only structurally meaningful part of a zero-transaction preview.
   final tax =
       (profile.showTax &&
+          !reverseCharge &&
           taxLabel != null &&
           taxLabel.isNotEmpty &&
           taxRate != null)
       ? InvoiceTax(label: taxLabel, rate: taxRate, amount: 0)
       : null;
 
-  final region = InvoiceRegion.fromName(profile.region);
-
   return InvoiceDocument(
     invoiceNumber: null,
     showBank: profile.showBank,
     showPaymentLink: profile.showPaymentLink,
+    reverseCharge: reverseCharge,
     issueDate: issueDate,
     periodFrom: issueDate,
     periodTo: issueDate,

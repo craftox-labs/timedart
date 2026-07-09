@@ -82,6 +82,11 @@ enum InvoiceRegion {
   String? get paymentNote => this == InvoiceRegion.us
       ? 'Pay by ACH (domestic) or wire (international).'
       : null;
+
+  /// Reverse charge (the customer accounts for VAT) is an EU/UK B2B mechanism;
+  /// offered only for those regions.
+  bool get supportsReverseCharge =>
+      this == InvoiceRegion.uk || this == InvoiceRegion.eu;
 }
 
 /// One bank identifier, with its invoice-block label and editor-field label.
