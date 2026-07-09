@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
@@ -42,6 +43,10 @@ class _InvoiceViewState extends State<InvoiceView> {
   // Last resolved doc+template, kept so a reload (e.g. typing an invoice number)
   // shows the previous preview instead of a spinner while the new one loads.
   ({InvoiceDocument doc, InvoiceTemplate template})? _last;
+  // Watches the project + its joined client row so edits made elsewhere
+  // (name, contact, rate, address, tax no., …) live-refresh the open preview
+  // instead of needing a close/reopen (#138).
+  StreamSubscription<(Project, Client)?>? _sourceSub;
 
   @override
   void initState() {
@@ -49,6 +54,13 @@ class _InvoiceViewState extends State<InvoiceView> {
     final now = DateTime.now();
     _range = DateTimeRange(start: DateTime(now.year, now.month), end: now);
     _load();
+    // Re-run _load() whenever the underlying project/client data changes.
+    // The stream's initial emit is harmless — _last keeps the preview
+    // flicker-free while the reload resolves.
+    _sourceSub = widget.db.watchProjectWithClient(widget.project.id).listen((_) {
+      if (!mounted) return;
+      setState(_load);
+    });
     // Populate the profile picker; default it to the default profile so the
     // dropdown reflects what renders, then reload so the preview matches.
     widget.db.watchProfiles().first.then((list) {
@@ -77,6 +89,7 @@ class _InvoiceViewState extends State<InvoiceView> {
 
   @override
   void dispose() {
+    _sourceSub?.cancel();
     _invoiceNumber.dispose();
     super.dispose();
   }
