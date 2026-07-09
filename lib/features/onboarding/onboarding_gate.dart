@@ -64,11 +64,18 @@ class _RootGateState extends State<RootGate> {
     if (mounted) setState(() => _mode = _Mode.shell);
   }
 
-  // Settings → "Re-run setup": clear the flag and replay the wizard in place
-  // (a fresh OnboardingFlow, so its step machine starts over). No intro replay.
+  // Settings → "Re-run setup": clear the flag and replay the whole first-run
+  // experience — the intro animation, then a fresh wizard. Resetting
+  // _introDone routes back through the intro (the flag is already known false,
+  // so it lands on onboarding once the intro finishes).
   Future<void> _rerun() async {
     await widget.db.setOnboardingComplete(false);
-    if (mounted) setState(() => _mode = _Mode.onboarding);
+    if (!mounted) return;
+    setState(() {
+      _onboardingComplete = false;
+      _introDone = false;
+      _mode = _Mode.intro;
+    });
   }
 
   @override
