@@ -18,6 +18,17 @@ void main() {
     });
   });
 
+  group('default currency', () {
+    test('per region; Other has none', () {
+      expect(InvoiceRegion.au.defaultCurrency, 'AUD');
+      expect(InvoiceRegion.uk.defaultCurrency, 'GBP');
+      expect(InvoiceRegion.eu.defaultCurrency, 'EUR');
+      expect(InvoiceRegion.us.defaultCurrency, 'USD');
+      expect(InvoiceRegion.ca.defaultCurrency, 'CAD');
+      expect(InvoiceRegion.other.defaultCurrency, isNull);
+    });
+  });
+
   group('buyer tax-ID label', () {
     test('per region', () {
       expect(InvoiceRegion.au.buyerTaxIdLabel, 'ABN');

@@ -417,15 +417,28 @@ InvoiceDocument profilePreviewDocument({
   final reverseCharge = region.supportsReverseCharge && profile.reverseCharge;
   final taxLabel = profile.taxLabel?.trim();
   final taxRate = profile.taxRate;
-  // No lines to tax against, so amount is always 0 — the label/rate are the
-  // only structurally meaningful part of a zero-transaction preview.
+  // A single placeholder line so the Details table + totals read like a real
+  // invoice; the client/recipient stays blanked ('—') as before.
+  final lines = <InvoiceLineItem>[
+    InvoiceLineItem(
+      item: 'Sample task · Time entry',
+      date: issueDate,
+      seconds: 1 * 3600 + 30 * 60,
+      rate: 120,
+    ),
+  ];
+  final subtotal = lines.fold<double>(0, (sum, l) => sum + l.amount);
   final tax =
       (profile.showTax &&
           !reverseCharge &&
           taxLabel != null &&
           taxLabel.isNotEmpty &&
           taxRate != null)
-      ? InvoiceTax(label: taxLabel, rate: taxRate, amount: 0)
+      ? InvoiceTax(
+          label: taxLabel,
+          rate: taxRate,
+          amount: subtotal * taxRate / 100,
+        )
       : null;
 
   return InvoiceDocument(
@@ -456,7 +469,7 @@ InvoiceDocument profilePreviewDocument({
     recipientAddress: null,
     recipientAbn: null,
     recipientAbnLabel: region.buyerTaxIdLabel,
-    lines: const [],
+    lines: lines,
     currency: profile.currency,
     tax: tax,
     payeeName: profile.payeeName,

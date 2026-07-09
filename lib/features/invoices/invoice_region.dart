@@ -11,17 +11,48 @@ import 'package:time_tracker/features/invoices/bank_validators.dart';
 // Profiles.region; [fromName] parses it back, defaulting unknown/null to
 // [other] so an unrecognised value can never crash a render.
 enum InvoiceRegion {
-  au('Australia', defaultTaxLabel: 'GST', buyerTaxIdLabel: 'ABN'),
-  uk('United Kingdom', defaultTaxLabel: 'VAT', buyerTaxIdLabel: 'VAT NO.'),
-  eu('European Union', defaultTaxLabel: 'VAT', buyerTaxIdLabel: 'VAT NO.'),
-  us('United States', defaultTaxLabel: null, buyerTaxIdLabel: 'TAX NO.'),
-  ca('Canada', defaultTaxLabel: 'GST/HST', buyerTaxIdLabel: 'GST NO.'),
-  other('Other', defaultTaxLabel: null, buyerTaxIdLabel: 'TAX NO.');
+  au(
+    'Australia',
+    defaultTaxLabel: 'GST',
+    buyerTaxIdLabel: 'ABN',
+    defaultCurrency: 'AUD',
+  ),
+  uk(
+    'United Kingdom',
+    defaultTaxLabel: 'VAT',
+    buyerTaxIdLabel: 'VAT NO.',
+    defaultCurrency: 'GBP',
+  ),
+  eu(
+    'European Union',
+    defaultTaxLabel: 'VAT',
+    buyerTaxIdLabel: 'VAT NO.',
+    defaultCurrency: 'EUR',
+  ),
+  us(
+    'United States',
+    defaultTaxLabel: null,
+    buyerTaxIdLabel: 'TAX NO.',
+    defaultCurrency: 'USD',
+  ),
+  ca(
+    'Canada',
+    defaultTaxLabel: 'GST/HST',
+    buyerTaxIdLabel: 'GST NO.',
+    defaultCurrency: 'CAD',
+  ),
+  other(
+    'Other',
+    defaultTaxLabel: null,
+    buyerTaxIdLabel: 'TAX NO.',
+    defaultCurrency: null,
+  );
 
   const InvoiceRegion(
     this.label, {
     required this.defaultTaxLabel,
     required this.buyerTaxIdLabel,
+    required this.defaultCurrency,
   });
 
   /// Human-readable region name for the profile editor's region picker.
@@ -33,6 +64,11 @@ enum InvoiceRegion {
 
   /// The recipient-block label for the buyer's tax identifier.
   final String buyerTaxIdLabel;
+
+  /// The region's most common invoicing currency (ISO code), pre-filled when the
+  /// region is chosen; null ([other]) means no sensible default, so the field is
+  /// left as-is. Always user-editable.
+  final String? defaultCurrency;
 
   /// Parse a persisted region name back to the enum. Unknown or null → [other].
   static InvoiceRegion fromName(String? name) {
@@ -64,7 +100,13 @@ enum InvoiceRegion {
       BankField.bic,
     ],
     InvoiceRegion.eu => const [BankField.iban, BankField.bic],
-    InvoiceRegion.us => const [BankField.routing, BankField.account],
+    InvoiceRegion.us => const [
+      BankField.routing,
+      BankField.account,
+      // For international wires the note advertises — a US beneficiary needs a
+      // SWIFT/BIC alongside the ABA routing used for domestic ACH/wire.
+      BankField.bic,
+    ],
     InvoiceRegion.ca => const [
       BankField.institution,
       BankField.transit,

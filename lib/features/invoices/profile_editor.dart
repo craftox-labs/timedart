@@ -111,13 +111,13 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _c['currency']!.text = p.currency;
       _c['taxLabel']!.text = p.taxLabel ?? '';
       _c['taxRate']!.text = p.taxRate?.toString() ?? '';
-    } else {
-      _c['currency']!.text = 'USD';
     }
     _isDefault = p?.isDefault ?? false;
     // Existing profile keeps its region; a new one defaults to AU (the app's
     // seeded heritage — GST/BSB), switchable in the picker.
     _region = p != null ? InvoiceRegion.fromName(p.region) : InvoiceRegion.au;
+    // A new profile pre-fills the default region's currency (kept editable).
+    if (p == null) _c['currency']!.text = _region.defaultCurrency ?? 'USD';
     _showBank = p?.showBank ?? true;
     _showPaymentLink = p?.showPaymentLink ?? true;
     _showTax = p?.showTax ?? true;
@@ -453,38 +453,65 @@ class _ProfileEditorState extends State<ProfileEditor> {
     return Column(
       spacing: AppTokens.spaceXl,
       children: [
-        FieldGroup('Profile name / Template', [
-          FieldRow([
-            Field(_field('name', 'Name')),
-            Field(
-              EditorDropdown<int>(
-                label: 'Template',
-                value: _templateId,
-                items: [
-                  for (final t in _templates)
-                    DropdownMenuItem(value: t.id, child: Text(t.name)),
+        // Split headers: "Profile name" sits above its Name + Default cluster,
+        // "Template" above its Template picker + Logo cluster. Stacks below the
+        // breakpoint so neither cluster is crushed into a narrow half on mobile.
+        FieldRow(stackBelow: 680, [
+          Field(
+            titledField(
+              context,
+              'Profile name',
+              Row(
+                children: [
+                  Expanded(child: _field('name', 'Name')),
+                  const SizedBox(width: AppTokens.spaceSm),
+                  brandingDefaultToggle(
+                    value: _isDefault,
+                    onChanged: (v) => setState(() {
+                      _isDefault = v;
+                      _checkDirty();
+                    }),
+                  ),
                 ],
-                onChanged: (v) => setState(() {
-                  _templateId = v;
-                  _checkDirty();
-                }),
               ),
             ),
-            Field(
-              flex: 0,
-              _LogoField(
-                logo: _logo,
-                onPick: _pickLogo,
-                onRemove: _logo == null
-                    ? null
-                    : () => setState(() {
-                        _logo = null;
-                        _logoMime = null;
+          ),
+          Field(
+            titledField(
+              context,
+              'Template',
+              Row(
+                children: [
+                  Expanded(
+                    child: EditorDropdown<int>(
+                      label: 'Template',
+                      value: _templateId,
+                      items: [
+                        for (final t in _templates)
+                          DropdownMenuItem(value: t.id, child: Text(t.name)),
+                      ],
+                      onChanged: (v) => setState(() {
+                        _templateId = v;
                         _checkDirty();
                       }),
+                    ),
+                  ),
+                  const SizedBox(width: AppTokens.spaceSm),
+                  _LogoField(
+                    logo: _logo,
+                    onPick: _pickLogo,
+                    onRemove: _logo == null
+                        ? null
+                        : () => setState(() {
+                            _logo = null;
+                            _logoMime = null;
+                            _checkDirty();
+                          }),
+                  ),
+                ],
               ),
             ),
-          ]),
+          ),
         ]),
         FieldGroup('Business', [
           FieldRow([
@@ -502,42 +529,15 @@ class _ProfileEditorState extends State<ProfileEditor> {
             Field(_field('abn', 'ABN / company no.')),
           ]),
         ]),
-        FieldGroup('Payment', [
-          FieldRow([
-            Field(_field('payeeName', 'Payee name')),
-            Field(_field('bankName', 'Bank')),
-          ]),
-          // Region drives which bank identifiers appear, so a UK profile isn't
-          // asked for a BSB nor an AU one for an IBAN.
-          FieldRow([
-            for (final f in _region.bankFields)
-              Field(
-                _field(
-                  _bankKey(f),
-                  f.editorLabel,
-                  validator: f.validate,
-                ),
-              ),
-          ]),
-          FieldRow([Field(_field('paymentLink', 'Payment link'))]),
-        ]),
-        FieldGroup('Show on invoice', [
-          FieldRow([
-            Field(
-              flex: 0,
-              _toggle('Bank details', _showBank, (v) => _showBank = v),
-            ),
-            Field(
-              flex: 0,
-              _toggle('Payment link', _showPaymentLink,
-                  (v) => _showPaymentLink = v),
-            ),
-            Field(flex: 0, _toggle('Tax', _showTax, (v) => _showTax = v)),
-          ]),
-        ]),
-        FieldGroup('Region, currency & tax', [
-          FieldRow([
-            Field(
+        // Region picker + show-on-invoice toggles. Custom layout (not FieldRow):
+        // wide → region takes the flex, toggles pack tight on the right; narrow
+        // → stack, with the toggles in a Wrap (bounded width) so they reflow onto
+        // a second line instead of overflowing a narrow pane.
+        LayoutBuilder(
+          builder: (context, c) {
+            final region = titledField(
+              context,
+              'Region',
               EditorDropdown<InvoiceRegion>(
                 label: 'Region',
                 value: _region,
@@ -559,40 +559,118 @@ class _ProfileEditorState extends State<ProfileEditor> {
                         current == previous.defaultTaxLabel) {
                       _c['taxLabel']!.text = v.defaultTaxLabel ?? '';
                     }
+                    // Same for currency: fill the region's default unless the
+                    // user typed their own. Never blank it (currency is
+                    // required), so a region with no default leaves it as-is.
+                    final currency = _c['currency']!.text.trim();
+                    if (v.defaultCurrency != null &&
+                        (currency.isEmpty ||
+                            currency == previous.defaultCurrency)) {
+                      _c['currency']!.text = v.defaultCurrency!;
+                    }
                     // Reverse charge is EU/UK-only — drop it if we leave.
                     if (!v.supportsReverseCharge) _reverseCharge = false;
                     _checkDirty();
                   });
                 },
               ),
-            ),
-            Field(_field('currency', 'Currency')),
-          ]),
-          FieldRow([
-            Field(_field('taxLabel', 'Tax label')),
-            Field(_field('taxRate', 'Tax %', number: true)),
-            Field(
-              flex: 0,
-              brandingDefaultToggle(
-                value: _isDefault,
-                onChanged: (v) => setState(() {
-                  _isDefault = v;
-                  _checkDirty();
-                }),
+            );
+            // Currency pairs with region (region sets its default) and must stay
+            // editable regardless of the Tax toggle, so it lives here — not in
+            // the tax group.
+            final currency = titledField(
+              context,
+              'Currency',
+              _field('currency', 'Currency'),
+            );
+            // Region + currency share the left cluster (2:1); the toggles pack
+            // tight on the right.
+            final regionCurrency = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 2, child: region),
+                const SizedBox(width: AppTokens.spaceLg),
+                Expanded(flex: 1, child: currency),
+              ],
+            );
+            final toggles = titledField(
+              context,
+              'Show on invoice',
+              Wrap(
+                spacing: AppTokens.spaceLg,
+                runSpacing: AppTokens.spaceSm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _toggle('Bank details', _showBank, (v) => _showBank = v),
+                  _toggle(
+                    'Payment link',
+                    _showPaymentLink,
+                    (v) => _showPaymentLink = v,
+                  ),
+                  _toggle('Tax', _showTax, (v) => _showTax = v),
+                ],
               ),
-            ),
-          ]),
-          // Reverse charge — EU/UK B2B only. Suppresses the VAT amount and
-          // prints the fixed "Reverse charge" statement.
-          if (_region.supportsReverseCharge)
+            );
+            if (c.maxWidth >= 840) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: regionCurrency),
+                  const SizedBox(width: AppTokens.spaceLg),
+                  toggles,
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                regionCurrency,
+                const SizedBox(height: AppTokens.spaceMd),
+                toggles,
+              ],
+            );
+          },
+        ),
+        if (_showBank == true)
+          FieldGroup('Bank payment', [
             FieldRow([
-              Field(
-                flex: 0,
-                _toggle('Reverse charge (B2B)', _reverseCharge,
-                    (v) => _reverseCharge = v),
-              ),
+              Field(_field('payeeName', 'Payee name')),
+              Field(_field('bankName', 'Bank')),
             ]),
-        ]),
+            // Region drives which bank identifiers appear, so a UK profile isn't
+            // asked for a BSB nor an AU one for an IBAN.
+            FieldRow([
+              for (final f in _region.bankFields)
+                Field(
+                  _field(_bankKey(f), f.editorLabel, validator: f.validate),
+                ),
+            ]),
+          ]),
+        if (_showPaymentLink == true)
+          FieldGroup('Payment link', [
+            FieldRow([Field(_field('paymentLink', 'Payment link'))]),
+          ]),
+
+        if (_showTax == true)
+          FieldGroup('Tax', [
+            FieldRow([
+              Field(_field('taxLabel', 'Tax label')),
+              Field(_field('taxRate', 'Tax %', number: true)),
+            ]),
+            // Reverse charge — EU/UK B2B only. Suppresses the VAT amount and
+            // prints the fixed "Reverse charge" statement.
+            if (_region.supportsReverseCharge)
+              FieldRow([
+                Field(
+                  flex: 0,
+                  _toggle(
+                    'Reverse charge (B2B)',
+                    _reverseCharge,
+                    (v) => _reverseCharge = v,
+                  ),
+                ),
+              ]),
+          ]),
         const SizedBox(height: AppTokens.space4xs),
       ],
     );
@@ -613,24 +691,15 @@ class _ProfileEditorState extends State<ProfileEditor> {
   );
 
   // A compact labelled switch for an invoice-inclusion default.
-  Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(label),
-      const SizedBox(width: AppTokens.space2xs),
-      Transform.scale(
-        scale: 0.8,
-        child: Switch(
-          value: value,
-          onChanged: (v) => setState(() {
-            onChanged(v);
-            _checkDirty();
-          }),
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      ),
-    ],
-  );
+  Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) =>
+      labelledSwitch(
+        label: label,
+        value: value,
+        onChanged: (v) => setState(() {
+          onChanged(v);
+          _checkDirty();
+        }),
+      );
 
   // Maps a region [BankField] to its text-controller key.
   String _bankKey(BankField f) => switch (f) {

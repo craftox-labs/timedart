@@ -273,26 +273,6 @@ class InvoicePreview extends StatelessWidget {
         ),
       ),
       const SizedBox(height: InvoiceLayout.headlineGap),
-      Text('ATT:', style: _label),
-      Text(
-        doc.attention ?? doc.organisation,
-        style: TextStyle(
-          color: _primary,
-          fontSize: InvoiceLayout.fontHeadline,
-          fontWeight: InvoiceLayout.fontWeightBold,
-        ),
-      ),
-      const SizedBox(height: InvoiceLayout.headlineGap),
-      Text('RE:', style: _label),
-      Text(
-        doc.reference,
-        style: TextStyle(
-          color: _primary,
-          fontSize: InvoiceLayout.fontHeadline,
-          fontWeight: InvoiceLayout.fontWeightBold,
-        ),
-      ),
-      const SizedBox(height: InvoiceLayout.headlineGap),
       Text(
         _iso(doc.issueDate),
         style: TextStyle(color: _primary, fontSize: InvoiceLayout.fontLabel),
@@ -306,6 +286,44 @@ class InvoicePreview extends StatelessWidget {
             fontWeight: InvoiceLayout.fontWeightBold,
           ),
         ),
+      const SizedBox(height: InvoiceLayout.headlineGap),
+      Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ATT:', style: _label),
+                Text(
+                  doc.attention ?? doc.organisation,
+                  style: TextStyle(
+                    color: _primary,
+                    fontSize: InvoiceLayout.fontHeadline,
+                    fontWeight: InvoiceLayout.fontWeightBold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: InvoiceLayout.headlineGap),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('RE:', style: _label),
+                Text(
+                  doc.reference,
+                  style: TextStyle(
+                    color: _primary,
+                    fontSize: InvoiceLayout.fontHeadline,
+                    fontWeight: InvoiceLayout.fontWeightBold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     ],
   );
 
@@ -576,7 +594,9 @@ class InvoicePreview extends StatelessWidget {
 
   Widget _payments() {
     // Inclusion flags let the invoice deliberately omit a block that has data.
-    final fields = doc.showBank ? doc.paymentFields : const <(String, String)>[];
+    final fields = doc.showBank
+        ? doc.paymentFields
+        : const <(String, String)>[];
     final showLink = doc.showPaymentLink && _present(doc.paymentLink);
     // Nothing to pay to — omit the whole block rather than show an empty heading.
     if (fields.isEmpty && !showLink) {
@@ -584,10 +604,7 @@ class InvoicePreview extends StatelessWidget {
     }
     final rows = <List<(String, String)>>[
       for (var i = 0; i < fields.length; i += _payColumns)
-        fields.sublist(
-          i,
-          (i + _payColumns).clamp(0, fields.length),
-        ),
+        fields.sublist(i, (i + _payColumns).clamp(0, fields.length)),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,7 +619,7 @@ class InvoicePreview extends StatelessWidget {
         ),
         const SizedBox(height: InvoiceLayout.paymentsHeadingGap),
         if (showLink) ...[
-          _field('Link', doc.paymentLink),
+          _field('LINK', doc.paymentLink),
           if (rows.isNotEmpty)
             const SizedBox(height: InvoiceLayout.paymentsFieldGap),
         ],
@@ -621,18 +638,15 @@ class InvoicePreview extends StatelessWidget {
     );
   }
 
-  // One row of payment fields, padded with empty cells so column widths stay
-  // constant across rows (a two-field row aligns with a three-field row above).
+  // One row of payment fields. The row's items divide its full width evenly, so
+  // a short row (e.g. a lone BANK) still spans 100% — columns intentionally do
+  // NOT align across rows of differing counts.
   Widget _paymentRow(List<(String, String)> row) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      for (var c = 0; c < _payColumns; c++) ...[
+      for (var c = 0; c < row.length; c++) ...[
         if (c > 0) const SizedBox(width: InvoiceLayout.gridGutter),
-        Expanded(
-          child: c < row.length
-              ? _field(row[c].$1, row[c].$2)
-              : const SizedBox(),
-        ),
+        Expanded(child: _field(row[c].$1, row[c].$2)),
       ],
     ],
   );

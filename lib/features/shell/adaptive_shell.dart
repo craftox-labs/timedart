@@ -412,8 +412,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               final margin = ((c.maxWidth - AppTokens.maxContentWidth) / 2)
                   .clamp(0.0, double.infinity);
               return Padding(
+                // Left pad matches PageHeader's logo inset (leftInset + spaceMd)
+                // so the header logo aligns with the title/fields here. Keep in
+                // sync with page_header.dart.
                 padding: EdgeInsets.fromLTRB(
-                  margin + AppTokens.spaceLg,
+                  margin + AppTokens.spaceLg + AppTokens.spaceMd,
                   AppTokens.spaceLg,
                   AppTokens.spaceLg,
                   AppTokens.spaceLg,

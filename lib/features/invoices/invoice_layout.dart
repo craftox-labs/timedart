@@ -22,8 +22,8 @@ abstract class InvoiceLayout {
   static const double detailsBlockGap = 24.0;
   static const double detailsHeadingGap = 12.0;
   static const double tableHeaderGap = 8.0;
-  static const double totalsGap = 6.0;
-  static const double amountDueGap = 12.0;
+  static const double totalsGap = 8.0;
+  static const double amountDueGap = 0;
   static const double paymentsHeadingGap = 8.0;
   static const double paymentsFieldGap = 8.0;
   static const double gridGutter = 6.0;
@@ -42,7 +42,7 @@ abstract class InvoiceLayout {
   static const double fontInvoiceNumber = 20.0;
   static const double fontDetailsHeading = 16.0;
   static const double fontPaymentsHeading = 17.0;
-  static const double fontAmountDue = 14.0;
+  static const double fontAmountDue = 12.0;
   static const double fontHeadline = 20.0;
 
   // Font weights. The Flutter preview reads these directly from the single
