@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:time_tracker/constants/theme.dart';
 import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/features/shell/adaptive_shell.dart';
+import 'package:time_tracker/features/onboarding/onboarding_gate.dart';
 import 'package:time_tracker/data/database.dart';
 
 void main() {
@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
       },
       title: 'Time Tracker',
       theme: buildAppTheme(Brightness.dark),
-      home: AdaptiveShell(db: db),
+      home: RootGate(db: db),
     );
   }
 }

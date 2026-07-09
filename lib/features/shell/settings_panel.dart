@@ -25,6 +25,7 @@ class SettingsPanel extends StatefulWidget {
     this.onEditTemplate,
     this.onAddProfile,
     this.onEditProfile,
+    this.onRerunOnboarding,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -54,6 +55,10 @@ class SettingsPanel extends StatefulWidget {
   final void Function(InvoiceTemplate, {bool startEditing})? onEditTemplate;
   final VoidCallback? onAddProfile;
   final void Function(InvoiceProfile, {bool startEditing})? onEditProfile;
+  // App-level actions under the General section. Replays first-run onboarding
+  // (also the dev/test reset); null hides the row. Future data actions
+  // (import/export) will join it in the same section.
+  final Future<void> Function()? onRerunOnboarding;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -69,17 +74,19 @@ class SettingsPanel extends StatefulWidget {
   State<SettingsPanel> createState() => _SettingsPanelState();
 }
 
-enum _Section { templates, profiles }
+enum _Section { templates, profiles, general }
 
 String _sectionLabel(_Section s) => switch (s) {
-      _Section.templates => 'Templates',
-      _Section.profiles => 'Profiles',
-    };
+  _Section.templates => 'Templates',
+  _Section.profiles => 'Profiles',
+  _Section.general => 'General',
+};
 
 String _sectionSingular(_Section s) => switch (s) {
-      _Section.templates => 'Template',
-      _Section.profiles => 'Profile',
-    };
+  _Section.templates => 'Template',
+  _Section.profiles => 'Profile',
+  _Section.general => 'General',
+};
 
 // A flattened visible row: a section header, or one entity under an open one.
 sealed class _BRow {
@@ -90,7 +97,11 @@ class _HeaderRow extends _BRow {
   final _Section section;
   final bool expanded;
   final bool hasItems;
-  const _HeaderRow(this.section, {required this.expanded, required this.hasItems});
+  const _HeaderRow(
+    this.section, {
+    required this.expanded,
+    required this.hasItems,
+  });
 }
 
 class _EntityRow extends _BRow {
@@ -98,19 +109,38 @@ class _EntityRow extends _BRow {
   final int id;
   final String name;
   final bool isDefault;
-  const _EntityRow(this.section, {required this.id, required this.name, required this.isDefault});
+  const _EntityRow(
+    this.section, {
+    required this.id,
+    required this.name,
+    required this.isDefault,
+  });
+}
+
+// A tappable command under the General section (e.g. Re-run setup) — no
+// underlying entity, just a label + icon + action.
+class _ActionRow extends _BRow {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _ActionRow({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 }
 
 class _SettingsPanelState extends State<SettingsPanel> {
-  late final Stream<List<InvoiceTemplate>> _templates =
-      widget.db.watchTemplates();
+  late final Stream<List<InvoiceTemplate>> _templates = widget.db
+      .watchTemplates();
   late final Stream<List<InvoiceProfile>> _profiles = widget.db.watchProfiles();
 
   // Sections start open — a settings surface reads best fully expanded.
   final Set<_Section> _expanded = {..._Section.values};
   FocusNode? _internalCursor;
   FocusNode get _cursorNode =>
-      widget.cursorFocusNode ?? (_internalCursor ??= FocusNode(debugLabel: 'settingsCursor'));
+      widget.cursorFocusNode ??
+      (_internalCursor ??= FocusNode(debugLabel: 'settingsCursor'));
   int _cursor = 0;
   List<_BRow> _rows = const [];
 
@@ -149,14 +179,26 @@ class _SettingsPanelState extends State<SettingsPanel> {
   List<InvoiceProfile> _latestProfiles = const [];
 
   VoidCallback? _addFor(_Section s) => switch (s) {
-        _Section.templates => widget.onAddTemplate,
-        _Section.profiles => widget.onAddProfile,
-      };
+    _Section.templates => widget.onAddTemplate,
+    _Section.profiles => widget.onAddProfile,
+    _Section.general => null, // actions, not a list you add to
+  };
 
   bool _editableSection(_Section s) => switch (s) {
-        _Section.templates => widget.onEditTemplate != null,
-        _Section.profiles => widget.onEditProfile != null,
-      };
+    _Section.templates => widget.onEditTemplate != null,
+    _Section.profiles => widget.onEditProfile != null,
+    _Section.general => false,
+  };
+
+  // The wired General-section actions (only those with a callback present).
+  List<_ActionRow> _actionRows() => [
+    if (widget.onRerunOnboarding != null)
+      _ActionRow(
+        label: 'Re-run setup',
+        icon: Icons.replay,
+        onTap: () => widget.onRerunOnboarding!(),
+      ),
+  ];
 
   void _edit(_Section s, int id, {bool startEditing = false}) {
     switch (s) {
@@ -172,6 +214,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
             return widget.onEditProfile?.call(x, startEditing: startEditing);
           }
         }
+      case _Section.general:
+        break; // no editable entities — actions handle their own onTap
     }
   }
 
@@ -182,6 +226,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
       if (row.hasItems) _toggleSection(row.section);
     } else if (row is _EntityRow) {
       _edit(row.section, row.id);
+    } else if (row is _ActionRow) {
+      row.onTap();
     }
   }
 
@@ -190,8 +236,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final row = _rows[_cursor];
     if (row is _HeaderRow) {
       if (row.expanded) _toggleSection(row.section);
-    } else if (row is _EntityRow) {
-      // Jump to the owning section header.
+    } else {
+      // An item row (entity or action): jump to the owning section header.
       for (var i = _cursor; i >= 0; i--) {
         if (_rows[i] is _HeaderRow) {
           setState(() => _cursor = i);
@@ -207,8 +253,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
     if (HardwareKeyboard.instance.isControlPressed) {
       return KeyEventResult.ignored; // let pane-switching bubble to the shell
     }
-    final right = key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
-    final left = key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft;
+    final right =
+        key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
+    final left =
+        key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft;
 
     if (key == LogicalKeyboardKey.keyJ || key == LogicalKeyboardKey.arrowDown) {
       _moveCursor(1);
@@ -219,7 +267,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
       return KeyEventResult.handled;
     }
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (right || key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+    if (right ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
       _activateCurrent();
       return KeyEventResult.handled;
     }
@@ -248,6 +298,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final row = _rows[_cursor];
     if (row is _HeaderRow) return row.section;
     if (row is _EntityRow) return row.section;
+    if (row is _ActionRow) return _Section.general;
     return null;
   }
 
@@ -311,23 +362,28 @@ class _SettingsPanelState extends State<SettingsPanel> {
     required List<InvoiceTemplate> templates,
     required List<InvoiceProfile> profiles,
   }) {
-    List<_EntityRow> entities(_Section s) => switch (s) {
-          _Section.templates => [
-              for (final x in templates)
-                _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
-            ],
-          _Section.profiles => [
-              for (final x in profiles)
-                _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
-            ],
-        };
+    List<_BRow> items(_Section s) => switch (s) {
+      _Section.templates => [
+        for (final x in templates)
+          _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
+      ],
+      _Section.profiles => [
+        for (final x in profiles)
+          _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
+      ],
+      _Section.general => _actionRows(),
+    };
 
     final rows = <_BRow>[];
     for (final s in _Section.values) {
-      final items = entities(s);
+      final sectionItems = items(s);
+      // General only appears once it has at least one wired action.
+      if (s == _Section.general && sectionItems.isEmpty) continue;
       final expanded = _expanded.contains(s);
-      rows.add(_HeaderRow(s, expanded: expanded, hasItems: items.isNotEmpty));
-      if (expanded) rows.addAll(items);
+      rows.add(
+        _HeaderRow(s, expanded: expanded, hasItems: sectionItems.isNotEmpty),
+      );
+      if (expanded) rows.addAll(sectionItems);
     }
     _rows = rows;
     if (_cursor >= _rows.length) _cursor = _rows.isEmpty ? 0 : _rows.length - 1;
@@ -344,44 +400,53 @@ class _SettingsPanelState extends State<SettingsPanel> {
           edgesOnly: true,
           child: switch (row) {
             _HeaderRow() => _SectionHeaderTile(
-                label: _sectionLabel(row.section),
-                singularLabel: _sectionSingular(row.section),
-                expanded: row.expanded,
-                hasItems: row.hasItems,
-                onTap: () {
-                  setState(() => _cursor = i);
-                  if (row.hasItems) _toggleSection(row.section);
-                },
-                onAdd: _addFor(row.section) == null
-                    ? null
-                    : () {
-                        setState(() => _cursor = i);
-                        _addFor(row.section)!.call();
-                      },
-              ),
+              label: _sectionLabel(row.section),
+              singularLabel: _sectionSingular(row.section),
+              expanded: row.expanded,
+              hasItems: row.hasItems,
+              onTap: () {
+                setState(() => _cursor = i);
+                if (row.hasItems) _toggleSection(row.section);
+              },
+              onAdd: _addFor(row.section) == null
+                  ? null
+                  : () {
+                      setState(() => _cursor = i);
+                      _addFor(row.section)!.call();
+                    },
+            ),
             _EntityRow() => _EntityTile(
-                name: row.name,
-                isDefault: row.isDefault,
-                selected: switch (row.section) {
-                  _Section.templates => row.id == widget.selectedTemplateId,
-                  _Section.profiles => row.id == widget.selectedProfileId,
-                },
-                onTap: () {
-                  setState(() => _cursor = i);
-                  _edit(row.section, row.id);
-                },
-                // Entering edit mode is now a control on the entity's own
-                // page (the row just opens it, read-only, via onTap), so a
-                // second edit-icon trigger on the row would be redundant.
-                onEdit: null,
-              ),
+              name: row.name,
+              isDefault: row.isDefault,
+              selected: switch (row.section) {
+                _Section.templates => row.id == widget.selectedTemplateId,
+                _Section.profiles => row.id == widget.selectedProfileId,
+                _Section.general => false,
+              },
+              onTap: () {
+                setState(() => _cursor = i);
+                _edit(row.section, row.id);
+              },
+              // Entering edit mode is now a control on the entity's own
+              // page (the row just opens it, read-only, via onTap), so a
+              // second edit-icon trigger on the row would be redundant.
+              onEdit: null,
+            ),
+            _ActionRow() => _ActionTile(
+              label: row.label,
+              icon: row.icon,
+              onTap: () {
+                setState(() => _cursor = i);
+                row.onTap();
+              },
+            ),
           },
         );
         final dividerBefore = i > 0 && row is _HeaderRow;
         // Breathing space after a section's last row — matches SidePanel's
         // gap after a client's last project.
         final lastOfSection =
-            row is _EntityRow &&
+            (row is _EntityRow || row is _ActionRow) &&
             (i + 1 >= _rows.length || _rows[i + 1] is _HeaderRow);
         if (!dividerBefore && !lastOfSection) return tile;
         return Column(
@@ -431,12 +496,11 @@ class _SectionHeaderTile extends StatelessWidget {
       leading: Icon(
         expanded ? Icons.expand_more : Icons.chevron_right,
         size: AppTokens.iconSm,
-        color: expanded ? t.colorScheme.primary : t.colorScheme.onSurfaceVariant,
+        color: expanded
+            ? t.colorScheme.primary
+            : t.colorScheme.onSurfaceVariant,
       ),
-      title: Text(
-        label,
-        style: t.extension<AppTextStyles>()!.sectionHeader,
-      ),
+      title: Text(label, style: t.extension<AppTextStyles>()!.sectionHeader),
       // A lone trailing icon, same as an entity row's edit icon — both flush
       // to the tile's right inset, so the `+` lines up in the same column as
       // the rows' edit icons below it (unlike the client header in the
@@ -516,6 +580,42 @@ class _EntityTile extends StatelessWidget {
               tooltip: 'Edit (e)',
               onPressed: onEdit,
             ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// A General-section command row: a leading icon + label, indented under its
+/// header like an entity row. No default badge, no edit affordance.
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -4),
+      contentPadding: const EdgeInsets.fromLTRB(
+        AppTokens.spaceLg,
+        AppTokens.space3xs,
+        AppTokens.spaceMd,
+        AppTokens.space3xs,
+      ),
+      horizontalTitleGap: AppTokens.spaceXs,
+      leading: Icon(
+        icon,
+        size: AppTokens.iconSm,
+        color: t.colorScheme.onSurfaceVariant,
+      ),
+      title: Text(label, style: t.extension<AppTextStyles>()!.rowTitleSmall),
       onTap: onTap,
     );
   }

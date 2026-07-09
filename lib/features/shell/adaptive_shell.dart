@@ -55,8 +55,20 @@ class _ProfileEditorDetail extends _Detail {
 }
 
 class AdaptiveShell extends StatefulWidget {
-  const AdaptiveShell({super.key, required this.db});
+  const AdaptiveShell({
+    super.key,
+    required this.db,
+    this.onRerunOnboarding,
+    this.initialSelectedProjectId,
+  });
   final AppDatabase db;
+  // Settings → "Re-run setup": replays the first-run onboarding flow. Wired by
+  // the root gate; null when the shell is mounted without one.
+  final Future<void> Function()? onRerunOnboarding;
+  // The project to select on the first frame. The root gate already resolves
+  // the default project while bootstrapping, so passing it here avoids the
+  // tracker painting an empty (no-selection) frame that then pops to content.
+  final int? initialSelectedProjectId;
   @override
   State<AdaptiveShell> createState() => _AdaptiveShellState();
 }
@@ -311,6 +323,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void initState() {
     super.initState();
+    // Start with the gate-resolved selection so the tracker paints content on
+    // its first frame; fall back to seeding a default only if none was passed.
+    _selectedProjectId = widget.initialSelectedProjectId;
     widget.db.ensureDefaultProject().then((id) {
       if (mounted) {
         setState(() => _selectedProjectId ??= id); // default only if unset
@@ -459,6 +474,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onAddProfile: () => run(_addProfile),
           onEditProfile: (p, {startEditing = false}) =>
               run(() => _editProfile(p, startEditing: startEditing)),
+          onRerunOnboarding: widget.onRerunOnboarding,
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),
