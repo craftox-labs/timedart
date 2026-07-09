@@ -371,7 +371,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
             pw.Expanded(child: field('EMAIL', doc.recipientEmail)),
           ],
         ),
-        pw.SizedBox(height: _p(InvoiceLayout.totalsGap)),
+        pw.SizedBox(height: _p(InvoiceLayout.recipientGap)),
         pw.Row(
           children: [
             pw.Expanded(child: field('ORGANISATION', doc.organisation)),
@@ -382,7 +382,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
         // Buyer address + tax number — shown only when present. Mirrors
         // invoice_preview.dart's recipient grid.
         if (doc.recipientAddress != null || doc.recipientAbn != null) ...[
-          pw.SizedBox(height: _p(InvoiceLayout.totalsGap)),
+          pw.SizedBox(height: _p(InvoiceLayout.recipientGap)),
           pw.Row(
             children: [
               pw.Expanded(

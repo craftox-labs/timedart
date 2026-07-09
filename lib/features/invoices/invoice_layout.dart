@@ -19,10 +19,11 @@ abstract class InvoiceLayout {
   static const double headlineGap = 16.0;
   static const double partyBlockGap = 24.0;
   static const double mastheadContactGap = 2.0; // business name → contact line
+  static const double recipientGap = 8.0;
   static const double detailsBlockGap = 24.0;
   static const double detailsHeadingGap = 12.0;
   static const double tableHeaderGap = 8.0;
-  static const double totalsGap = 8.0;
+  static const double totalsGap = 0;
   static const double amountDueGap = 0;
   static const double paymentsHeadingGap = 8.0;
   static const double paymentsFieldGap = 8.0;

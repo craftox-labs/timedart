@@ -338,7 +338,7 @@ class InvoicePreview extends StatelessWidget {
           Expanded(child: _field('EMAIL', doc.recipientEmail)),
         ],
       ),
-      const SizedBox(height: InvoiceLayout.totalsGap),
+      const SizedBox(height: InvoiceLayout.recipientGap),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -351,7 +351,7 @@ class InvoicePreview extends StatelessWidget {
       // local threshold. Shown only when present (unlike the fields above,
       // which keep a '—' placeholder), so a client without them adds no rows.
       if (doc.recipientAddress != null || doc.recipientAbn != null) ...[
-        const SizedBox(height: InvoiceLayout.totalsGap),
+        const SizedBox(height: InvoiceLayout.recipientGap),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
