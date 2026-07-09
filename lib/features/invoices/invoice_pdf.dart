@@ -187,6 +187,32 @@ Future<Uint8List> buildBrandedInvoicePdf({
   const labelSpan =
       InvoiceLayout.colItem + InvoiceLayout.colDate + InvoiceLayout.colRate;
 
+  bool present(String? s) => s != null && s.trim().isNotEmpty;
+
+  // One row of payment fields, padded with empty cells so column widths stay
+  // constant across rows. Mirrors invoice_preview.dart's _paymentRow.
+  const payColumns = 3;
+  pw.Widget paymentRow(List<(String, String)> row) => pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      for (var c = 0; c < payColumns; c++) ...[
+        if (c > 0) pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
+        pw.Expanded(
+          child: c < row.length ? field(row[c].$1, row[c].$2) : pw.SizedBox(),
+        ),
+      ],
+    ],
+  );
+
+  final paymentFields = doc.paymentFields;
+  final paymentRows = <List<(String, String)>>[
+    for (var i = 0; i < paymentFields.length; i += payColumns)
+      paymentFields.sublist(
+        i,
+        (i + payColumns).clamp(0, paymentFields.length),
+      ),
+  ];
+
   final doc0 = pw.Document();
   doc0.addPage(
     pw.MultiPage(
@@ -216,6 +242,19 @@ Future<Uint8List> buildBrandedInvoicePdf({
                       fontSize: _p(InvoiceLayout.fontPaymentsHeading),
                     ),
                   ),
+                  if (present(doc.senderAddress)) ...[
+                    pw.SizedBox(
+                      height: _p(InvoiceLayout.mastheadContactGap),
+                    ),
+                    pw.Text(
+                      doc.senderAddress!.trim(),
+                      style: pw.TextStyle(
+                        font: font,
+                        color: muted,
+                        fontSize: _p(InvoiceLayout.fontValue),
+                      ),
+                    ),
+                  ],
                   pw.SizedBox(height: _p(InvoiceLayout.mastheadContactGap)),
                   // Contact line: bold "e." / "t." / "w." prefixes, regular values.
                   pw.RichText(
@@ -464,32 +503,26 @@ Future<Uint8List> buildBrandedInvoicePdf({
         ),
         pw.SizedBox(height: _p(InvoiceLayout.sectionGap)),
 
-        // ── Payments ──
-        pw.Text(
-          'Please make payments to:',
-          style: pw.TextStyle(
-            font: bold,
-            color: primary,
-            fontSize: _p(InvoiceLayout.fontPaymentsHeading),
+        // ── Payments ── (omitted entirely when there's nothing to show)
+        if (paymentRows.isNotEmpty || present(doc.paymentLink)) ...[
+          pw.Text(
+            'Please make payments to:',
+            style: pw.TextStyle(
+              font: bold,
+              color: primary,
+              fontSize: _p(InvoiceLayout.fontPaymentsHeading),
+            ),
           ),
-        ),
-        pw.SizedBox(height: _p(InvoiceLayout.paymentsHeadingGap)),
-        if (doc.paymentLink != null) ...[
-          field('Link', doc.paymentLink),
-          pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
-        ],
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(child: field('NAME', doc.payeeName)),
-            pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
-            pw.Expanded(child: field('ACN/ABN', doc.senderAbn)),
-            pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
-            pw.Expanded(child: field('SWIFT/BIC', doc.swift)),
-            pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
-            pw.Expanded(child: field('BANK', doc.bankName)),
+          pw.SizedBox(height: _p(InvoiceLayout.paymentsHeadingGap)),
+          if (present(doc.paymentLink)) ...[
+            field('Link', doc.paymentLink),
+            pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
           ],
-        ),
+          for (final (i, row) in paymentRows.indexed) ...[
+            if (i > 0) pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
+            paymentRow(row),
+          ],
+        ],
       ],
     ),
   );

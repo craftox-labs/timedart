@@ -132,6 +132,26 @@ class InvoiceDocument {
   double get amountDue => total;
   int get totalSeconds => lines.fold(0, (sum, l) => sum + l.seconds);
   Duration get totalTime => Duration(seconds: totalSeconds);
+
+  /// The payment/bank fields to print, in order, as (label, value) pairs —
+  /// empties dropped so a renderer shows only what the profile filled in. Both
+  /// renderers read this so the payment block can't drift between preview and
+  /// PDF. (BSB and account number were previously stored but never rendered.)
+  List<(String, String)> get paymentFields {
+    final out = <(String, String)>[];
+    void add(String label, String? value) {
+      final v = value?.trim();
+      if (v != null && v.isNotEmpty) out.add((label, v));
+    }
+
+    add('NAME', payeeName);
+    add('BSB', bankBsb);
+    add('ACCOUNT', bankAccount);
+    add('ACN/ABN', senderAbn);
+    add('SWIFT/BIC', swift);
+    add('BANK', bankName);
+    return out;
+  }
 }
 
 /// Resolve the domain objects into an [InvoiceDocument]. Pure: no DB, no I/O —

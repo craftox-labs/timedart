@@ -162,6 +162,14 @@ class InvoicePreview extends StatelessWidget {
                   fontWeight: InvoiceLayout.fontWeightBold,
                 ),
               ),
+              if (_present(doc.senderAddress))
+                Text(
+                  doc.senderAddress!.trim(),
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: InvoiceLayout.fontValue,
+                  ),
+                ),
               Text.rich(
                 TextSpan(
                   style: TextStyle(
@@ -542,34 +550,63 @@ class InvoicePreview extends StatelessWidget {
     ],
   );
 
-  Widget _payments() => Column(
+  // Number of payment fields per row. The present bank fields (NAME, BSB,
+  // ACCOUNT, ACN/ABN, SWIFT/BIC, BANK) wrap across rows so nothing is clipped
+  // and empty fields are dropped entirely.
+  static const _payColumns = 3;
+
+  Widget _payments() {
+    final fields = doc.paymentFields;
+    // Nothing to pay to — omit the whole block rather than show an empty heading.
+    if (fields.isEmpty && !_present(doc.paymentLink)) {
+      return const SizedBox.shrink();
+    }
+    final rows = <List<(String, String)>>[
+      for (var i = 0; i < fields.length; i += _payColumns)
+        fields.sublist(
+          i,
+          (i + _payColumns).clamp(0, fields.length),
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Please make payments to:',
+          style: TextStyle(
+            color: _primary,
+            fontSize: InvoiceLayout.fontPaymentsHeading,
+            fontWeight: InvoiceLayout.fontWeightBold,
+          ),
+        ),
+        const SizedBox(height: InvoiceLayout.paymentsHeadingGap),
+        if (_present(doc.paymentLink)) ...[
+          _field('Link', doc.paymentLink),
+          const SizedBox(height: InvoiceLayout.paymentsFieldGap),
+        ],
+        for (final (i, row) in rows.indexed) ...[
+          if (i > 0) const SizedBox(height: InvoiceLayout.paymentsFieldGap),
+          _paymentRow(row),
+        ],
+      ],
+    );
+  }
+
+  // One row of payment fields, padded with empty cells so column widths stay
+  // constant across rows (a two-field row aligns with a three-field row above).
+  Widget _paymentRow(List<(String, String)> row) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        'Please make payments to:',
-        style: TextStyle(
-          color: _primary,
-          fontSize: InvoiceLayout.fontPaymentsHeading,
-          fontWeight: InvoiceLayout.fontWeightBold,
+      for (var c = 0; c < _payColumns; c++) ...[
+        if (c > 0) const SizedBox(width: InvoiceLayout.gridGutter),
+        Expanded(
+          child: c < row.length
+              ? _field(row[c].$1, row[c].$2)
+              : const SizedBox(),
         ),
-      ),
-      const SizedBox(height: InvoiceLayout.paymentsHeadingGap),
-      if (doc.paymentLink != null) ...[
-        _field('Link', doc.paymentLink),
-        const SizedBox(height: InvoiceLayout.paymentsFieldGap),
       ],
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: _field('NAME', doc.payeeName)),
-          const SizedBox(width: InvoiceLayout.gridGutter),
-          Expanded(child: _field('ACN/ABN', doc.senderAbn)),
-          const SizedBox(width: InvoiceLayout.gridGutter),
-          Expanded(child: _field('SWIFT/BIC', doc.swift)),
-          const SizedBox(width: InvoiceLayout.gridGutter),
-          Expanded(child: _field('BANK', doc.bankName)),
-        ],
-      ),
     ],
   );
+
+  static bool _present(String? s) => s != null && s.trim().isNotEmpty;
 }
