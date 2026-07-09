@@ -21,6 +21,12 @@ InvoiceProfile _profile({
   String? bankBsb,
   String? bankAccount,
   String? swift,
+  String? iban,
+  String? sortCode,
+  String? routingNumber,
+  String? payid,
+  String? institutionNumber,
+  String? transitNumber,
   String? paymentLink,
   InvoiceRegion region = InvoiceRegion.au,
 }) => InvoiceProfile(
@@ -37,6 +43,12 @@ InvoiceProfile _profile({
   bankBsb: bankBsb,
   bankAccount: bankAccount,
   swift: swift,
+  iban: iban,
+  sortCode: sortCode,
+  routingNumber: routingNumber,
+  payid: payid,
+  institutionNumber: institutionNumber,
+  transitNumber: transitNumber,
   paymentLink: paymentLink,
   isDefault: true,
   region: region.name,
@@ -295,10 +307,11 @@ void main() {
       expect(doc.senderAddress, '12 Wallaby Way, Sydney');
     });
 
-    test('paymentFields lists present bank fields in order — incl. BSB '
-        'and account number (the previously-unrendered P0 fields)', () {
+    test('AU paymentFields: NAME, region ids (BSB/account/SWIFT), ABN, BANK — '
+        'incl. BSB + account (the previously-unrendered P0 fields)', () {
       final doc = _doc(
         profile: _profile(
+          region: InvoiceRegion.au,
           payeeName: 'tmox Pty Ltd',
           bankBsb: '062-000',
           bankAccount: '12345678',
@@ -312,8 +325,8 @@ void main() {
         ('NAME', 'tmox Pty Ltd'),
         ('BSB', '062-000'),
         ('ACCOUNT', '12345678'),
-        ('ACN/ABN', '12 345 678 901'),
         ('SWIFT/BIC', 'CTBAAU2S'),
+        ('ABN', '12 345 678 901'), // sender tax ID, region-labelled
         ('BANK', 'Commonwealth Bank'),
       ]);
     });
@@ -335,6 +348,66 @@ void main() {
 
     test('no bank details → paymentFields is empty', () {
       expect(_doc(entries: [_entry()]).paymentFields, isEmpty);
+    });
+
+    test('EU shows IBAN + BIC (no BSB/account), region-labelled tax ID', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.eu,
+          payeeName: 'Studio GmbH',
+          iban: 'DE89370400440532013000',
+          swift: 'COBADEFFXXX',
+          bankBsb: '062-000', // present but NOT in EU's field set → omitted
+          abn: 'DE123456789',
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.paymentFields, [
+        ('NAME', 'Studio GmbH'),
+        ('IBAN', 'DE89370400440532013000'),
+        ('SWIFT/BIC', 'COBADEFFXXX'),
+        ('VAT NO.', 'DE123456789'),
+      ]);
+    });
+
+    test('US shows routing + account (no SWIFT/BSB) + ACH/wire note', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.us,
+          payeeName: 'Acme LLC',
+          routingNumber: '021000021',
+          bankAccount: '000123456789',
+          swift: 'CMFGUS33', // present but NOT in US's field set → omitted
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.paymentFields, [
+        ('NAME', 'Acme LLC'),
+        ('ROUTING (ABA)', '021000021'),
+        ('ACCOUNT', '000123456789'),
+      ]);
+      expect(doc.region.paymentNote, contains('ACH'));
+    });
+
+    test('UK shows sort code + account + IBAN + BIC', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.uk,
+          payeeName: 'Ltd Co',
+          sortCode: '20-30-40',
+          bankAccount: '12345678',
+          iban: 'GB33BUKB20201555555555',
+          swift: 'BUKBGB22',
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.paymentFields, [
+        ('NAME', 'Ltd Co'),
+        ('SORT CODE', '20-30-40'),
+        ('ACCOUNT', '12345678'),
+        ('IBAN', 'GB33BUKB20201555555555'),
+        ('SWIFT/BIC', 'BUKBGB22'),
+      ]);
     });
   });
 

@@ -533,6 +533,17 @@ Future<Uint8List> buildBrandedInvoicePdf({
             if (i > 0) pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
             paymentRow(row),
           ],
+          if (doc.region.paymentNote != null) ...[
+            pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
+            pw.Text(
+              doc.region.paymentNote!,
+              style: pw.TextStyle(
+                font: font,
+                color: muted,
+                fontSize: _p(InvoiceLayout.fontValue),
+              ),
+            ),
+          ],
         ],
       ],
     ),

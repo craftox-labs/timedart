@@ -91,12 +91,20 @@ class InvoiceDocument {
   final String currency;
   final InvoiceTax? tax;
 
-  // Payment (from the profile)
+  // Payment (from the profile). Which of these appear on the invoice — and in
+  // what order — is decided per region (see [paymentFields]); the columns not
+  // used by a region stay null.
   final String? payeeName;
   final String? bankName;
   final String? bankBsb;
   final String? bankAccount;
-  final String? swift;
+  final String? swift; // SWIFT/BIC
+  final String? iban;
+  final String? sortCode;
+  final String? routingNumber;
+  final String? payid;
+  final String? institutionNumber;
+  final String? transitNumber;
   final String? paymentLink;
 
   const InvoiceDocument({
@@ -131,6 +139,12 @@ class InvoiceDocument {
     required this.bankBsb,
     required this.bankAccount,
     required this.swift,
+    this.iban,
+    this.sortCode,
+    this.routingNumber,
+    this.payid,
+    this.institutionNumber,
+    this.transitNumber,
     required this.paymentLink,
   });
 
@@ -140,10 +154,24 @@ class InvoiceDocument {
   int get totalSeconds => lines.fold(0, (sum, l) => sum + l.seconds);
   Duration get totalTime => Duration(seconds: totalSeconds);
 
+  String? _bankFieldValue(BankField f) => switch (f) {
+    BankField.bsb => bankBsb,
+    BankField.account => bankAccount,
+    BankField.payid => payid,
+    BankField.sortCode => sortCode,
+    BankField.iban => iban,
+    BankField.routing => routingNumber,
+    BankField.institution => institutionNumber,
+    BankField.transit => transitNumber,
+    BankField.bic => swift,
+  };
+
   /// The payment/bank fields to print, in order, as (label, value) pairs —
-  /// empties dropped so a renderer shows only what the profile filled in. Both
-  /// renderers read this so the payment block can't drift between preview and
-  /// PDF. (BSB and account number were previously stored but never rendered.)
+  /// empties dropped so a renderer shows only what the profile filled in, and
+  /// the identifiers ordered per the sender's [region] (AU shows BSB+account,
+  /// EU shows IBAN+BIC, …). Both renderers read this so the payment block can't
+  /// drift between preview and PDF. Around the region identifiers sit the
+  /// universal fields: account name, sender tax ID (region-labelled), and bank.
   List<(String, String)> get paymentFields {
     final out = <(String, String)>[];
     void add(String label, String? value) {
@@ -152,10 +180,10 @@ class InvoiceDocument {
     }
 
     add('NAME', payeeName);
-    add('BSB', bankBsb);
-    add('ACCOUNT', bankAccount);
-    add('ACN/ABN', senderAbn);
-    add('SWIFT/BIC', swift);
+    for (final f in region.bankFields) {
+      add(f.invoiceLabel, _bankFieldValue(f));
+    }
+    add(region.buyerTaxIdLabel, senderAbn); // supplier's own tax ID
     add('BANK', bankName);
     return out;
   }
@@ -235,6 +263,12 @@ InvoiceDocument buildInvoiceDocument({
     bankBsb: profile.bankBsb,
     bankAccount: profile.bankAccount,
     swift: profile.swift,
+    iban: profile.iban,
+    sortCode: profile.sortCode,
+    routingNumber: profile.routingNumber,
+    payid: profile.payid,
+    institutionNumber: profile.institutionNumber,
+    transitNumber: profile.transitNumber,
     paymentLink: profile.paymentLink,
   );
 }
@@ -313,6 +347,12 @@ InvoiceDocument sampleInvoiceDocument({
     bankBsb: profile.bankBsb,
     bankAccount: profile.bankAccount,
     swift: profile.swift,
+    iban: profile.iban,
+    sortCode: profile.sortCode,
+    routingNumber: profile.routingNumber,
+    payid: profile.payid,
+    institutionNumber: profile.institutionNumber,
+    transitNumber: profile.transitNumber,
     paymentLink: profile.paymentLink,
   );
 }
@@ -371,6 +411,12 @@ InvoiceDocument profilePreviewDocument({
     bankBsb: profile.bankBsb,
     bankAccount: profile.bankAccount,
     swift: profile.swift,
+    iban: profile.iban,
+    sortCode: profile.sortCode,
+    routingNumber: profile.routingNumber,
+    payid: profile.payid,
+    institutionNumber: profile.institutionNumber,
+    transitNumber: profile.transitNumber,
     paymentLink: profile.paymentLink,
   );
 }

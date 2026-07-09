@@ -1,3 +1,5 @@
+import 'package:time_tracker/features/invoices/bank_validators.dart';
+
 // The invoice region shapes tax + identity conventions (PRD #117, slice #120):
 // which tax label to default to, how to label the buyer's tax ID on the
 // recipient block, and whether a taxed invoice is titled "Tax Invoice" (the
@@ -44,4 +46,70 @@ enum InvoiceRegion {
   /// sale as a "Tax Invoice"; every other region uses a plain "Invoice".
   String invoiceTitle({required bool hasTax}) =>
       (this == InvoiceRegion.au && hasTax) ? 'Tax Invoice' : 'Invoice';
+
+  /// The region-specific bank identifiers, in display order. The universal
+  /// fields (account name, sender tax ID, bank name) are shown around these by
+  /// both the editor and the invoice, so they're not repeated here.
+  List<BankField> get bankFields => switch (this) {
+    InvoiceRegion.au => const [
+      BankField.bsb,
+      BankField.account,
+      BankField.payid,
+      BankField.bic,
+    ],
+    InvoiceRegion.uk => const [
+      BankField.sortCode,
+      BankField.account,
+      BankField.iban,
+      BankField.bic,
+    ],
+    InvoiceRegion.eu => const [BankField.iban, BankField.bic],
+    InvoiceRegion.us => const [BankField.routing, BankField.account],
+    InvoiceRegion.ca => const [
+      BankField.institution,
+      BankField.transit,
+      BankField.account,
+    ],
+    InvoiceRegion.other => const [
+      BankField.iban,
+      BankField.bic,
+      BankField.account,
+    ],
+  };
+
+  /// A short payment caption printed under the bank block, or null. US invoices
+  /// note the domestic-vs-international rail; other regions have none.
+  String? get paymentNote => this == InvoiceRegion.us
+      ? 'Pay by ACH (domestic) or wire (international).'
+      : null;
+}
+
+/// One bank identifier, with its invoice-block label and editor-field label.
+/// Which fields a region uses (and their order) is [InvoiceRegion.bankFields];
+/// the value/controller wiring lives in the document + editor. [validate]
+/// surfaces a non-blocking format hint (null = acceptable/empty).
+enum BankField {
+  bsb('BSB', 'BSB'),
+  account('ACCOUNT', 'Account'),
+  payid('PAYID', 'PayID'),
+  sortCode('SORT CODE', 'Sort code'),
+  iban('IBAN', 'IBAN'),
+  routing('ROUTING (ABA)', 'Routing number'),
+  institution('INSTITUTION', 'Institution number'),
+  transit('TRANSIT', 'Transit number'),
+  bic('SWIFT/BIC', 'SWIFT / BIC');
+
+  const BankField(this.invoiceLabel, this.editorLabel);
+
+  final String invoiceLabel;
+  final String editorLabel;
+
+  /// Non-blocking format check for this field's value (null = ok/empty).
+  String? validate(String value) => switch (this) {
+    BankField.bsb => bsbError(value),
+    BankField.sortCode => sortCodeError(value),
+    BankField.iban => ibanError(value),
+    BankField.routing => abaError(value),
+    _ => null,
+  };
 }

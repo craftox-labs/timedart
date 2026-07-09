@@ -559,9 +559,8 @@ class InvoicePreview extends StatelessWidget {
     ],
   );
 
-  // Number of payment fields per row. The present bank fields (NAME, BSB,
-  // ACCOUNT, ACN/ABN, SWIFT/BIC, BANK) wrap across rows so nothing is clipped
-  // and empty fields are dropped entirely.
+  // Number of payment fields per row. The present, region-ordered bank fields
+  // wrap across rows so nothing is clipped and empty fields are dropped.
   static const _payColumns = 3;
 
   Widget _payments() {
@@ -596,6 +595,13 @@ class InvoicePreview extends StatelessWidget {
         for (final (i, row) in rows.indexed) ...[
           if (i > 0) const SizedBox(height: InvoiceLayout.paymentsFieldGap),
           _paymentRow(row),
+        ],
+        if (doc.region.paymentNote != null) ...[
+          const SizedBox(height: InvoiceLayout.paymentsFieldGap),
+          Text(
+            doc.region.paymentNote!,
+            style: TextStyle(color: _muted, fontSize: InvoiceLayout.fontValue),
+          ),
         ],
       ],
     );

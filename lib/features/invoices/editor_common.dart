@@ -43,12 +43,15 @@ class EditorTextField extends StatefulWidget {
     required this.label,
     this.number = false,
     this.persistentLabel = false,
+    this.errorText,
     this.onChanged,
   });
   final TextEditingController controller;
   final String label;
   final bool number;
   final bool persistentLabel;
+  // A non-blocking format hint shown under the field (e.g. a malformed IBAN).
+  final String? errorText;
   final ValueChanged<String>? onChanged;
 
   @override
@@ -84,7 +87,7 @@ class _EditorTextFieldState extends State<EditorTextField> {
       return TextField(
         controller: widget.controller,
         keyboardType: _keyboard,
-        decoration: fieldDecoration(widget.label),
+        decoration: fieldDecoration(widget.label, errorText: widget.errorText),
         onChanged: widget.onChanged,
       );
     }
@@ -98,6 +101,7 @@ class _EditorTextFieldState extends State<EditorTextField> {
       decoration: fieldDecoration(
         focused ? widget.label : null,
         hint: !focused && empty ? widget.label : null,
+        errorText: widget.errorText,
       ),
       onChanged: (v) {
         widget.onChanged?.call(v);

@@ -90,6 +90,12 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _c['bankBsb']!.text = p.bankBsb ?? '';
       _c['bankAccount']!.text = p.bankAccount ?? '';
       _c['swift']!.text = p.swift ?? '';
+      _c['iban']!.text = p.iban ?? '';
+      _c['sortCode']!.text = p.sortCode ?? '';
+      _c['routingNumber']!.text = p.routingNumber ?? '';
+      _c['payid']!.text = p.payid ?? '';
+      _c['institutionNumber']!.text = p.institutionNumber ?? '';
+      _c['transitNumber']!.text = p.transitNumber ?? '';
       _c['paymentLink']!.text = p.paymentLink ?? '';
       _c['currency']!.text = p.currency;
       _c['taxLabel']!.text = p.taxLabel ?? '';
@@ -159,6 +165,12 @@ class _ProfileEditorState extends State<ProfileEditor> {
     'bankBsb',
     'bankAccount',
     'swift',
+    'iban',
+    'sortCode',
+    'routingNumber',
+    'payid',
+    'institutionNumber',
+    'transitNumber',
     'paymentLink',
     'currency',
     'taxLabel',
@@ -215,14 +227,14 @@ class _ProfileEditorState extends State<ProfileEditor> {
     isDefault: _isDefault,
     templateId: _templateId,
     region: _region.name,
-    // Not yet edited here (slices #121–#123) — carry the profile's stored
-    // values through so the preview reflects them; defaults for a new profile.
-    iban: widget.initial?.iban,
-    sortCode: widget.initial?.sortCode,
-    routingNumber: widget.initial?.routingNumber,
-    payid: widget.initial?.payid,
-    institutionNumber: widget.initial?.institutionNumber,
-    transitNumber: widget.initial?.transitNumber,
+    iban: _n('iban'),
+    sortCode: _n('sortCode'),
+    routingNumber: _n('routingNumber'),
+    payid: _n('payid'),
+    institutionNumber: _n('institutionNumber'),
+    transitNumber: _n('transitNumber'),
+    // Not yet edited here (slices #122–#123) — carry the profile's stored
+    // values through; defaults for a new profile.
     showBank: widget.initial?.showBank ?? true,
     showPaymentLink: widget.initial?.showPaymentLink ?? true,
     showTax: widget.initial?.showTax ?? true,
@@ -252,6 +264,12 @@ class _ProfileEditorState extends State<ProfileEditor> {
     taxRate: Value(double.tryParse(_t('taxRate'))),
     templateId: Value(_templateId),
     region: Value(_region.name),
+    iban: Value(_n('iban')),
+    sortCode: Value(_n('sortCode')),
+    routingNumber: Value(_n('routingNumber')),
+    payid: Value(_n('payid')),
+    institutionNumber: Value(_n('institutionNumber')),
+    transitNumber: Value(_n('transitNumber')),
     // isDefault flows through setDefaultProfile so there's only ever one.
   );
 
@@ -455,10 +473,17 @@ class _ProfileEditorState extends State<ProfileEditor> {
             Field(_field('payeeName', 'Payee name')),
             Field(_field('bankName', 'Bank')),
           ]),
+          // Region drives which bank identifiers appear, so a UK profile isn't
+          // asked for a BSB nor an AU one for an IBAN.
           FieldRow([
-            Field(_field('bankBsb', 'BSB')),
-            Field(_field('bankAccount', 'Account')),
-            Field(_field('swift', 'SWIFT / BIC')),
+            for (final f in _region.bankFields)
+              Field(
+                _field(
+                  _bankKey(f),
+                  f.editorLabel,
+                  validator: f.validate,
+                ),
+              ),
           ]),
           FieldRow([Field(_field('paymentLink', 'Payment link'))]),
         ]),
@@ -513,13 +538,32 @@ class _ProfileEditorState extends State<ProfileEditor> {
     );
   }
 
-  Widget _field(String key, String label, {bool number = false}) =>
-      EditorTextField(
-        controller: _c[key]!,
-        label: label,
-        number: number,
-        onChanged: (_) => setState(_checkDirty),
-      );
+  Widget _field(
+    String key,
+    String label, {
+    bool number = false,
+    String? Function(String)? validator,
+  }) => EditorTextField(
+    controller: _c[key]!,
+    label: label,
+    number: number,
+    // Non-blocking format hint, recomputed each keystroke (onChanged rebuilds).
+    errorText: validator?.call(_c[key]!.text),
+    onChanged: (_) => setState(_checkDirty),
+  );
+
+  // Maps a region [BankField] to its text-controller key.
+  String _bankKey(BankField f) => switch (f) {
+    BankField.bsb => 'bankBsb',
+    BankField.account => 'bankAccount',
+    BankField.payid => 'payid',
+    BankField.sortCode => 'sortCode',
+    BankField.iban => 'iban',
+    BankField.routing => 'routingNumber',
+    BankField.institution => 'institutionNumber',
+    BankField.transit => 'transitNumber',
+    BankField.bic => 'swift',
+  };
 
   Widget _preview() {
     final template = _selectedTemplate();
