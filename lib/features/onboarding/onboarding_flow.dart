@@ -4,6 +4,7 @@ import 'package:animations/animations.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:time_tracker/constants/tokens.dart';
 import 'package:time_tracker/features/invoices/editor_common.dart';
 import 'package:time_tracker/features/invoices/invoice_region.dart';
@@ -268,15 +269,15 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   // FIXME(#137): the how-it-works diagram is a placeholder — needs design work
   // (bespoke illustrations, animated reveal, tidier mobile layout). Phase (f).
   static const _flowCards = [
-    _FlowCard(Icons.person_outline, 'Client'),
+    _FlowCard(Symbols.person, 'Client'),
     _FlowArrow(),
-    _FlowCard(Icons.folder_outlined, 'Project'),
+    _FlowCard(Symbols.folder, 'Project'),
     _FlowArrow(),
-    _FlowCard(Icons.check_circle_outline, 'Task'),
+    _FlowCard(Symbols.check_circle, 'Task'),
     _FlowArrow(),
-    _FlowCard(Icons.timer_outlined, 'Timer'),
+    _FlowCard(Symbols.timer, 'Timer'),
     _FlowArrow(),
-    _FlowCard(Icons.receipt_long_outlined, 'Invoice'),
+    _FlowCard(Symbols.receipt_long, 'Invoice'),
   ];
 
   Widget _howItWorks(bool narrow) => _CenteredStep(
@@ -512,7 +513,7 @@ class _FlowCard extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  static const double _size = 100;
+  static const double _size = 120;
 
   @override
   Widget build(BuildContext context) {
@@ -520,7 +521,7 @@ class _FlowCard extends StatelessWidget {
     return Container(
       width: _size,
       height: _size,
-      padding: const EdgeInsets.all(AppTokens.spaceSm),
+      padding: const EdgeInsets.all(AppTokens.spaceXs),
       decoration: BoxDecoration(
         color: t.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
@@ -529,7 +530,16 @@ class _FlowCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 32, color: t.colorScheme.primary),
+          // Material Symbols is a variable font: `weight` sets stroke thickness
+          // (100–700; lower = finer) and `opticalSize` tunes detail for the
+          // rendered size. Dial these to taste.
+          Icon(
+            icon,
+            size: 64,
+            weight: 200,
+            opticalSize: 48,
+            color: t.colorScheme.primary,
+          ),
           const SizedBox(height: AppTokens.spaceXs),
           Text(label, style: t.textTheme.bodyMedium),
         ],
