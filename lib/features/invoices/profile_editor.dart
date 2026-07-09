@@ -472,17 +472,23 @@ class _ProfileEditorState extends State<ProfileEditor> {
                   for (final r in InvoiceRegion.values)
                     DropdownMenuItem(value: r, child: Text(r.label)),
                 ],
-                onChanged: (v) => setState(() {
+                onChanged: (v) {
                   if (v == null) return;
-                  _region = v;
-                  // Pre-fill the tax label from the region, but never clobber a
-                  // value the user has already typed.
-                  if (_c['taxLabel']!.text.trim().isEmpty &&
-                      v.defaultTaxLabel != null) {
-                    _c['taxLabel']!.text = v.defaultTaxLabel!;
-                  }
-                  _checkDirty();
-                }),
+                  final previous = _region;
+                  setState(() {
+                    _region = v;
+                    // Keep an auto-filled tax label in sync as the region
+                    // changes, but never clobber one the user typed. A label
+                    // counts as auto-filled when it's empty or still exactly the
+                    // previous region's default (US/Other clear it to blank).
+                    final current = _c['taxLabel']!.text.trim();
+                    if (current.isEmpty ||
+                        current == previous.defaultTaxLabel) {
+                      _c['taxLabel']!.text = v.defaultTaxLabel ?? '';
+                    }
+                    _checkDirty();
+                  });
+                },
               ),
             ),
             Field(_field('currency', 'Currency')),
