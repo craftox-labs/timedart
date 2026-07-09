@@ -85,33 +85,41 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       body: SafeArea(
         child: Column(
           children: [
-            _topBar(),
+            _topBar(), // full-width chrome: progress dots + Skip setup
             Expanded(
               child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _maxWidth),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTokens.spaceXl,
-                    ),
-                    child: PageTransitionSwitcher(
-                      transitionBuilder: (child, primary, secondary) =>
-                          FadeThroughTransition(
-                            animation: primary,
-                            secondaryAnimation: secondary,
-                            fillColor: Colors.transparent,
-                            child: child,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.spaceXl,
+                    vertical: AppTokens.spaceLg,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: _maxWidth),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        PageTransitionSwitcher(
+                          transitionBuilder: (child, primary, secondary) =>
+                              FadeThroughTransition(
+                                animation: primary,
+                                secondaryAnimation: secondary,
+                                fillColor: Colors.transparent,
+                                child: child,
+                              ),
+                          child: KeyedSubtree(
+                            key: ValueKey(_machine.current),
+                            child: _stepBody(_machine.current, narrow),
                           ),
-                      child: KeyedSubtree(
-                        key: ValueKey(_machine.current),
-                        child: _stepBody(_machine.current, narrow),
-                      ),
+                        ),
+                        const SizedBox(height: AppTokens.space2xl),
+                        _nav(),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-            _navBar(),
           ],
         ),
       ),
@@ -120,6 +128,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   // ── Chrome ────────────────────────────────────────────────────────────────
 
+  // Full-width top bar: progress dots at the left edge, Skip at the right.
   Widget _topBar() {
     final showSkipAll =
         !_machine.isLast; // no "skip" on the closing Done screen
@@ -127,61 +136,48 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       padding: const EdgeInsets.fromLTRB(
         AppTokens.spaceXl,
         AppTokens.spaceMd,
-        AppTokens.spaceXl,
+        AppTokens.spaceMd,
         0,
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxWidth),
-          child: Row(
-            children: [
-              _ProgressDots(
-                count: _machine.steps.length,
-                index: _machine.index,
-              ),
-              const Spacer(),
-              if (showSkipAll)
-                TextButton(
-                  onPressed: () => _apply(_machine.skipAll),
-                  style: TextButton.styleFrom(shape: _buttonShape),
-                  child: const Text('Skip setup'),
-                ),
-            ],
-          ),
-        ),
+      child: Row(
+        children: [
+          _ProgressDots(count: _machine.steps.length, index: _machine.index),
+          const Spacer(),
+          if (showSkipAll)
+            TextButton(
+              onPressed: () => _apply(_machine.skipAll),
+              style: TextButton.styleFrom(shape: _buttonShape),
+              child: const Text('Skip setup'),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _navBar() {
-    // Primary label reads as an action per step; the closing step commits.
+  // Step actions, sitting directly below the step content (centered in the
+  // content column). Welcome shows a single centred primary; later steps get a
+  // Back on the left and the primary on the right.
+  Widget _nav() {
     final primaryLabel = switch (_machine.current) {
       OnboardingStep.welcome => 'Get started',
       OnboardingStep.done => 'Go to tracker',
       _ => 'Next',
     };
-    return Padding(
-      padding: const EdgeInsets.all(AppTokens.spaceXl),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxWidth),
-          child: Row(
-            children: [
-              if (!_machine.isFirst)
-                TextButton(
-                  onPressed: () => _apply(_machine.back),
-                  style: TextButton.styleFrom(shape: _buttonShape),
-                  child: const Text('Back'),
-                ),
-              const Spacer(),
-              FilledButton(
-                onPressed: () => _apply(_machine.next),
-                child: Text(primaryLabel),
-              ),
-            ],
-          ),
+    final primary = FilledButton(
+      onPressed: () => _apply(_machine.next),
+      child: Text(primaryLabel),
+    );
+    if (_machine.isFirst) return Center(child: primary);
+    return Row(
+      children: [
+        TextButton(
+          onPressed: () => _apply(_machine.back),
+          style: TextButton.styleFrom(shape: _buttonShape),
+          child: const Text('Back'),
         ),
-      ),
+        const Spacer(),
+        primary,
+      ],
     );
   }
 
@@ -394,23 +390,21 @@ class _FormStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: t.textTheme.headlineSmall),
-          const SizedBox(height: AppTokens.space2xs),
-          Text(
-            hint,
-            style: t.textTheme.bodySmall?.copyWith(
-              color: t.colorScheme.onSurfaceVariant,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(title, style: t.textTheme.headlineSmall),
+        const SizedBox(height: AppTokens.space2xs),
+        Text(
+          hint,
+          style: t.textTheme.bodySmall?.copyWith(
+            color: t.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(height: AppTokens.spaceLg),
-          ...children,
-        ],
-      ),
+        ),
+        const SizedBox(height: AppTokens.spaceLg),
+        ...children,
+      ],
     );
   }
 }
