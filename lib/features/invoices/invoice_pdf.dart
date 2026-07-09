@@ -287,6 +287,17 @@ Future<Uint8List> buildBrandedInvoicePdf({
         ),
         pw.SizedBox(height: _p(InvoiceLayout.sectionGap)),
 
+        // ── Title (Tax Invoice / Invoice) ──
+        pw.Text(
+          doc.title.toUpperCase(),
+          style: pw.TextStyle(
+            font: bold,
+            color: primary,
+            fontSize: _p(InvoiceLayout.fontPaymentsHeading),
+          ),
+        ),
+        pw.SizedBox(height: _p(InvoiceLayout.headlineGap)),
+
         // ── ATT / RE / date / invoice # ──
         pw.Text('ATT:', style: labelStyle),
         pw.Text(
@@ -357,7 +368,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
               pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
               pw.Expanded(
                 child: doc.recipientAbn != null
-                    ? field('ABN / TAX NO.', doc.recipientAbn)
+                    ? field(doc.recipientAbnLabel, doc.recipientAbn)
                     : pw.SizedBox(),
               ),
             ],

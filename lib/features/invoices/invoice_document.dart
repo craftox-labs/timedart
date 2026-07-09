@@ -13,6 +13,7 @@
 import 'dart:typed_data';
 
 import 'package:time_tracker/data/database.dart';
+import 'package:time_tracker/features/invoices/invoice_region.dart';
 
 /// What a renderer shows in the masthead when [InvoiceDocument.logo] is null.
 enum LogoFallback {
@@ -62,6 +63,8 @@ class InvoiceDocument {
   final DateTime periodFrom;
   final DateTime periodTo;
   final String reference; // the project code (RE:)
+  final InvoiceRegion region; // sender's region — shapes tax/identity/title
+  final String title; // "Tax Invoice" (AU + tax) or "Invoice"
 
   // Sender (from the profile)
   final String businessName;
@@ -81,6 +84,7 @@ class InvoiceDocument {
   final String? recipientPhone;
   final String? recipientAddress; // client.address
   final String? recipientAbn; // client.abn (buyer tax ID)
+  final String recipientAbnLabel; // region's buyer tax-ID label (ABN/VAT NO./…)
 
   // Lines + money
   final List<InvoiceLineItem> lines;
@@ -101,6 +105,8 @@ class InvoiceDocument {
     required this.periodFrom,
     required this.periodTo,
     required this.reference,
+    required this.region,
+    required this.title,
     required this.businessName,
     required this.logo,
     required this.logoFallback,
@@ -116,6 +122,7 @@ class InvoiceDocument {
     required this.recipientPhone,
     required this.recipientAddress,
     required this.recipientAbn,
+    required this.recipientAbnLabel,
     required this.lines,
     required this.currency,
     required this.tax,
@@ -192,12 +199,16 @@ InvoiceDocument buildInvoiceDocument({
         )
       : null;
 
+  final region = InvoiceRegion.fromName(profile.region);
+
   return InvoiceDocument(
     invoiceNumber: _blankToNull(invoiceNumber),
     issueDate: issueDate,
     periodFrom: from,
     periodTo: to,
     reference: project.code,
+    region: region,
+    title: region.invoiceTitle(hasTax: tax != null),
     businessName: profile.businessName,
     logo: profile.logo,
     // A real invoice: the default profile falls back to the timedart mark;
@@ -215,6 +226,7 @@ InvoiceDocument buildInvoiceDocument({
     recipientPhone: client.phone,
     recipientAddress: _blankToNull(client.address),
     recipientAbn: _blankToNull(client.abn),
+    recipientAbnLabel: region.buyerTaxIdLabel,
     lines: lines,
     currency: profile.currency,
     tax: tax,
@@ -265,12 +277,16 @@ InvoiceDocument sampleInvoiceDocument({
       ? InvoiceTax(label: taxLabel, rate: taxRate, amount: subtotal * taxRate / 100)
       : null;
 
+  final region = InvoiceRegion.fromName(profile.region);
+
   return InvoiceDocument(
     invoiceNumber: 'INV-0001',
     issueDate: issueDate,
     periodFrom: from,
     periodTo: issueDate,
     reference: 'SAMPLE',
+    region: region,
+    title: region.invoiceTitle(hasTax: tax != null),
     businessName: profile.businessName,
     // A template preview is about the visual style, not identity — the logo
     // comes from the profile — so it always shows the neutral placeholder.
@@ -288,6 +304,7 @@ InvoiceDocument sampleInvoiceDocument({
     recipientPhone: '+61 400 000 000',
     recipientAddress: '10 Sample Street, Sydney NSW 2000',
     recipientAbn: '12 345 678 901',
+    recipientAbnLabel: region.buyerTaxIdLabel,
     lines: lines,
     currency: profile.currency,
     tax: tax,
@@ -319,12 +336,16 @@ InvoiceDocument profilePreviewDocument({
       ? InvoiceTax(label: taxLabel, rate: taxRate, amount: 0)
       : null;
 
+  final region = InvoiceRegion.fromName(profile.region);
+
   return InvoiceDocument(
     invoiceNumber: null,
     issueDate: issueDate,
     periodFrom: issueDate,
     periodTo: issueDate,
     reference: '—',
+    region: region,
+    title: region.invoiceTitle(hasTax: tax != null),
     businessName: profile.businessName,
     logo: profile.logo,
     // Mirror the real invoice: brand mark for the default, nothing otherwise.
@@ -341,6 +362,7 @@ InvoiceDocument profilePreviewDocument({
     recipientPhone: null,
     recipientAddress: null,
     recipientAbn: null,
+    recipientAbnLabel: region.buyerTaxIdLabel,
     lines: const [],
     currency: profile.currency,
     tax: tax,
