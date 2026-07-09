@@ -31,7 +31,8 @@ class OnboardingFlow extends StatefulWidget {
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
-class _OnboardingFlowState extends State<OnboardingFlow> {
+class _OnboardingFlowState extends State<OnboardingFlow>
+    with SingleTickerProviderStateMixin {
   final _machine = OnboardingMachine();
   final _businessName = TextEditingController();
   final _email = TextEditingController();
@@ -41,12 +42,34 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   static const double _maxWidth = 640;
 
+  // One-shot entrance: as the intro cross-fades into this Welcome screen (the
+  // logo staying put), the top bar slides down and everything below the logo
+  // slides up into place. Runs once at mount, so it only affects the first
+  // Welcome frame; later steps use the page switcher.
+  late final AnimationController _entrance = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  )..forward();
+
   @override
   void dispose() {
+    _entrance.dispose();
     _businessName.dispose();
     _email.dispose();
     super.dispose();
   }
+
+  // Slide + settle from [begin] (a fraction of the child's size), driven by the
+  // entrance controller. At rest (post-animation) it's the identity, so wrapping
+  // shared chrome is safe on later steps. The fade comes from the gate's
+  // cross-fade of the whole screen.
+  Widget _entranceSlide(Widget child, Offset begin) => SlideTransition(
+    position: Tween(
+      begin: begin,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic)),
+    child: child,
+  );
 
   OnboardingInputs get _captured => OnboardingInputs(
     businessName: _businessName.text,
@@ -85,7 +108,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       body: SafeArea(
         child: Column(
           children: [
-            _topBar(), // full-width chrome: progress dots + Skip setup
+            // Top bar slides down as the intro resolves into Welcome.
+            _entranceSlide(_topBar(), const Offset(0, -1)),
             Expanded(
               child: Center(
                 child: SingleChildScrollView(
@@ -117,7 +141,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                         // land at a consistent height across screens.
                         if (_machine.isFirst) ...[
                           const SizedBox(height: AppTokens.space2xl),
-                          Center(child: _primaryButton()),
+                          _entranceSlide(
+                            Center(child: _primaryButton()),
+                            const Offset(0, 1),
+                          ),
                         ],
                       ],
                     ),
@@ -216,15 +243,25 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _welcome(bool narrow) => _CenteredStep(
     children: [
+      // The logo stays put across the intro→welcome cross-fade (its anchor);
+      // only the copy below it slides up.
       SvgPicture.asset(
         'assets/logo/timedart_logo_stacked.svg',
         height: narrow ? 140 : 240,
       ),
       const SizedBox(height: AppTokens.spaceXl),
-      _title('Welcome'),
-      const SizedBox(height: AppTokens.spaceMd),
-      _body('Track time against your projects and send invoices '),
-      _body('tailored to your brand.'),
+      _entranceSlide(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _title('Welcome'),
+            const SizedBox(height: AppTokens.spaceMd),
+            _body('Track time against your projects and send invoices '),
+            _body('tailored to your brand.'),
+          ],
+        ),
+        const Offset(0, 1),
+      ),
     ],
   );
 
