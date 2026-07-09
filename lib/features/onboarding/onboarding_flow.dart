@@ -127,20 +127,28 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       padding: const EdgeInsets.fromLTRB(
         AppTokens.spaceXl,
         AppTokens.spaceMd,
-        AppTokens.spaceMd,
+        AppTokens.spaceXl,
         0,
       ),
-      child: Row(
-        children: [
-          _ProgressDots(count: _machine.steps.length, index: _machine.index),
-          const Spacer(),
-          if (showSkipAll)
-            TextButton(
-              onPressed: () => _apply(_machine.skipAll),
-              style: TextButton.styleFrom(shape: _buttonShape),
-              child: const Text('Skip setup'),
-            ),
-        ],
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxWidth),
+          child: Row(
+            children: [
+              _ProgressDots(
+                count: _machine.steps.length,
+                index: _machine.index,
+              ),
+              const Spacer(),
+              if (showSkipAll)
+                TextButton(
+                  onPressed: () => _apply(_machine.skipAll),
+                  style: TextButton.styleFrom(shape: _buttonShape),
+                  child: const Text('Skip setup'),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -154,22 +162,24 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     };
     return Padding(
       padding: const EdgeInsets.all(AppTokens.spaceXl),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _maxWidth),
-        child: Row(
-          children: [
-            if (!_machine.isFirst)
-              TextButton(
-                onPressed: () => _apply(_machine.back),
-                style: TextButton.styleFrom(shape: _buttonShape),
-                child: const Text('Back'),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxWidth),
+          child: Row(
+            children: [
+              if (!_machine.isFirst)
+                TextButton(
+                  onPressed: () => _apply(_machine.back),
+                  style: TextButton.styleFrom(shape: _buttonShape),
+                  child: const Text('Back'),
+                ),
+              const Spacer(),
+              FilledButton(
+                onPressed: () => _apply(_machine.next),
+                child: Text(primaryLabel),
               ),
-            const Spacer(),
-            FilledButton(
-              onPressed: () => _apply(_machine.next),
-              child: Text(primaryLabel),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
