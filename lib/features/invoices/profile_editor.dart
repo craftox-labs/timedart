@@ -51,6 +51,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
   late bool _showBank;
   late bool _showPaymentLink;
   late bool _showTax;
+  // EU/UK B2B reverse charge (customer accounts for VAT).
+  late bool _reverseCharge;
   // The business logo (PNG/JPG bytes) — identity, so it lives on the profile.
   Uint8List? _logo;
   String? _logoMime;
@@ -67,6 +69,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
   late bool _initialShowBank;
   late bool _initialShowPaymentLink;
   late bool _initialShowTax;
+  late bool _initialReverseCharge;
   Uint8List? _initialLogo;
   String? _initialLogoMime;
   // Resolved once templates finish loading — see initState. Comparing against
@@ -118,6 +121,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     _showBank = p?.showBank ?? true;
     _showPaymentLink = p?.showPaymentLink ?? true;
     _showTax = p?.showTax ?? true;
+    _reverseCharge = p?.reverseCharge ?? false;
     _logo = p?.logo;
     _logoMime = p?.logoMime;
     _templateId = p?.templateId;
@@ -127,6 +131,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     _initialShowBank = _showBank;
     _initialShowPaymentLink = _showPaymentLink;
     _initialShowTax = _showTax;
+    _initialReverseCharge = _reverseCharge;
     _initialLogo = _logo;
     _initialLogoMime = _logoMime;
     _editing = !_isEdit || widget.startEditing;
@@ -155,6 +160,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     if (_showBank != _initialShowBank) return true;
     if (_showPaymentLink != _initialShowPaymentLink) return true;
     if (_showTax != _initialShowTax) return true;
+    if (_reverseCharge != _initialReverseCharge) return true;
     if (_templateId != _initialTemplateId) return true;
     if (!listEquals(_logo, _initialLogo)) return true;
     if (_logoMime != _initialLogoMime) return true;
@@ -253,11 +259,10 @@ class _ProfileEditorState extends State<ProfileEditor> {
     showBank: _showBank,
     showPaymentLink: _showPaymentLink,
     showTax: _showTax,
-    // Not yet edited here (rate/time toggles are a follow-up; reverse charge is
-    // #123) — carry the profile's stored values through; defaults for a new one.
+    reverseCharge: _reverseCharge,
+    // Rate/Time column toggles are a follow-up (#128) — carry stored values.
     showRateColumn: widget.initial?.showRateColumn ?? true,
     showTimeColumn: widget.initial?.showTimeColumn ?? true,
-    reverseCharge: widget.initial?.reverseCharge ?? false,
   );
 
   ProfilesCompanion _companion() => ProfilesCompanion(
@@ -290,6 +295,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     showBank: Value(_showBank),
     showPaymentLink: Value(_showPaymentLink),
     showTax: Value(_showTax),
+    reverseCharge: Value(_reverseCharge),
     // isDefault flows through setDefaultProfile so there's only ever one.
   );
 
@@ -316,6 +322,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _initialShowBank = _showBank;
       _initialShowPaymentLink = _showPaymentLink;
       _initialShowTax = _showTax;
+      _initialReverseCharge = _reverseCharge;
       _initialTemplateId = _templateId;
       _initialLogo = _logo;
       _initialLogoMime = _logoMime;
@@ -367,6 +374,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _showBank = _initialShowBank;
       _showPaymentLink = _initialShowPaymentLink;
       _showTax = _initialShowTax;
+      _reverseCharge = _initialReverseCharge;
       _templateId = _initialTemplateId;
       _logo = _initialLogo;
       _logoMime = _initialLogoMime;
@@ -551,6 +559,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
                         current == previous.defaultTaxLabel) {
                       _c['taxLabel']!.text = v.defaultTaxLabel ?? '';
                     }
+                    // Reverse charge is EU/UK-only — drop it if we leave.
+                    if (!v.supportsReverseCharge) _reverseCharge = false;
                     _checkDirty();
                   });
                 },
@@ -572,6 +582,16 @@ class _ProfileEditorState extends State<ProfileEditor> {
               ),
             ),
           ]),
+          // Reverse charge — EU/UK B2B only. Suppresses the VAT amount and
+          // prints the fixed "Reverse charge" statement.
+          if (_region.supportsReverseCharge)
+            FieldRow([
+              Field(
+                flex: 0,
+                _toggle('Reverse charge (B2B)', _reverseCharge,
+                    (v) => _reverseCharge = v),
+              ),
+            ]),
         ]),
         const SizedBox(height: AppTokens.space4xs),
       ],

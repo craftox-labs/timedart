@@ -134,6 +134,17 @@ class InvoicePreview extends StatelessWidget {
           _table(),
           const SizedBox(height: InvoiceLayout.totalsGap),
           _totals(),
+          if (doc.reverseCharge) ...[
+            const SizedBox(height: InvoiceLayout.totalsGap),
+            Text(
+              InvoiceDocument.reverseChargeStatement,
+              style: TextStyle(
+                color: _primary,
+                fontSize: InvoiceLayout.fontLabel,
+                fontWeight: InvoiceLayout.fontWeightLabel,
+              ),
+            ),
+          ],
           const SizedBox(height: InvoiceLayout.sectionGap),
           _payments(),
         ],

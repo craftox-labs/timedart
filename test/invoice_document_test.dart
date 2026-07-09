@@ -32,6 +32,7 @@ InvoiceProfile _profile({
   bool showBank = true,
   bool showPaymentLink = true,
   bool showTax = true,
+  bool reverseCharge = false,
 }) => InvoiceProfile(
   id: 1,
   name: 'Default',
@@ -60,7 +61,7 @@ InvoiceProfile _profile({
   showTax: showTax,
   showRateColumn: true,
   showTimeColumn: true,
-  reverseCharge: false,
+  reverseCharge: reverseCharge,
 );
 
 Client _client({
@@ -517,6 +518,58 @@ void main() {
         showBank: true,
       );
       expect(doc.showBank, isTrue);
+    });
+  });
+
+  group('reverse charge (EU/UK B2B)', () {
+    test('UK reverse charge suppresses the VAT amount + sets the flag', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.uk,
+          taxLabel: 'VAT',
+          taxRate: 20,
+          reverseCharge: true,
+        ),
+        entries: [_entry(seconds: 3600)], // subtotal 46
+      );
+      expect(doc.reverseCharge, isTrue);
+      expect(doc.tax, isNull); // customer accounts for VAT
+      expect(doc.total, closeTo(46, 1e-9)); // no VAT added
+    });
+
+    test('EU reverse charge also applies', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.eu,
+          taxLabel: 'VAT',
+          taxRate: 21,
+          reverseCharge: true,
+        ),
+        entries: [_entry()],
+      );
+      expect(doc.reverseCharge, isTrue);
+      expect(doc.tax, isNull);
+    });
+
+    test('reverse charge is ignored outside EU/UK (region-gated)', () {
+      final doc = _doc(
+        profile: _profile(
+          region: InvoiceRegion.au,
+          taxLabel: 'GST',
+          taxRate: 10,
+          reverseCharge: true, // set, but AU doesn't support it
+        ),
+        entries: [_entry(seconds: 3600)],
+      );
+      expect(doc.reverseCharge, isFalse);
+      expect(doc.tax, isNotNull); // GST still applies
+    });
+
+    test('reverse-charge statement is the fixed, non-substitutable wording', () {
+      expect(
+        InvoiceDocument.reverseChargeStatement,
+        contains('Reverse charge'),
+      );
     });
   });
 }
