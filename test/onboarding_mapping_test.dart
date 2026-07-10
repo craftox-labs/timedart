@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
-import 'package:time_tracker/features/onboarding/onboarding_mapping.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
+import 'package:timedart/features/onboarding/onboarding_mapping.dart';
 
 // Pure-function coverage for the onboarding → default-profile mapping (PRD
 // #133): captured inputs produce the expected ProfilesCompanion, region drives

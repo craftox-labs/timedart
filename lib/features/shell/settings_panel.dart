@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:time_tracker/constants/text_styles.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/shell/side_panel.dart';
-import 'package:time_tracker/widgets/focus_ring.dart';
-import 'package:time_tracker/widgets/panel_title_bar.dart';
+import 'package:timedart/constants/text_styles.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/shell/side_panel.dart';
+import 'package:timedart/widgets/focus_ring.dart';
+import 'package:timedart/widgets/panel_title_bar.dart';
 
 /// The side panel while in Settings mode: two flat collapsible sections —
 /// Templates (the visual style) and Profiles — listing the configured rows.

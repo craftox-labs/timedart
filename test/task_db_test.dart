@@ -1,6 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/data/database.dart';
 
 // Exercises the task query/CRUD against a fresh in-memory DB (schema v3).
 void main() {

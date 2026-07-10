@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/widgets/confirm_dialog.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/widgets/confirm_dialog.dart';
 
 /// Wraps an edit modal so pressing `d` runs [onDelete] (its Delete flow), but
 /// only when a text field isn't focused — a focused field still needs `d` for

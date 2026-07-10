@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/util/parse_rate.dart';
+import 'package:timedart/util/parse_rate.dart';
 
 void main() {
   group('parseRate', () {

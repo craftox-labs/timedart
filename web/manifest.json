@@ -1,6 +1,6 @@
 {
-    "name": "time_tracker",
-    "short_name": "time_tracker",
+    "name": "timedart",
+    "short_name": "timedart",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

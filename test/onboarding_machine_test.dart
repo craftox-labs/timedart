@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/features/onboarding/onboarding_machine.dart';
+import 'package:timedart/features/onboarding/onboarding_machine.dart';
 
 // Pure-logic coverage for the onboarding step machine (PRD #133): step order,
 // next/back clamping, skipStep advancing, skipAll jumping to complete, and the

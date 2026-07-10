@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/data/database.dart';
 
 // Verifies the v8 → v9 migration (region-aware invoicing, PRD #117): a schema-v8
 // database gains the region + all remaining feature columns, and existing

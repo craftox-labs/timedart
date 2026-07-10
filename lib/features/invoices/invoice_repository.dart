@@ -1,5 +1,5 @@
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_document.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_document.dart';
 
 /// Bridges the data layer and the pure [buildInvoiceDocument]: fetches the rows
 /// for a project's invoice over a period plus the branding — the default

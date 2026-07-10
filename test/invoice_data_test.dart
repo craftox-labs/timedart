@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/data/database.dart';
 
 // Data-layer coverage for the invoice-branding tables (PRD #79): the migrations
 // (v4→v8 and v5→v8, incl. the v7→v8 logo move onto the profile), idempotent

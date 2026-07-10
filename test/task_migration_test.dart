@@ -1,7 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/data/database.dart';
 
 // Verifies the v1 → v2 migration: a schema-v1 database with free-text `task`
 // strings upgrades to Tasks-as-entities without losing any tracked time.

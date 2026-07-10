@@ -2,9 +2,9 @@ import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
-import 'package:time_tracker/features/onboarding/onboarding_controller.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
+import 'package:timedart/features/onboarding/onboarding_controller.dart';
 
 // Coverage for the onboarding→persistence wiring (PRD #133, phase c): finishing
 // applies the captured inputs to the seeded DEFAULT profile (no duplicate) and

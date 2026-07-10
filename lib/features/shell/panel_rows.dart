@@ -1,4 +1,4 @@
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/data/database.dart';
 
 // The side panel is a tree (clients → projects) but keyboard navigation moves over
 // a *flat* list of the currently-visible rows. This file owns that flattening,

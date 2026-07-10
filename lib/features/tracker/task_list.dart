@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/constants/format.dart';
-import 'package:time_tracker/constants/text_styles.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/tracker/task_rows.dart';
-import 'package:time_tracker/widgets/focus_ring.dart';
+import 'package:timedart/constants/format.dart';
+import 'package:timedart/constants/text_styles.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/tracker/task_rows.dart';
+import 'package:timedart/widgets/focus_ring.dart';
 
 // Renders the flattened task/entry rows: a task header (title, rolled-up time,
 // amount) that expands to its indented time entries. Purely presentational —

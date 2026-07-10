@@ -2,10 +2,10 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:time_tracker/constants/format.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_document.dart';
-import 'package:time_tracker/features/invoices/invoice_layout.dart';
+import 'package:timedart/constants/format.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_layout.dart';
 
 // Renders an [InvoiceDocument] into a branded PDF using an [InvoiceTemplate].
 // All sizing constants live in [InvoiceLayout] — multiply each by [InvoiceLayout.pdfScale]

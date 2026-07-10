@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/onboarding/onboarding_controller.dart';
-import 'package:time_tracker/features/onboarding/onboarding_flow.dart';
-import 'package:time_tracker/features/onboarding/onboarding_intro.dart';
-import 'package:time_tracker/features/shell/adaptive_shell.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/onboarding/onboarding_controller.dart';
+import 'package:timedart/features/onboarding/onboarding_flow.dart';
+import 'package:timedart/features/onboarding/onboarding_intro.dart';
+import 'package:timedart/features/shell/adaptive_shell.dart';
 
 // The app's root gate (PRD #133, phases c/e). Replaces main.dart's direct
 // [AdaptiveShell] mount: it plays the brief startup intro, seeds the defaults,

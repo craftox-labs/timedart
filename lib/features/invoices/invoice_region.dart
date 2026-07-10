@@ -1,4 +1,4 @@
-import 'package:time_tracker/features/invoices/bank_validators.dart';
+import 'package:timedart/features/invoices/bank_validators.dart';
 
 // The invoice region shapes tax + identity conventions (PRD #117, slice #120):
 // which tax label to default to, how to label the buyer's tax ID on the

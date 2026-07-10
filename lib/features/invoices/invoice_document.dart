@@ -12,8 +12,8 @@
 // module holds raw numbers and the currency code.
 import 'dart:typed_data';
 
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
 
 /// What a renderer shows in the masthead when [InvoiceDocument.logo] is null.
 enum LogoFallback {

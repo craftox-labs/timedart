@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/tokens.dart';
 
 /// The chevron for every form select in the app. `DropdownButtonFormField`
 /// paints its icon flush against the field's trailing edge regardless of the

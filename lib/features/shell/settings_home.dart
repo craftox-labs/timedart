@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/tokens.dart';
 
 /// The Settings-mode content pane before a Template or Profile has been
 /// selected from the side panel. Also the home for future non-invoicing

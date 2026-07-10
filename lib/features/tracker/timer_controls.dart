@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/widgets/unscaled.dart';
+import 'package:timedart/widgets/unscaled.dart';
 
 class TimerControls extends StatelessWidget {
   final bool running;

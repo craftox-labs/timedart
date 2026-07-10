@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
-import 'package:time_tracker/features/onboarding/onboarding_mapping.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
+import 'package:timedart/features/onboarding/onboarding_mapping.dart';
 
 // The onboarding→persistence wiring (PRD #133, phase c). Sits between the
 // wizard UI (which collects [OnboardingInputs]) and the data layer: it maps the
