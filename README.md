@@ -54,19 +54,15 @@ from the same codebase.
   <sub><b>A guided first run.</b> Learn the flow and set up your invoice identity.</sub>
 </p>
 
-<!-- the two invoice screens, side by side -->
-<table align="center">
-  <tr>
-    <td width="50%" valign="top" align="center">
-      <img src="docs/media/invoice.png" alt="Branded invoice preview"><br>
-      <sub><b>Invoices in seconds.</b> Hours roll straight into a branded, region-aware PDF.</sub>
-    </td>
-    <td width="50%" valign="top" align="center">
-      <img src="docs/media/branding.png" alt="Invoice branding editor"><br>
-      <sub><b>Make it yours.</b> Reusable templates and profiles for how invoices look and read.</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/media/invoice.png" alt="Branded invoice preview" width="900"><br>
+  <sub><b>Invoices in seconds.</b> Hours roll straight into a branded, region-aware PDF.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/media/branding.png" alt="Invoice branding editor" width="900"><br>
+  <sub><b>Make it yours.</b> Reusable templates and profiles for how invoices look and read.</sub>
+</p>
 
 <!-- keyboard closes it out -->
 <p align="center">
@@ -137,6 +133,7 @@ branding; and end-to-end keyboard control. Next on the horizon:
 - Bulk actions to clear out old clients and projects in one deliberate step.
 - Archiving projects you're done with, to keep the working set tidy.
 - A richer, illustrated "how it works" step in onboarding.
+- A companion **command-line interface** — start / stop the timer and log entries from the terminal, against the same local data.
 - Ongoing design polish.
 
 <details>
