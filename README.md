@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="assets/logo/timedart_logo_horizontal.png" alt="timedart" width="340">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/timedart_logo_stacked_dark.png">
+    <img alt="timedart" width="200" src="assets/logo/timedart_logo_stacked_light.png">
+  </picture>
 </p>
 
 <p align="center">

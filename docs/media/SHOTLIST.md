@@ -15,5 +15,5 @@ up automatically. Capture on the **dark theme**, hide personal/client data
 Notes
 - PNG, 2× / retina if easy (GitHub scales down cleanly). Trim window chrome unless it adds context.
 - Optional later: a short screen capture (GIF/MP4, timer → invoice) for the hero instead of a still.
-- Logo hero uses `assets/logo/timedart_logo_horizontal.png`. If it reads poorly on GitHub's **light**
-  theme, add a light-friendly variant and we'll switch the hero to a theme-aware `<picture>`.
+- Logo hero is a theme-aware `<picture>`: `timedart_logo_stacked_dark.png` (dark viewers) /
+  `timedart_logo_stacked_light.png` (light viewers), so the wordmark stays readable on both.
