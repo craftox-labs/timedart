@@ -116,3 +116,7 @@ branding; and end-to-end keyboard control. Next on the horizon:
 
 Work lands one change per branch, reviewed as a PR and squash-merged so `main` stays a clean,
 linear history. `flutter analyze` and `flutter test` should both pass before every PR.
+
+## License
+
+timedart is open source under the [MIT License](LICENSE) — © 2026 Craftox.
