@@ -142,7 +142,7 @@ enum InvoiceRegion {
 /// surfaces a non-blocking format hint (null = acceptable/empty).
 enum BankField {
   bsb('BSB', 'BSB'),
-  account('ACCOUNT', 'Account'),
+  account('ACCOUNT NO.', 'Account number'),
   payid('PAYID', 'PayID'),
   sortCode('SORT CODE', 'Sort code'),
   iban('IBAN', 'IBAN'),
