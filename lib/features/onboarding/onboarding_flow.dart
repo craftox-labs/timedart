@@ -343,7 +343,7 @@ class _OnboardingFlowState extends State<OnboardingFlow>
       // flow icons rather than the stock Material tick.
       Icon(
         Symbols.check_circle,
-        size: 120,
+        size: 240,
         weight: 200,
         opticalSize: 48,
         color: Theme.of(context).colorScheme.primary,

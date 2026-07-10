@@ -133,7 +133,7 @@ branding; and end-to-end keyboard control. Next on the horizon:
 - Bulk actions to clear out old clients and projects in one deliberate step.
 - Archiving projects you're done with, to keep the working set tidy.
 - A richer, illustrated "how it works" step in onboarding.
-- A companion **command-line interface** — start / stop the timer and log entries from the terminal, against the same local data.
+- A companion **CLI** — control the timer and log entries from the terminal, **agent-ready** for LLM workflows; bundled with the app and released standalone.
 - Ongoing design polish.
 
 <details>

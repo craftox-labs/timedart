@@ -46,7 +46,7 @@ const List<_Group> _keymap = [
     _Shortcut(['n', 'N'], 'Next / previous project'),
   ]),
   _Group('Tracker', [
-    _Shortcut(['t'], 'Open Tracker'),
+    _Shortcut(['t'], 'Open tracker'),
     _Shortcut(['Space'], 'Start / pause / resume'),
     _Shortcut(['f'], 'Finish session'),
     _Shortcut(['a'], 'Add task'),
