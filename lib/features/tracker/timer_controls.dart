@@ -19,6 +19,11 @@ class TimerControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The disabled FilledButton container colour (M3): matches the "inactive
+    // Start" fill so the Finish outline reads as the same neutral.
+    final inactiveFill = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.12);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -52,6 +57,7 @@ class TimerControls extends StatelessWidget {
               label: const Text('Finish'),
               style: OutlinedButton.styleFrom(
                 fixedSize: const Size(140, 40),
+                side: BorderSide(color: inactiveFill),
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.horizontal(
                     left: Radius.circular(0), // inner edge — near-square
