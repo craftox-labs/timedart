@@ -14,7 +14,12 @@
   <img alt="Built with Flutter" src="https://img.shields.io/badge/built%20with-Flutter-02569B.svg?logo=flutter&logoColor=white">
   <img alt="Platforms" src="https://img.shields.io/badge/desktop-Linux%20·%20macOS%20·%20Windows-4a5142.svg">
   <img alt="Local-first" src="https://img.shields.io/badge/data-local--first-69e228.svg">
+  <a href="https://timedart.netlify.app"><img alt="Website" src="https://img.shields.io/badge/website-timedart.netlify.app-69e228.svg"></a>
   <a href="https://timedart-demo.netlify.app"><img alt="Live demo" src="https://img.shields.io/badge/try-live%20demo-1f480a.svg"></a>
+</p>
+
+<p align="center">
+  <strong><a href="https://timedart.netlify.app">timedart.netlify.app</a></strong> — the website, with a walkthrough and screenshots.
 </p>
 
 <p align="center">
@@ -23,6 +28,7 @@
 </p>
 
 <p align="center">
+  <a href="https://timedart.netlify.app">Website</a> ·
   <a href="#why-timedart">Why</a> ·
   <a href="#feature-tour">Features</a> ·
   <a href="#keyboard">Keyboard</a> ·
