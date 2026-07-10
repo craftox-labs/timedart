@@ -14,12 +14,19 @@
   <img alt="Built with Flutter" src="https://img.shields.io/badge/built%20with-Flutter-02569B.svg?logo=flutter&logoColor=white">
   <img alt="Platforms" src="https://img.shields.io/badge/desktop-Linux%20·%20macOS%20·%20Windows-4a5142.svg">
   <img alt="Local-first" src="https://img.shields.io/badge/data-local--first-69e228.svg">
+  <a href="https://timedart-demo.netlify.app"><img alt="Live demo" src="https://img.shields.io/badge/try-live%20demo-1f480a.svg"></a>
+</p>
+
+<p align="center">
+  <strong>▶ <a href="https://timedart-demo.netlify.app">Try the live web demo</a></strong> — runs in your browser, no install.<br>
+  <sub>Data stays in your browser (nothing is uploaded); clearing site data resets it.</sub>
 </p>
 
 <p align="center">
   <a href="#why-timedart">Why</a> ·
   <a href="#feature-tour">Features</a> ·
   <a href="#keyboard">Keyboard</a> ·
+  <a href="https://timedart-demo.netlify.app">Demo</a> ·
   <a href="#install">Install</a> ·
   <a href="#roadmap">Roadmap</a>
 </p>
@@ -102,6 +109,11 @@ timedart is built to be flown from the keyboard. Navigation is identical across 
 | `d` | delete, from inside an edit modal |
 | `Ctrl`+`S` · `Esc` | save · cancel in any editor |
 | `?` | show the full shortcut overlay |
+
+> **In the web demo, some shortcuts may not reach the app.** Browser extensions that bind keys —
+> [Vimium](https://vimium.github.io/) and similar — intercept single-key presses like `?`, `f`, and
+> `j`/`k` before the page sees them. The keyboard experience is complete in the desktop build; on the
+> web, disable such extensions for the demo site (or just use the mouse).
 
 ## Install
 
