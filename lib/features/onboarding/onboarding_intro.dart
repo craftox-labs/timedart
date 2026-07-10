@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/tokens.dart';
 
 // The startup intro (PRD #133, phase e): a brief (~1s) branded animation of the
 // timedart mark shown at every launch, ahead of the root gate's route decision.

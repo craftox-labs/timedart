@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/widgets/dropdown_field.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/widgets/dropdown_field.dart';
 
 /// Shared bits for the branding content-pane editors (theme/profile/template):
 /// a uniform dense field decoration and the title + Delete/Cancel/Save header.

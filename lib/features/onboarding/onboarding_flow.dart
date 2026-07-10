@@ -6,11 +6,11 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/features/invoices/editor_common.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
-import 'package:time_tracker/features/onboarding/onboarding_controller.dart';
-import 'package:time_tracker/features/onboarding/onboarding_machine.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/features/invoices/editor_common.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
+import 'package:timedart/features/onboarding/onboarding_controller.dart';
+import 'package:timedart/features/onboarding/onboarding_machine.dart';
 
 // The first-run onboarding wizard (PRD #133, phase d). A full-screen stepped
 // flow driven by [OnboardingMachine]: Welcome → How it works → Your business →

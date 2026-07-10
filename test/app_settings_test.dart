@@ -1,7 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/data/database.dart';
 
 // Coverage for the app-settings key-value store + its v9→v10 migration (PRD
 // #133). Mirrors profile_region_migration_test.dart: hand-build the prior

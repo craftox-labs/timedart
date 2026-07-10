@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
 
 // The region resolver is the compliance guard: each region's tax label, buyer
 // tax-ID label, and invoice-title rule are pinned here as fixtures so a change

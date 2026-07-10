@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/tracker/task_rows.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/tracker/task_rows.dart';
 
 Task _task(int id, String title) => Task(
   id: id,

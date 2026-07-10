@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/tokens.dart';
 
 /// The logo bar at the top of the content pane (wide layout). It runs from the
 /// content column's left edge across to the divider on the right, so its right

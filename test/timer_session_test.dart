@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/features/tracker/timer_session.dart';
+import 'package:timedart/features/tracker/timer_session.dart';
 
 final _now = DateTime(2026, 1, 1, 9);
 final _later = DateTime(2026, 1, 1, 10);

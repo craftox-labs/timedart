@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/data/database.dart';
 
 // Fixed timestamp — the arithmetic doesn't depend on it.
 final _t = DateTime(2026, 1, 1);

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/widgets/dropdown_field.dart';
-import 'package:time_tracker/features/deletions.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/widgets/dropdown_field.dart';
+import 'package:timedart/features/deletions.dart';
 
 // Add/edit/delete a time entry. Presented adaptively — a modal dialog on wide
 // windows, a bottom sheet on narrow — by [showEntryEditor]. Time is entered as

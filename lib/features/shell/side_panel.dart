@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/constants/text_styles.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/features/shell/panel_rows.dart';
-import 'package:time_tracker/widgets/focus_ring.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/constants/text_styles.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/features/shell/panel_rows.dart';
+import 'package:timedart/widgets/focus_ring.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SidePanel extends StatefulWidget {

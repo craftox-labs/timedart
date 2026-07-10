@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/tokens.dart';
 
 /// App-chrome text styles that don't map cleanly onto Material's built-in
 /// [TextTheme] roles — either because the role they'd naturally reuse already

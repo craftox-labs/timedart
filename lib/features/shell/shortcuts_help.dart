@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/tokens.dart';
 
 // The single source of truth for the keyboard help modal. The real handlers
 // (adaptive_shell / side_panel / timer_view) still switch on their own keys, so

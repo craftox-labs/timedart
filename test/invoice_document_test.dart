@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/constants/format.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_document.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
+import 'package:timedart/constants/format.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
 
 // Pure-logic coverage for the invoice view-model (PRD #79). Constructs domain
 // rows directly (no DB) and asserts the resolved values + arithmetic.

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/features/invoices/bank_validators.dart';
+import 'package:timedart/features/invoices/bank_validators.dart';
 
 // Real vectors as fixtures — the tests are the guard for the format rules, so a
 // mistyped IBAN/routing/BSB/sort code is caught without anyone memorising them.

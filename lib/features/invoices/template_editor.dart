@@ -1,12 +1,12 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/editor_common.dart';
-import 'package:time_tracker/features/invoices/invoice_document.dart';
-import 'package:time_tracker/features/invoices/invoice_preview.dart';
-import 'package:time_tracker/widgets/confirm_dialog.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/editor_common.dart';
+import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_preview.dart';
+import 'package:timedart/widgets/confirm_dialog.dart';
 
 /// Content-pane editor for an invoice [InvoiceTemplate] — colours and font (the
 /// logo lives on the profile now) — as a compact settings block above a

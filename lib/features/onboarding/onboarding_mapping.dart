@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_region.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
 
 // Maps the onboarding fast-track's captured inputs onto the seeded DEFAULT
 // profile (PRD #133). Pure function — no DB access — so it's unit-testable and

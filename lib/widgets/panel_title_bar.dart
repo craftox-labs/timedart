@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/constants/text_styles.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/text_styles.dart';
+import 'package:timedart/constants/tokens.dart';
 
 /// A panel title bar styled like the side-panel search field — a filled,
 /// flush-left / rounded-right bar sitting at the same top inset — but carrying a

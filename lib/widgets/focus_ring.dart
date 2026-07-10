@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/constants/tokens.dart';
+import 'package:timedart/constants/tokens.dart';
 
 /// A thin rectangular ring drawn around the row a keyboard cursor sits on.
 /// Square corners so it hugs the row edges; transparent when unfocused so the

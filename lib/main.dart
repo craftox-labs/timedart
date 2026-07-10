@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/constants/theme.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/features/onboarding/onboarding_gate.dart';
-import 'package:time_tracker/data/database.dart';
+import 'package:timedart/constants/theme.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/features/onboarding/onboarding_gate.dart';
+import 'package:timedart/data/database.dart';
 
 void main() {
   final db = AppDatabase();

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:time_tracker/constants/format.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/invoices/invoice_document.dart';
-import 'package:time_tracker/features/invoices/invoice_layout.dart';
+import 'package:timedart/constants/format.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_layout.dart';
 
 /// A bordered frame that hugs an invoice preview tightly — the border traces
 /// the sheet's true edges so it reads as the actual page boundary rather than

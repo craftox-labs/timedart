@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/shell/panel_rows.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/shell/panel_rows.dart';
 
 final _t = DateTime(2026, 1, 1);
 

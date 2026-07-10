@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:time_tracker/data/database.dart';
-import 'package:time_tracker/features/tracker/timer_controls.dart';
-import 'package:time_tracker/features/tracker/timer_session.dart';
-import 'package:time_tracker/constants/format.dart';
-import 'package:time_tracker/constants/tokens.dart';
-import 'package:time_tracker/features/tracker/task_rows.dart';
-import 'package:time_tracker/features/tracker/task_list.dart';
-import 'package:time_tracker/features/tracker/task_editor.dart';
-import 'package:time_tracker/features/tracker/entry_form.dart';
+import 'package:timedart/data/database.dart';
+import 'package:timedart/features/tracker/timer_controls.dart';
+import 'package:timedart/features/tracker/timer_session.dart';
+import 'package:timedart/constants/format.dart';
+import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/features/tracker/task_rows.dart';
+import 'package:timedart/features/tracker/task_list.dart';
+import 'package:timedart/features/tracker/task_editor.dart';
+import 'package:timedart/features/tracker/entry_form.dart';
 
 /// Owns the running timer so it survives content-pane switches. Editing a
 /// client/project or invoicing unmounts the tracker view, but the session and its
