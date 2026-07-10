@@ -3,13 +3,19 @@
 # Netlify has no preinstalled Flutter, so the build clones the stable SDK, then
 # builds the web bundle. Publish dir is Flutter's output, build/web.
 #
+# The clone is guarded: Netlify reuses the build workdir/cache between builds,
+# so an unconditional `git clone flutter` aborts on every build after the first
+# ("destination path 'flutter' already exists"). Cloning only when absent both
+# fixes that and reuses the cached SDK (much faster). Clear the Netlify cache if
+# you ever need to force a fresh Flutter checkout.
+#
 # Cheapest path: no cross-origin-isolation headers → drift stores in IndexedDB.
 # To upgrade to OPFS later, add the headers block below (credentialless keeps
 # CanvasKit's cross-origin gstatic fetch working under isolation).
 
 [build]
   publish = "build/web"
-  command = "git clone https://github.com/flutter/flutter.git -b stable --depth 1 && export PATH=\"$PATH:$(pwd)/flutter/bin\" && flutter build web --release"
+  command = "if [ ! -d flutter ]; then git clone https://github.com/flutter/flutter.git -b stable --depth 1; fi && export PATH=\"$PATH:$(pwd)/flutter/bin\" && flutter build web --release"
 
 # [[headers]]
 #   for = "/*"
