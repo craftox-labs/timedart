@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
           child: child!,
         );
       },
-      title: 'Time Tracker',
+      title: 'timedart',
       theme: buildAppTheme(Brightness.dark),
       home: RootGate(db: db),
     );
