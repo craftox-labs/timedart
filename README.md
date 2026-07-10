@@ -19,12 +19,11 @@
 </p>
 
 <p align="center">
-  <strong><a href="https://timedart.netlify.app">timedart.netlify.app</a></strong> — the website, with a walkthrough and screenshots.
+  <strong>▶ <a href="https://timedart.netlify.app">Visit timedart.netlify.app</a></strong> — the website: what it is, a walkthrough, and screenshots.
 </p>
 
 <p align="center">
-  <strong>▶ <a href="https://timedart-demo.netlify.app">Try the live web demo</a></strong> — runs in your browser, no install.<br>
-  <sub>Data stays in your browser (nothing is uploaded); clearing site data resets it.</sub>
+  <sub>Or <a href="https://timedart-demo.netlify.app">try the live web demo</a> — runs in your browser, no install; data never leaves your machine.</sub>
 </p>
 
 <p align="center">
