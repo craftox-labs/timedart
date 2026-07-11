@@ -326,9 +326,22 @@ class _InvoiceViewState extends State<InvoiceView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Invoice · ${widget.project.code} — ${widget.project.title}',
-          style: theme.textTheme.titleLarge,
+        // "Invoice" label keeps the Raleway italic titleLarge; the project
+        // code/title drops to Mona (matching the editor "Template : name" split).
+        Text.rich(
+          TextSpan(
+            style: theme.textTheme.titleLarge,
+            children: [
+              const TextSpan(text: 'Invoice'),
+              TextSpan(
+                text: ' · ${widget.project.code} — ${widget.project.title}',
+                style: const TextStyle(
+                  fontFamily: AppTokens.fontFamily,
+                  fontStyle: FontStyle.normal,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: AppTokens.spaceXs),
         _controls(),
