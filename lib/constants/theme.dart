@@ -59,10 +59,13 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontWeight: FontWeight.w500,
         fontStyle: FontStyle.italic,
       ),
+      // Screen/dialog titles — Raleway Medium Italic, matching the onboarding
+      // headings and the marketing site. Keeps the primary colour + tracking.
       titleLarge: const TextStyle(
-        fontFamily: AppTokens.fontFamily,
+        fontFamily: AppTokens.fontFamilyHeading,
+        fontStyle: FontStyle.italic,
         color: AppTokens.colorBrandPrimary,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         letterSpacing: 1.25,
       ),
       titleMedium: const TextStyle(
