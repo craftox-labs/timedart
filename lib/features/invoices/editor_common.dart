@@ -310,15 +310,9 @@ Widget editorHeader({
   final titleWidget = Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      // Editor section header — kept in Mona (not the Raleway titleLarge),
-      // reads as a label rather than a screen/dialog title.
-      Text(
-        title,
-        style: theme.textTheme.titleLarge?.copyWith(
-          fontFamily: AppTokens.fontFamily,
-          fontStyle: FontStyle.normal,
-        ),
-      ),
+      // Label ("Template"/"Profile") keeps the Raleway italic titleLarge; only
+      // the entity name is dropped back to Mona.
+      Text(title, style: theme.textTheme.titleLarge),
       if (hasName)
         Flexible(
           child: Text(

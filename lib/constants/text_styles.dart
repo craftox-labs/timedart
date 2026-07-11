@@ -53,13 +53,10 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
       color: scheme.onSurface,
     ),
     sectionHeader: TextStyle(
-      // Raleway Medium Italic — section names ("Templates"/"Profiles") read as
-      // headings; the entity names below them stay Mona (rowTitleSmall).
-      fontFamily: AppTokens.fontFamilyHeading,
-      fontStyle: FontStyle.italic,
+      fontFamily: AppTokens.fontFamily,
       // Matches the tracker side panel's client heading (rowTitle) size.
       fontSize: AppTokens.fontSizeSm,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w400,
       color: scheme.onSurface,
     ),
     rowTitleSmall: TextStyle(
