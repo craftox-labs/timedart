@@ -66,6 +66,7 @@ jobs:
           Icon=timedart
           Type=Application
           Categories=Office;Utility;
+          StartupWMClass=timedart
           D
           cp assets/logo/timedart_symbol.svg "$APPDIR/timedart.svg"
           # appimagetool (extract-and-run avoids needing FUSE on the runner)

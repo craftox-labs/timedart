@@ -136,11 +136,11 @@ static void my_application_class_init(MyApplicationClass* klass) {
 static void my_application_init(MyApplication* self) {}
 
 MyApplication* my_application_new() {
-  // Set the program name to the application ID, which helps various systems
-  // like GTK and desktop environments map this running application to its
-  // corresponding .desktop file. This ensures better integration by allowing
-  // the application to be recognized beyond its binary name.
-  g_set_prgname(APPLICATION_ID);
+  // Program name → "timedart" so the window's WM_CLASS / taskbar label reads
+  // "timedart", not the reverse-DNS application id. The GApplication id below
+  // stays dev.craftox.timedart (uniqueness / D-Bus); the AppImage .desktop sets
+  // StartupWMClass=timedart to match this for desktop-file mapping.
+  g_set_prgname("timedart");
 
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
