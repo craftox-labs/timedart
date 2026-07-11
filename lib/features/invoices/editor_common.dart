@@ -316,7 +316,7 @@ Widget editorHeader({
       if (hasName)
         Flexible(
           child: Text(
-            ' : ${name.trim()}',
+            ': ${name.trim()}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleLarge?.copyWith(

@@ -334,7 +334,7 @@ class _InvoiceViewState extends State<InvoiceView> {
             children: [
               const TextSpan(text: 'Invoice'),
               TextSpan(
-                text: ' · ${widget.project.code} — ${widget.project.title}',
+                text: ': ${widget.project.code} — ${widget.project.title}',
                 style: TextStyle(
                   fontFamily: AppTokens.fontFamily,
                   fontStyle: FontStyle.normal,
