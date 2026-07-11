@@ -169,3 +169,25 @@ jobs:
           draft: true
           prerelease: ${{ env.PRERELEASE }}
           files: timedart-android.apk
+
+  # ── Checksums: SHA256SUMS over all artifacts (runs after the builds) ────────
+  checksums:
+    needs: [linux, windows, macos, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the release artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" --dir dl --pattern 'timedart-*'
+      - name: Compute SHA256SUMS
+        run: |
+          cd dl
+          sha256sum timedart-* > ../SHA256SUMS
+          cat ../SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ env.PRERELEASE }}
+          files: SHA256SUMS
