@@ -135,7 +135,7 @@ timedart is built to be flown from the keyboard. Navigation is identical across 
 
 Beta builds are unsigned (bar the Android upload key), so your OS asks you to confirm the first
 launch — that's expected for a direct download, not a problem with the app. Data never leaves your
-machine.
+machine. Each release ships a `SHA256SUMS` file — verify with `sha256sum -c SHA256SUMS`.
 
 > Pre-1.0 while in beta: the local database format may still change between versions.
 
