@@ -38,8 +38,11 @@ void main() {
       seconds: 120,
     );
 
-    // FK restrict: can't drop a task that still has entries.
-    await expectLater(db.deleteTask(taskId), throwsA(anything));
+    // Blocked: can't drop a task that still has entries.
+    await expectLater(
+      db.deleteTask(taskId),
+      throwsA(isA<DeleteBlockedException>()),
+    );
     expect((await db.select(db.tasks).get()).length, 1);
     expect((await db.select(db.timeEntries).get()).length, 1);
   });

@@ -53,13 +53,22 @@ Future<bool> confirmDeleteClient(
   if (!ok) return false;
   try {
     await db.deleteClient(client.id);
-  } catch (_) {
+  } on DeleteBlockedException {
     if (context.mounted) {
       await showInfoDialog(
         context,
         title: "Can't delete client",
         message: 'This client still has projects. Delete or reassign its projects '
             'first.',
+      );
+    }
+    return false;
+  } catch (_) {
+    if (context.mounted) {
+      await showInfoDialog(
+        context,
+        title: "Can't delete client",
+        message: 'Something went wrong deleting this client.',
       );
     }
     return false;
@@ -80,12 +89,21 @@ Future<bool> confirmDeleteProject(
   if (!ok) return false;
   try {
     await db.deleteProject(project.id);
+  } on DeleteBlockedException {
+    if (context.mounted) {
+      await showInfoDialog(
+        context,
+        title: "Can't delete project",
+        message: 'This project has tasks or time entries. Delete them first.',
+      );
+    }
+    return false;
   } catch (_) {
     if (context.mounted) {
       await showInfoDialog(
         context,
         title: "Can't delete project",
-        message: 'This project has time entries. Delete its entries first.',
+        message: 'Something went wrong deleting this project.',
       );
     }
     return false;
@@ -106,12 +124,21 @@ Future<bool> confirmDeleteTask(
   if (!ok) return false;
   try {
     await db.deleteTask(task.id);
-  } catch (_) {
+  } on DeleteBlockedException {
     if (context.mounted) {
       await showInfoDialog(
         context,
         title: "Can't delete task",
         message: 'This task has time entries. Delete its entries first.',
+      );
+    }
+    return false;
+  } catch (_) {
+    if (context.mounted) {
+      await showInfoDialog(
+        context,
+        title: "Can't delete task",
+        message: 'Something went wrong deleting this task.',
       );
     }
     return false;

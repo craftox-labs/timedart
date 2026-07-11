@@ -147,61 +147,15 @@ class AppSettings extends Table {
   Set<Column> get primaryKey => {key};
 }
 
-/// One itemised line of a [ProjectInvoice]: an entry with its hours and amount.
-/// `amount` is null when the invoice has no effective rate (un-billable).
-class InvoiceLine {
-  final TimeEntry entry;
-  final String label; // task title, plus the entry's own name when set
-  final double hours;
-  final double? amount;
-  InvoiceLine({
-    required this.entry,
-    required this.label,
-    required this.hours,
-    required this.amount,
-  });
-}
-
-/// An invoice for a single project over a period: the project, its client, the
-/// effective rate (`null` = un-billable), and the itemised time entries.
-///
-/// Owns all invoice arithmetic — hours, per-line amounts, totals — so the
-/// preview and the PDF read numbers rather than recomputing them.
-class ProjectInvoice {
-  final Project project;
-  final Client client;
-  final double? rate; // effective: project.rate ?? client.defaultRate
-  final List<TimeEntry> entries;
-  final Map<int, String> taskTitles; // taskId → title, for line labels
-  ProjectInvoice({
-    required this.project,
-    required this.client,
-    required this.rate,
-    required this.entries,
-    required this.taskTitles,
-  });
-
-  /// The itemised lines: hours and (rate-permitting) amount per entry.
-  List<InvoiceLine> get lines => [
-    for (final e in entries)
-      InvoiceLine(
-        entry: e,
-        label: _labelFor(e),
-        hours: e.seconds / 3600,
-        amount: rate == null ? null : (e.seconds / 3600) * rate!,
-      ),
-  ];
-
-  String _labelFor(TimeEntry e) {
-    final task = e.taskId == null ? null : taskTitles[e.taskId];
-    final desc = e.description?.trim();
-    if (task == null) return desc == null || desc.isEmpty ? '—' : desc;
-    return desc == null || desc.isEmpty ? task : '$task · $desc';
-  }
-
-  int get totalSeconds => entries.fold(0, (sum, e) => sum + e.seconds);
-  double get totalHours => totalSeconds / 3600;
-  double? get total => rate == null ? null : totalHours * rate!;
+/// Thrown by a delete when a referential-integrity rule blocks it: the row has
+/// dependents that must be removed first. [entity] names what couldn't be
+/// deleted ('client' | 'project' | 'task') for logging and tests; the UI owns
+/// the user-facing wording (see features/deletions.dart).
+class DeleteBlockedException implements Exception {
+  final String entity;
+  const DeleteBlockedException(this.entity);
+  @override
+  String toString() => 'DeleteBlockedException($entity)';
 }
 
 @DriftDatabase(
@@ -514,8 +468,25 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<void> deleteProject(int id) =>
-      (delete(projects)..where((p) => p.id.equals(id))).go();
+  // Blocked while the project still has tasks or time entries (both FK-reference
+  // it). Pre-checked in a transaction — portable and deterministic across the
+  // native and web backends — rather than catching a backend-specific FK error.
+  Future<void> deleteProject(int id) => transaction(() async {
+    final hasTasks =
+        await (select(tasks)
+              ..where((t) => t.projectId.equals(id))
+              ..limit(1))
+            .getSingleOrNull() !=
+        null;
+    final hasEntries =
+        await (select(timeEntries)
+              ..where((t) => t.projectId.equals(id))
+              ..limit(1))
+            .getSingleOrNull() !=
+        null;
+    if (hasTasks || hasEntries) throw const DeleteBlockedException('project');
+    await (delete(projects)..where((p) => p.id.equals(id))).go();
+  });
 
   Stream<List<Project>> watchProjects() =>
       (select(projects)..orderBy([(p) => OrderingTerm.asc(p.title)])).watch();
@@ -571,11 +542,19 @@ class AppDatabase extends _$AppDatabase {
     TasksCompanion(title: Value(title), rate: Value(rate)),
   );
 
-  // Entries FK-reference the task (pragma on), so this throws if the task still
-  // has time entries — matching how projects/clients guard their children. The
-  // caller surfaces that as "delete its entries first".
-  Future<void> deleteTask(int id) =>
-      (delete(tasks)..where((t) => t.id.equals(id))).go();
+  // Blocked while the task still has time entries (they FK-reference it) —
+  // matching how projects/clients guard their children. The caller surfaces
+  // that as "delete its entries first".
+  Future<void> deleteTask(int id) => transaction(() async {
+    final hasEntries =
+        await (select(timeEntries)
+              ..where((t) => t.taskId.equals(id))
+              ..limit(1))
+            .getSingleOrNull() !=
+        null;
+    if (hasEntries) throw const DeleteBlockedException('task');
+    await (delete(tasks)..where((t) => t.id.equals(id))).go();
+  });
 
   Stream<List<Client>> watchClients() =>
       (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
@@ -624,8 +603,17 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<void> deleteClient(int id) =>
-      (delete(clients)..where((c) => c.id.equals(id))).go();
+  // Blocked while the client still has projects (they FK-reference it).
+  Future<void> deleteClient(int id) => transaction(() async {
+    final hasProjects =
+        await (select(projects)
+              ..where((p) => p.clientId.equals(id))
+              ..limit(1))
+            .getSingleOrNull() !=
+        null;
+    if (hasProjects) throw const DeleteBlockedException('client');
+    await (delete(clients)..where((c) => c.id.equals(id))).go();
+  });
 
   // ── Invoice branding: seed + DAOs (PRD #79) ──────────────────────────────
 
@@ -756,39 +744,4 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
           .get();
 
-  /// Build an on-demand invoice for a single project over [from]..[to]
-  /// (inclusive): the project, its client, effective rate, and the itemised
-  /// entries. Read-only — stores nothing.
-  Future<ProjectInvoice> projectInvoice({
-    required int projectId,
-    required DateTime from,
-    required DateTime to,
-  }) async {
-    final project = await (select(
-      projects,
-    )..where((p) => p.id.equals(projectId))).getSingle();
-    final client = await (select(
-      clients,
-    )..where((c) => c.id.equals(project.clientId))).getSingle();
-    final entries =
-        await (select(timeEntries)
-              ..where(
-                (t) =>
-                    t.projectId.equals(projectId) &
-                    t.startedAt.isBiggerOrEqualValue(from) &
-                    t.startedAt.isSmallerOrEqualValue(to),
-              )
-              ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
-            .get();
-    final taskRows = await (select(
-      tasks,
-    )..where((t) => t.projectId.equals(projectId))).get();
-    return ProjectInvoice(
-      project: project,
-      client: client,
-      rate: project.rate ?? client.defaultRate,
-      entries: entries,
-      taskTitles: {for (final t in taskRows) t.id: t.title},
-    );
-  }
 }
