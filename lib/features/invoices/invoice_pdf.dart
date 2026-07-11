@@ -6,6 +6,7 @@ import 'package:timedart/constants/format.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
 import 'package:timedart/features/invoices/invoice_layout.dart';
+import 'package:timedart/features/invoices/invoice_layout_plan.dart';
 
 // Renders an [InvoiceDocument] into a branded PDF using an [InvoiceTemplate].
 // All sizing constants live in [InvoiceLayout] — multiply each by [InvoiceLayout.pdfScale]
@@ -41,6 +42,8 @@ Future<Uint8List> buildBrandedInvoicePdf({
     await rootBundle.load('assets/fonts/MonaSans-SemiBold.ttf'),
   ); // w600 — headings (fontWeightBold)
 
+  final plan = InvoiceLayout.resolve(doc);
+
   final bg = PdfColor.fromInt(template.colorBackground);
   final surface = PdfColor.fromInt(template.colorSurface);
   final primary = PdfColor.fromInt(template.colorPrimary);
@@ -61,46 +64,45 @@ Future<Uint8List> buildBrandedInvoicePdf({
   // asks for — the timedart mark (default profile), a neutral "[Logo]" box
   // (template previews), or nothing (null → a real logo-less invoice). Built
   // here (async can load the asset) so the sync page builder just drops it in.
-  // Mirrors the preview's choice in invoice_preview.dart.
+  // The slot decision is made once in InvoiceLayout.resolve; both painters read
+  // it, so they can't disagree.
   final pw.Widget? logoWidget;
-  if (doc.logo != null) {
-    logoWidget = pw.Image(
-      pw.MemoryImage(doc.logo!),
-      height: _p(InvoiceLayout.logoHeight),
-    );
-  } else {
-    switch (doc.logoFallback) {
-      case LogoFallback.brand:
-        final bytes = (await rootBundle.load(
-          'assets/logo/timedart_logo_horizontal.png',
-        )).buffer.asUint8List();
-        logoWidget = pw.Image(
-          pw.MemoryImage(bytes),
-          height: _p(InvoiceLayout.logoHeight),
-        );
-      case LogoFallback.placeholder:
-        logoWidget = pw.Container(
-          width: _p(InvoiceLayout.logoPlaceholderWidth),
-          height: _p(InvoiceLayout.logoHeight),
-          alignment: pw.Alignment.center,
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: muted),
-            borderRadius: pw.BorderRadius.circular(
-              _p(InvoiceLayout.logoPlaceholderRadius),
-            ),
+  switch (plan.masthead.logo.slot) {
+    case LogoSlot.image:
+      logoWidget = pw.Image(
+        pw.MemoryImage(plan.masthead.logo.image!),
+        height: _p(InvoiceLayout.logoHeight),
+      );
+    case LogoSlot.brandMark:
+      final bytes = (await rootBundle.load(
+        'assets/logo/timedart_logo_horizontal.png',
+      )).buffer.asUint8List();
+      logoWidget = pw.Image(
+        pw.MemoryImage(bytes),
+        height: _p(InvoiceLayout.logoHeight),
+      );
+    case LogoSlot.placeholder:
+      logoWidget = pw.Container(
+        width: _p(InvoiceLayout.logoPlaceholderWidth),
+        height: _p(InvoiceLayout.logoHeight),
+        alignment: pw.Alignment.center,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: muted),
+          borderRadius: pw.BorderRadius.circular(
+            _p(InvoiceLayout.logoPlaceholderRadius),
           ),
-          child: pw.Text(
-            'Logo',
-            style: pw.TextStyle(
-              font: medium,
-              color: muted,
-              fontSize: _p(InvoiceLayout.fontValue),
-            ),
+        ),
+        child: pw.Text(
+          'Logo',
+          style: pw.TextStyle(
+            font: medium,
+            color: muted,
+            fontSize: _p(InvoiceLayout.fontValue),
           ),
-        );
-      case LogoFallback.none:
-        logoWidget = null;
-    }
+        ),
+      );
+    case LogoSlot.none:
+      logoWidget = null;
   }
 
   // Small-caps labels (ATT:/RE:/field + table-header labels): [fontWeightLabel]
@@ -187,36 +189,18 @@ Future<Uint8List> buildBrandedInvoicePdf({
   );
 
   final gutter = pw.SizedBox(width: _p(InvoiceLayout.gridGutter));
-  const labelSpan =
-      InvoiceLayout.colItem + InvoiceLayout.colDate + InvoiceLayout.colRate;
-
-  bool present(String? s) => s != null && s.trim().isNotEmpty;
 
   // One row of payment fields: its items divide the full width evenly, so a
   // short row still spans 100%. Mirrors invoice_preview.dart's _paymentRow.
-  const payColumns = 3;
-  pw.Widget paymentRow(List<(String, String)> row) => pw.Row(
+  pw.Widget paymentRow(List<PayField> row) => pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
       for (var c = 0; c < row.length; c++) ...[
         if (c > 0) pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
-        pw.Expanded(child: field(row[c].$1, row[c].$2)),
+        pw.Expanded(child: field(row[c].label, row[c].value)),
       ],
     ],
   );
-
-  // Inclusion flags let the invoice deliberately omit a block that has data.
-  final paymentFields = doc.showBank
-      ? doc.paymentFields
-      : const <(String, String)>[];
-  final showPaymentLink =
-      doc.showPaymentLink &&
-      doc.paymentLink != null &&
-      doc.paymentLink!.trim().isNotEmpty;
-  final paymentRows = <List<(String, String)>>[
-    for (var i = 0; i < paymentFields.length; i += payColumns)
-      paymentFields.sublist(i, (i + payColumns).clamp(0, paymentFields.length)),
-  ];
 
   final doc0 = pw.Document();
   doc0.addPage(
@@ -246,7 +230,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
                       fontSize: _p(InvoiceLayout.fontPaymentsHeading),
                     ),
                   ),
-                  if (present(doc.senderAddress)) ...[
+                  if (plan.masthead.showAddress) ...[
                     pw.SizedBox(height: _p(InvoiceLayout.mastheadContactGap)),
                     pw.Text(
                       doc.senderAddress!.trim(),
@@ -267,18 +251,13 @@ Future<Uint8List> buildBrandedInvoicePdf({
                         fontSize: _p(InvoiceLayout.fontValue),
                       ),
                       children: [
-                        for (final (i, entry) in <(String, String)>[
-                          if (doc.senderEmail != null) ('e.', doc.senderEmail!),
-                          if (doc.senderPhone != null) ('t.', doc.senderPhone!),
-                          if (doc.senderWebsite != null)
-                            ('w.', doc.senderWebsite!),
-                        ].indexed) ...[
+                        for (final (i, entry) in plan.masthead.contact.indexed) ...[
                           if (i > 0) const pw.TextSpan(text: '    '),
                           pw.TextSpan(
-                            text: entry.$1,
+                            text: entry.prefix,
                             style: pw.TextStyle(font: medium, color: primary),
                           ),
-                          pw.TextSpan(text: ' ${entry.$2}'),
+                          pw.TextSpan(text: ' ${entry.value}'),
                         ],
                       ],
                     ),
@@ -313,7 +292,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
             fontSize: _p(InvoiceLayout.fontLabel),
           ),
         ),
-        if (doc.invoiceNumber != null)
+        if (plan.party.showInvoiceNumber)
           pw.Text(
             doc.invoiceNumber!,
             style: pw.TextStyle(
@@ -329,13 +308,13 @@ Future<Uint8List> buildBrandedInvoicePdf({
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.SizedBox(
-              width: _p(2 * InvoiceLayout.recipientCol),
+              width: _p(plan.geometry.attColWidth),
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text('ATT:', style: labelStyle),
                   pw.Text(
-                    doc.attention ?? doc.organisation,
+                    plan.party.attValue,
                     style: pw.TextStyle(
                       font: bold,
                       color: primary,
@@ -382,20 +361,20 @@ Future<Uint8List> buildBrandedInvoicePdf({
             pw.Expanded(child: field('PHONE', doc.recipientPhone)),
           ],
         ),
-        if (doc.recipientAddress != null || doc.recipientAbn != null) ...[
+        if (plan.recipient.showSecondRow) ...[
           pw.SizedBox(height: _p(InvoiceLayout.recipientGap)),
           pw.Row(
             children: [
               pw.Expanded(
-                child: doc.recipientAddress != null
+                child: plan.recipient.showAddress
                     ? field('ADDRESS', doc.recipientAddress)
                     : pw.SizedBox(),
               ),
-              if (doc.recipientAbn != null) ...[
+              if (plan.recipient.showTaxCell) ...[
                 pw.SizedBox(width: _p(InvoiceLayout.gridGutter)),
                 // Fixed to one column so it lands on PHONE's edges above.
                 pw.SizedBox(
-                  width: _p(InvoiceLayout.recipientCol),
+                  width: _p(plan.geometry.recipientQuarter),
                   child: field(doc.recipientAbnLabel, doc.recipientAbn),
                 ),
               ],
@@ -476,7 +455,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
               gutter,
               gutter,
               pw.Expanded(
-                flex: labelSpan,
+                flex: plan.totals.labelSpan,
                 child: txt('TOTAL:', right: true, style: labelStyle),
               ),
               gutter,
@@ -492,7 +471,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
             ],
           ),
         ),
-        if (doc.tax != null)
+        if (plan.totals.showTaxRow)
           pw.Container(
             margin: pw.EdgeInsets.only(
               bottom: _p(InvoiceLayout.rowMarginBottom),
@@ -502,7 +481,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
                 gutter,
                 gutter,
                 pw.Expanded(
-                  flex: labelSpan,
+                  flex: plan.totals.labelSpan,
                   child: txt(
                     '${doc.tax!.label} (${doc.tax!.rate}%):',
                     right: true,
@@ -531,7 +510,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
             ),
             gutter,
             pw.Container(
-              width: _p(InvoiceLayout.totalsValueWidth),
+              width: _p(plan.totals.amountDueWidth),
               padding: pw.EdgeInsets.symmetric(
                 horizontal: _p(InvoiceLayout.rowPaddingH),
                 vertical: _p(InvoiceLayout.rowPaddingV),
@@ -561,7 +540,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
             ),
           ],
         ),
-        if (doc.reverseCharge) ...[
+        if (plan.totals.showReverseCharge) ...[
           pw.SizedBox(height: _p(InvoiceLayout.totalsGap)),
           pw.Text(
             InvoiceDocument.reverseChargeStatement,
@@ -575,7 +554,7 @@ Future<Uint8List> buildBrandedInvoicePdf({
         pw.SizedBox(height: _p(InvoiceLayout.sectionGap)),
 
         // ── Payments ── (omitted entirely when there's nothing to show)
-        if (paymentRows.isNotEmpty || showPaymentLink) ...[
+        if (plan.payments.visible) ...[
           pw.Text(
             'Please make payments to:',
             style: pw.TextStyle(
@@ -585,16 +564,16 @@ Future<Uint8List> buildBrandedInvoicePdf({
             ),
           ),
           pw.SizedBox(height: _p(InvoiceLayout.paymentsHeadingGap)),
-          if (showPaymentLink) ...[
+          if (plan.payments.showLink) ...[
             field('LINK', doc.paymentLink),
-            if (paymentRows.isNotEmpty)
+            if (plan.payments.rows.isNotEmpty)
               pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
           ],
-          for (final (i, row) in paymentRows.indexed) ...[
+          for (final (i, row) in plan.payments.rows.indexed) ...[
             if (i > 0) pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
             paymentRow(row),
           ],
-          if (paymentRows.isNotEmpty && doc.region.paymentNote != null) ...[
+          if (plan.payments.showPaymentNote) ...[
             pw.SizedBox(height: _p(InvoiceLayout.paymentsFieldGap)),
             pw.Text(
               doc.region.paymentNote!,
