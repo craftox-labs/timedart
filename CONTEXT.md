@@ -70,6 +70,22 @@ _Avoid_: draft, model.
 A logo (image bytes + MIME) compared by **content**, not identity, so an unchanged logo in an editor snapshot doesn't read as a dirty edit.
 _Avoid_: image ref.
 
+**Keymap**:
+The single registry of the app's keyboard model — a list of `Binding`s mapping key strokes to a `KeyIntent`, tagged with a `scope` and the help metadata. `Keymap.resolve(event, detector, scopes)` answers key→intent (chords included) for the four raw-key handlers (shell, side panel, settings panel, tracker); the help dialog iterates the same registry, so it can't drift. Flutter's `Shortcuts`/`Actions` can't express the vim multi-key sequences, hence a custom registry over the existing raw `onKeyEvent` handlers.
+_Avoid_: shortcuts table, key map (two words).
+
+**Binding**:
+One registry entry: a `KeyIntent`, its `scope`, the single-press `strokes` (alternatives) or a chord (`prefix` + completion strokes), and the help caps/description. Panes own **intent→action** (the same intent drives different code per pane); the Keymap owns **key→intent**.
+_Avoid_: shortcut, mapping.
+
+**Binding scope** (`KeyScope`):
+Where a binding is live — `global` (pane switch, help, search, settings, timer), `list` (shared cursor nav), `panel`/`tracker`/`settings` (pane-specific), `editor` (help-only; the edit modals bind these in their own `CallbackShortcuts`). A handler resolves against its own scope(s) plus `global`.
+_Avoid_: mode, context.
+
+**ChordDetector**:
+Per-handler state for an in-progress multi-key sequence (`gg`, `G`, `Ctrl-w h/l`) — the armed prefix. One instance per raw-key handler, `reset()` on a focus excursion. Replaces the hand-rolled `_pendingG`/`_pendingCtrlW` copies; the pane that owns the completion keys (h/l) must own the chord, which is why each list pane holds its own detector.
+_Avoid_: pending flag, sequence state.
+
 ## Principles
 
 - **The invoice is a print artifact, not app chrome.** Preview/PDF styling follows the user's profile/template and is deliberately independent of `AppTextStyles`/theme, so re-skinning the app never mutates an exported invoice. Persisted, user-defined styling is separate from global app styling.

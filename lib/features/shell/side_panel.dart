@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/panel_rows.dart';
 import 'package:timedart/widgets/focus_ring.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,7 +21,8 @@ class SidePanel extends StatefulWidget {
     required this.onAddClient,
     this.cursorFocusNode,
     this.searchFocusNode,
-    this.onExitToTracker,
+    this.onFocusTracker,
+    this.onFocusPanel,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -42,9 +44,11 @@ class SidePanel extends StatefulWidget {
   // Search-field focus, owned by the shell so a global `/` (from any pane) can
   // jump straight into search. Null → an internal node (drawer layout).
   final FocusNode? searchFocusNode;
-  // Called when the user asks to leave the panel for the tracker pane
-  // (Tab / Ctrl-l / Ctrl-w l). Null when there's nowhere to go.
-  final VoidCallback? onExitToTracker;
+  // Pane-switch intents, forwarded to the shell's focus methods (the panel
+  // sits on the right, so focusTracker leaves left, focusPanel is a refocus).
+  // Null in layouts without keyboard nav (drawer).
+  final VoidCallback? onFocusTracker;
+  final VoidCallback? onFocusPanel;
   // `?` (Shift+/) — open the shortcuts help. Routed up because the panel
   // consumes the `/` key itself (so it can't bubble to the shell).
   final VoidCallback? onShowHelp;
@@ -83,8 +87,7 @@ class _SidePanelState extends State<SidePanel> {
   // Row cursor over the flattened visible list (clients + projects of expanded
   // clients). Kept valid against [_rows] after every rebuild.
   int _cursor = 0;
-  bool _pendingG = false; // saw the first `g` of a `gg`
-  bool _pendingChord = false; // saw Ctrl-w, awaiting an h/l window motion
+  final _chords = ChordDetector(); // gg / Ctrl-w window-motion sequence state
   List<PanelRow> _rows = const [];
   bool _searching = false;
   final _cursorKey = GlobalKey(); // rides the focused row for ensureVisible
@@ -118,8 +121,7 @@ class _SidePanelState extends State<SidePanel> {
   void _onFocusChanged() {
     // A focus excursion (into search, out to the tracker) abandons any
     // half-typed sequence — otherwise it would mis-fire on the next keypress.
-    _pendingG = false;
-    _pendingChord = false;
+    _chords.reset();
     if (mounted) setState(() {});
   }
 
@@ -273,121 +275,79 @@ class _SidePanelState extends State<SidePanel> {
     });
   }
 
+  // Panel scope = list nav + panel actions + the global pane-switch bindings.
+  // The panel owns its Ctrl-w chord (and search/help) locally because it owns
+  // the h/l keys that complete/shadow it; pane switching is forwarded to the
+  // shell. Everything else (Tab, Space, t, Ctrl-,) bubbles.
+  static const _scopes = {KeyScope.list, KeyScope.panel, KeyScope.global};
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     // While typing in the search field, keys belong to the field.
     if (_searchFocus.hasFocus) return KeyEventResult.ignored;
 
-    final key = event.logicalKey;
-    final ctrl = HardwareKeyboard.instance.isControlPressed;
-    final right =
-        key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
-    final left =
-        key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft;
-
-    // --- Pane switching (leave for the tracker) ---
-    // Handled here rather than left to bubble, because the bare l/h row-nav
-    // keys below would otherwise shadow both the Ctrl-combo and the Ctrl-w
-    // chord's second key. Only the panel→tracker direction lives here; the
-    // shell owns tracker→panel. The panel sits on the RIGHT, so leaving for the
-    // tracker means moving left (Ctrl-h / Ctrl-← / Ctrl-w h).
-    if (event is KeyDownEvent) {
-      if (ctrl && key == LogicalKeyboardKey.keyW) {
-        _pendingChord = true;
+    final r = Keymap.resolve(
+      event,
+      _chords,
+      _scopes,
+      ctrlDown: HardwareKeyboard.instance.isControlPressed,
+      shiftDown: HardwareKeyboard.instance.isShiftPressed,
+    );
+    switch (r) {
+      case KeyPending():
         return KeyEventResult.handled;
-      }
-      if (_pendingChord) {
-        _pendingChord = false;
-        if (left) {
-          widget.onExitToTracker?.call();
-          return KeyEventResult.handled;
+      case KeyNone():
+        return KeyEventResult.ignored;
+      case KeyMatch(:final intent):
+        // Movement repeats when held; everything else fires once per press.
+        if (event is! KeyDownEvent && !Keymap.isRepeatable(intent)) {
+          return KeyEventResult.ignored;
         }
-        if (right) {
-          return KeyEventResult.handled; // Ctrl-w l → panel; already here
-        }
-        // any other key: abandon the chord, fall through to normal handling
-      } else {
-        if (ctrl && left) {
-          widget.onExitToTracker?.call();
-          return KeyEventResult.handled;
-        }
-        if (ctrl && right) {
-          return KeyEventResult.handled; // Ctrl-l → already here
-        }
-      }
+        return _handleIntent(intent)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
     }
-    // Any other Ctrl-combo isn't a row-nav key — let it bubble (Tab and the
-    // tracker→panel bindings are the shell's job).
-    if (ctrl) return KeyEventResult.ignored;
+  }
 
-    // Movement repeats when held.
-    if (key == LogicalKeyboardKey.keyJ || key == LogicalKeyboardKey.arrowDown) {
-      _moveCursor(1);
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyK || key == LogicalKeyboardKey.arrowUp) {
-      _moveCursor(-1);
-      return KeyEventResult.handled;
-    }
-
-    // The rest fire once per press.
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final shift = HardwareKeyboard.instance.isShiftPressed;
-
-    // gg / G — handle before the pending-g reset below.
-    if (key == LogicalKeyboardKey.keyG) {
-      if (shift) {
-        _pendingG = false;
-        _jumpTo(_rows.length - 1);
-      } else if (_pendingG) {
-        _pendingG = false;
+  // Maps a resolved intent to this panel's action; returns false for intents it
+  // doesn't own (Tab / Space / t / Ctrl-,) so the shell handles them.
+  bool _handleIntent(KeyIntent intent) {
+    switch (intent) {
+      case KeyIntent.moveDown:
+        _moveCursor(1);
+      case KeyIntent.moveUp:
+        _moveCursor(-1);
+      case KeyIntent.top:
         _jumpTo(0);
-      } else {
-        _pendingG = true;
-      }
-      return KeyEventResult.handled;
-    }
-    _pendingG = false; // any other key breaks a half-typed gg
-
-    if (right ||
-        key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter) {
-      _expandOrOpen();
-      return KeyEventResult.handled;
-    }
-    if (left) {
-      _collapseOrParent();
-      return KeyEventResult.handled;
-    }
-    // `?` = help (matched by character — a shifted `/` isn't reported as the
-    // slash logical key); plain `/` = search.
-    if (event.character == '?') {
-      widget.onShowHelp?.call();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.slash) {
-      _focusSearch();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyN) {
-      _jumpMatch(shift ? -1 : 1);
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyE) {
-      _editCurrent();
-      return KeyEventResult.handled;
-    }
-    // a = add project under the focused row's client; A = add client.
-    if (key == LogicalKeyboardKey.keyA) {
-      if (shift) {
-        widget.onAddClient();
-      } else {
+      case KeyIntent.bottom:
+        _jumpTo(_rows.length - 1);
+      case KeyIntent.openOrExpand:
+      case KeyIntent.activate:
+        _expandOrOpen();
+      case KeyIntent.collapseOrParent:
+        _collapseOrParent();
+      case KeyIntent.editItem:
+        _editCurrent();
+      case KeyIntent.addProject:
         _addProjectCurrent();
-      }
-      return KeyEventResult.handled;
+      case KeyIntent.addClient:
+        widget.onAddClient();
+      case KeyIntent.nextMatch:
+        _jumpMatch(1);
+      case KeyIntent.prevMatch:
+        _jumpMatch(-1);
+      case KeyIntent.search:
+        _focusSearch();
+      case KeyIntent.showHelp:
+        widget.onShowHelp?.call();
+      case KeyIntent.focusTracker:
+        widget.onFocusTracker?.call();
+      case KeyIntent.focusPanel:
+        widget.onFocusPanel?.call();
+      default:
+        return false; // bubble to the shell
     }
-    // Tab is left for the shell (tracker↔panel toggle) — don't consume.
-    return KeyEventResult.ignored;
+    return true;
   }
 
   // A : add a project under the focused row's client (client or project row).

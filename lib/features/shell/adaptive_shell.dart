@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/page_header.dart';
 import 'package:timedart/features/shell/shortcuts_help.dart';
 import 'package:timedart/features/shell/side_panel.dart';
@@ -118,7 +119,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   final FocusNode _panelSearch = FocusNode(debugLabel: 'panelSearch');
   // Lets a global Space toggle the timer from any pane while it's in view.
   final TimerController _timer = TimerController();
-  bool _pendingCtrlW = false; // saw Ctrl-w, awaiting an h/l
+  // Chord state for global sequences (the Ctrl-w window motion) when focus is
+  // on a pane that bubbles them here (e.g. the content editors). The list panes
+  // own their own detectors and forward focusTracker/focusPanel via callbacks.
+  final ChordDetector _shellChords = ChordDetector();
 
   void _focusPanel() =>
       (_inSettings ? _settingsCursor : _panelCursor).requestFocus();
@@ -143,103 +147,58 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       ? _focusTracker()
       : _focusPanel();
 
-  // Pane-switching lives at the shell: Tab, Ctrl+←/→, Ctrl-h/l, and the vim
-  // Ctrl-w h/l chord. Row navigation is the panel's own concern.
-  // Layout is tracker (left) | sidebar (right), so direction follows position:
-  // left (h/←) → tracker, right (l/→) → panel.
+  // Global bindings live at the shell: Tab, Ctrl+←/→, Ctrl-h/l, the vim
+  // Ctrl-w h/l chord, `?`/`/`/`t`/Space/Ctrl+,. Reached for events the focused
+  // pane bubbles (a list pane owns pane-switching for its own focus, forwarding
+  // via onFocusTracker/onFocusPanel; the content editors bubble to here).
   KeyEventResult _onShellKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    final key = event.logicalKey;
-    final ctrl = HardwareKeyboard.instance.isControlPressed;
-
-    // Global single-key bindings (`?`, `/`, Space) must stand down while a text
-    // field is focused — printable-key events still bubble up here even as the
-    // field is receiving them, so without this guard they'd double-fire.
-    final editing = _isEditing();
-
-    // `?` (Shift+/) is global: open the shortcuts help. Matched by character,
-    // not logical key — a shifted `/` doesn't report LogicalKeyboardKey.slash.
-    // Reaches here whenever the focused pane doesn't consume it (the panel
-    // routes it via onShowHelp).
-    if (!ctrl && !editing && event.character == '?') {
-      if (event is KeyDownEvent) showShortcutsHelp(context);
-      return KeyEventResult.handled;
+    // Printable globals (`?`, `/`, Space, `t`, Tab) must stand down while a text
+    // field is focused — those events still bubble up here as the field types.
+    final r = Keymap.resolve(
+      event,
+      _shellChords,
+      const {KeyScope.global},
+      ctrlDown: HardwareKeyboard.instance.isControlPressed,
+      shiftDown: HardwareKeyboard.instance.isShiftPressed,
+      typing: _isEditing(),
+    );
+    switch (r) {
+      case KeyPending():
+        return KeyEventResult.handled;
+      case KeyNone():
+        return KeyEventResult.ignored;
+      case KeyMatch(:final intent):
+        if (event is KeyDownEvent) _handleGlobalIntent(intent);
+        return KeyEventResult.handled;
     }
+  }
 
-    // `/` is global: focus the panel search from whichever pane has focus.
-    if (!ctrl && !editing && key == LogicalKeyboardKey.slash) {
-      _focusSearch();
-      return KeyEventResult.handled;
-    }
-
-    // Space is global while the tracker is in view: toggle start/pause/resume
-    // from any pane. Fires once per press (repeats are swallowed, not repeated).
-    if (!ctrl &&
-        !editing &&
-        key == LogicalKeyboardKey.space &&
-        _detail is _Tracker) {
-      if (event is KeyDownEvent) _timer.primary?.call();
-      return KeyEventResult.handled;
-    }
-
-    // `t` returns to the tracker from anywhere it isn't already showing (e.g.
-    // out of Settings). Guarded like the other single-key globals so it types
-    // normally in a text field.
-    if (!ctrl &&
-        !editing &&
-        key == LogicalKeyboardKey.keyT &&
-        _detail is! _Tracker) {
-      if (event is KeyDownEvent) _showTracker();
-      return KeyEventResult.handled;
-    }
-
-    final left =
-        key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft;
-    final right =
-        key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
-
-    // Ctrl+, opens App Settings from anywhere.
-    if (ctrl && key == LogicalKeyboardKey.comma) {
-      if (event is KeyDownEvent) _openSettings();
-      return KeyEventResult.handled;
-    }
-
-    // Ctrl-w begins a window-motion chord.
-    if (ctrl && key == LogicalKeyboardKey.keyW) {
-      _pendingCtrlW = true;
-      return KeyEventResult.handled;
-    }
-    if (_pendingCtrlW) {
-      _pendingCtrlW = false;
-      if (left) {
+  // Layout is tracker (left) | sidebar (right), so direction follows position:
+  // left (focusTracker) → tracker, right (focusPanel) → panel.
+  void _handleGlobalIntent(KeyIntent intent) {
+    switch (intent) {
+      case KeyIntent.showHelp:
+        showShortcutsHelp(context);
+      case KeyIntent.search:
+        _focusSearch();
+      case KeyIntent.openTracker:
+        if (_detail is! _Tracker) _showTracker();
+      case KeyIntent.toggleTimer:
+        if (_detail is _Tracker) _timer.primary?.call();
+      case KeyIntent.openSettings:
+        _openSettings();
+      case KeyIntent.focusTracker:
         _focusTracker();
-        return KeyEventResult.handled;
-      }
-      if (right) {
+      case KeyIntent.focusPanel:
         _focusPanel();
-        return KeyEventResult.handled;
-      }
-      // any other key just cancels the chord, falls through
+      case KeyIntent.switchPane:
+        _togglePane();
+      default:
+        break; // non-global intents never resolve under the global scope
     }
-
-    if (ctrl && left) {
-      _focusTracker();
-      return KeyEventResult.handled;
-    }
-    if (ctrl && right) {
-      _focusPanel();
-      return KeyEventResult.handled;
-    }
-    // Tab/Shift+Tab switch panes — but while a form field is focused, they
-    // should cycle to the next/previous field instead (Flutter's default
-    // focus traversal), so stand down and let the key bubble to it.
-    if (!editing && key == LogicalKeyboardKey.tab) {
-      _togglePane();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
   }
 
   // The single gate every _detail transition goes through, so an unsaved
@@ -371,6 +330,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // layout (Tab / Ctrl-h / Ctrl-w h), inert in the drawer.
         cursorFocusNode: _trackerCursor,
         controller: _timer,
+        onFocusTracker: _focusTracker,
+        onFocusPanel: _focusPanel,
       ),
       _Invoice(:final project) => InvoiceView(
         db: widget.db,
@@ -476,6 +437,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),
           onOpenTracker: () => run(_showTracker),
+          onFocusTracker: keyboardNav ? _focusTracker : null,
+          onFocusPanel: keyboardNav ? _focusPanel : null,
           settingsActive: true,
           showFooter: showFooter,
           autofocus: keyboardNav,
@@ -498,7 +461,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // Keyboard nav is wired only where the panel is persistent (wide).
         cursorFocusNode: keyboardNav ? _panelCursor : null,
         searchFocusNode: keyboardNav ? _panelSearch : null,
-        onExitToTracker: keyboardNav ? _focusTracker : null,
+        onFocusTracker: keyboardNav ? _focusTracker : null,
+        onFocusPanel: keyboardNav ? _focusPanel : null,
         // `?` while the panel is focused: the panel consumes `/`-family keys, so
         // it routes the help request back up rather than letting it bubble.
         onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,

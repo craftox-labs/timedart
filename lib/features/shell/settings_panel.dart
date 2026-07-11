@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/side_panel.dart';
 import 'package:timedart/widgets/focus_ring.dart';
 import 'package:timedart/widgets/panel_title_bar.dart';
@@ -29,6 +30,8 @@ class SettingsPanel extends StatefulWidget {
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
+    this.onFocusTracker,
+    this.onFocusPanel,
     this.settingsActive = false,
     this.showFooter = true,
     this.autofocus = false,
@@ -64,6 +67,10 @@ class SettingsPanel extends StatefulWidget {
   final VoidCallback? onOpenSettings;
   // Go to the tracker — the timedart symbol beside the footer gear.
   final VoidCallback? onOpenTracker;
+  // Pane-switch intents, forwarded to the shell's focus methods (Ctrl-h/l and
+  // the Ctrl-w chord). Null in layouts without keyboard nav (drawer).
+  final VoidCallback? onFocusTracker;
+  final VoidCallback? onFocusPanel;
   // Whether Settings is the active section (drives the footer switch tint).
   final bool settingsActive;
   // Suppressed in the wide layout — the header carries those actions there.
@@ -143,6 +150,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       (_internalCursor ??= FocusNode(debugLabel: 'settingsCursor'));
   int _cursor = 0;
   List<_BRow> _rows = const [];
+  final _chords = ChordDetector(); // Ctrl-w window-motion sequence state
 
   @override
   void initState() {
@@ -151,6 +159,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
   }
 
   void _repaint() {
+    // A focus excursion abandons any half-typed chord.
+    _chords.reset();
     if (mounted) setState(() {});
   }
 
@@ -247,50 +257,70 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
   }
 
+  // Settings scope = list nav + settings actions + the global pane-switch
+  // bindings. Owning the global scope's Ctrl-w chord here (the panel owns the
+  // h/l keys that complete it) is what fixes the previously-silent gap. `?`/`/`,
+  // Tab, Ctrl-, and the timer keys bubble to the shell.
+  static const _scopes = {KeyScope.list, KeyScope.settings, KeyScope.global};
+
+  void _jumpTo(int index) {
+    if (_rows.isEmpty) return;
+    setState(() => _cursor = index.clamp(0, _rows.length - 1));
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
-    final key = event.logicalKey;
-    if (HardwareKeyboard.instance.isControlPressed) {
-      return KeyEventResult.ignored; // let pane-switching bubble to the shell
+    final r = Keymap.resolve(
+      event,
+      _chords,
+      _scopes,
+      ctrlDown: HardwareKeyboard.instance.isControlPressed,
+      shiftDown: HardwareKeyboard.instance.isShiftPressed,
+    );
+    switch (r) {
+      case KeyPending():
+        return KeyEventResult.handled;
+      case KeyNone():
+        return KeyEventResult.ignored;
+      case KeyMatch(:final intent):
+        if (event is! KeyDownEvent && !Keymap.isRepeatable(intent)) {
+          return KeyEventResult.ignored;
+        }
+        return _handleIntent(intent)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
     }
-    final right =
-        key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.arrowRight;
-    final left =
-        key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft;
+  }
 
-    if (key == LogicalKeyboardKey.keyJ || key == LogicalKeyboardKey.arrowDown) {
-      _moveCursor(1);
-      return KeyEventResult.handled;
+  bool _handleIntent(KeyIntent intent) {
+    switch (intent) {
+      case KeyIntent.moveDown:
+        _moveCursor(1);
+      case KeyIntent.moveUp:
+        _moveCursor(-1);
+      case KeyIntent.top:
+        _jumpTo(0);
+      case KeyIntent.bottom:
+        _jumpTo(_rows.length - 1);
+      case KeyIntent.openOrExpand:
+      case KeyIntent.activate:
+        _activateCurrent();
+      case KeyIntent.collapseOrParent:
+        _collapseCurrent();
+      case KeyIntent.addEntity:
+        _addCurrent();
+      case KeyIntent.editItem:
+        _editCurrent();
+      case KeyIntent.back:
+        widget.onBack();
+      case KeyIntent.focusTracker:
+        widget.onFocusTracker?.call();
+      case KeyIntent.focusPanel:
+        widget.onFocusPanel?.call();
+      default:
+        return false; // bubble to the shell
     }
-    if (key == LogicalKeyboardKey.keyK || key == LogicalKeyboardKey.arrowUp) {
-      _moveCursor(-1);
-      return KeyEventResult.handled;
-    }
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (right ||
-        key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter) {
-      _activateCurrent();
-      return KeyEventResult.handled;
-    }
-    if (left) {
-      _collapseCurrent();
-      return KeyEventResult.handled;
-    }
-    // a: add to the current row's section; e: edit the current entity.
-    if (key == LogicalKeyboardKey.keyA) {
-      _addCurrent();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyE) {
-      _editCurrent();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.escape) {
-      widget.onBack();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
+    return true;
   }
 
   _Section? _sectionAtCursor() {

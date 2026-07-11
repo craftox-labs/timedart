@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/tracker/timer_controls.dart';
 import 'package:timedart/features/tracker/timer_session.dart';
 import 'package:timedart/constants/format.dart';
@@ -80,6 +81,8 @@ class TimerView extends StatefulWidget {
     required this.onInvoice,
     this.cursorFocusNode,
     this.controller,
+    this.onFocusTracker,
+    this.onFocusPanel,
   });
   final AppDatabase db;
   final int? projectId;
@@ -90,6 +93,10 @@ class TimerView extends StatefulWidget {
   final FocusNode? cursorFocusNode;
   // Lets the shell trigger the primary action for a global Space binding.
   final TimerController? controller;
+  // Pane-switch intents, forwarded to the shell's focus methods (Ctrl-h/l and
+  // the Ctrl-w chord). The tracker sits on the left, so focusPanel leaves right.
+  final VoidCallback? onFocusTracker;
+  final VoidCallback? onFocusPanel;
 
   @override
   State<TimerView> createState() => _TimerViewState();
@@ -124,7 +131,7 @@ class _TimerViewState extends State<TimerView> {
   final _cursorKey = GlobalKey(); // rides the focused row for ensureVisible
   final _scroll = ScrollController();
   static const _estRowHeight = 56.0; // rough row height for off-screen jumps
-  bool _pendingG = false; // saw a bare 'g', awaiting the second for gg
+  final _chords = ChordDetector(); // gg / Ctrl-w window-motion sequence state
 
   FocusNode? get _cursorNode => widget.cursorFocusNode;
   bool get _cursorActive => _cursorNode?.hasPrimaryFocus ?? false;
@@ -169,7 +176,7 @@ class _TimerViewState extends State<TimerView> {
   // Repaint the focus ring when the cursor gains/loses focus. A focus excursion
   // (into the task field, out to another pane) also abandons a half-typed gg.
   void _onFocusChanged() {
-    _pendingG = false;
+    _chords.reset();
     if (mounted) setState(() {});
   }
 
@@ -357,6 +364,12 @@ class _TimerViewState extends State<TimerView> {
     }
   }
 
+  // Tracker scope = list nav + tracker actions + the global pane-switch
+  // bindings. Owning the Ctrl-w chord here (the tracker owns the h/l keys that
+  // complete it) closes the same silent gap the settings pane had. Space/t/`?`/
+  // `/`/Tab/Ctrl-, bubble to the shell.
+  static const _scopes = {KeyScope.list, KeyScope.tracker, KeyScope.global};
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
 
@@ -365,80 +378,63 @@ class _TimerViewState extends State<TimerView> {
     // Esc is handled by the CallbackShortcuts wrapping the field.
     if (_descFocus.hasFocus) return KeyEventResult.ignored;
 
-    final key = event.logicalKey;
-    // Ctrl-combos (pane switching, Ctrl-w chord) are the shell's job — bubble.
-    if (HardwareKeyboard.instance.isControlPressed) {
-      return KeyEventResult.ignored;
+    final r = Keymap.resolve(
+      event,
+      _chords,
+      _scopes,
+      ctrlDown: HardwareKeyboard.instance.isControlPressed,
+      shiftDown: HardwareKeyboard.instance.isShiftPressed,
+    );
+    switch (r) {
+      case KeyPending():
+        return KeyEventResult.handled;
+      case KeyNone():
+        return KeyEventResult.ignored;
+      case KeyMatch(:final intent):
+        if (event is! KeyDownEvent && !Keymap.isRepeatable(intent)) {
+          return KeyEventResult.ignored;
+        }
+        return _handleIntent(intent)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
     }
+  }
 
-    // Movement repeats when held.
-    if (key == LogicalKeyboardKey.keyJ || key == LogicalKeyboardKey.arrowDown) {
-      _moveCursor(1);
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyK || key == LogicalKeyboardKey.arrowUp) {
-      _moveCursor(-1);
-      return KeyEventResult.handled;
-    }
-
-    // The rest fire once per press.
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final shift = HardwareKeyboard.instance.isShiftPressed;
-
-    // gg / G — handle before the pending-g reset below.
-    if (key == LogicalKeyboardKey.keyG) {
-      if (shift) {
-        _pendingG = false;
-        _jumpTo(_rows.length - 1);
-      } else if (_pendingG) {
-        _pendingG = false;
+  bool _handleIntent(KeyIntent intent) {
+    switch (intent) {
+      case KeyIntent.moveDown:
+        _moveCursor(1);
+      case KeyIntent.moveUp:
+        _moveCursor(-1);
+      case KeyIntent.top:
         _jumpTo(0);
-      } else {
-        _pendingG = true;
-      }
-      return KeyEventResult.handled;
-    }
-    _pendingG = false; // any other key breaks a half-typed gg
-
-    // Tree nav: l/→ expand-or-open, h/← collapse-or-parent, Enter activate.
-    if (key == LogicalKeyboardKey.keyL ||
-        key == LogicalKeyboardKey.arrowRight) {
-      _expandOrOpen();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyH || key == LogicalKeyboardKey.arrowLeft) {
-      _collapseOrParent();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter) {
-      _activateCursor();
-      return KeyEventResult.handled;
-    }
-    // Space is handled globally at the shell (works from any pane while the
-    // tracker is in view), so it isn't bound here — it bubbles up.
-    if (key == LogicalKeyboardKey.keyF) {
-      if (_c.hasSession) _finish();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyI) {
-      _focusDescription(); // jump into the session description field
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.keyE) {
-      _editCursor();
-      return KeyEventResult.handled;
-    }
-    // a = add task (parent), A = add entry to the focused task.
-    if (key == LogicalKeyboardKey.keyA) {
-      if (shift) {
-        _addEntryToCursor();
-      } else {
+      case KeyIntent.bottom:
+        _jumpTo(_rows.length - 1);
+      case KeyIntent.openOrExpand:
+        _expandOrOpen();
+      case KeyIntent.activate:
+        _activateCursor();
+      case KeyIntent.collapseOrParent:
+        _collapseOrParent();
+      case KeyIntent.editItem:
+        _editCursor();
+      case KeyIntent.addTask:
         _openTaskEditor(null);
-      }
-      return KeyEventResult.handled;
+      case KeyIntent.addEntry:
+        _addEntryToCursor();
+      case KeyIntent.finishSession:
+        if (_c.hasSession) _finish();
+      case KeyIntent.focusDescription:
+        _focusDescription();
+      case KeyIntent.focusTracker:
+        widget.onFocusTracker?.call();
+      case KeyIntent.focusPanel:
+        widget.onFocusPanel?.call();
+      default:
+        // Space (toggleTimer), t, ?, /, Tab, Ctrl-, are the shell's — bubble.
+        return false;
     }
-    return KeyEventResult.ignored;
+    return true;
   }
 
   // A : add an entry to the focused row's task (task header or one of its

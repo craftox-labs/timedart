@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/features/shell/keymap.dart';
 
-// The single source of truth for the keyboard help modal. The real handlers
-// (adaptive_shell / side_panel / timer_view) still switch on their own keys, so
-// keep this table in step when a binding changes — it's what `?` renders.
+// The keyboard help modal renders straight from the [Keymap] registry, so it
+// can't drift from the handlers — every row here is a binding with
+// showInHelp:true, grouped by its helpGroup.
 
 /// One shortcut: its key caps (each string is a cap; a cap may be a combo like
 /// "Ctrl+→"; multiple caps read as alternatives) and what it does.
@@ -20,45 +21,21 @@ class _Group {
   const _Group(this.title, this.shortcuts);
 }
 
-const List<_Group> _keymap = [
-  // Movement, open/collapse, edit and Enter behave the same in both the side
-  // panel and the tracker, so they live here once instead of per pane.
-  _Group('Navigation', [
-    _Shortcut(['J', 'K', '↓', '↑'], 'Move'),
-    _Shortcut(['g', 'g', 'G'], 'Top / bottom'),
-    _Shortcut(['L', '→'], 'Open / expand'),
-    _Shortcut(['H', '←'], 'Collapse / parent'),
-    _Shortcut(['Enter'], 'Select / activate'),
-    _Shortcut(['e'], 'Edit focused item'),
-    _Shortcut(['Esc'], 'Back to list'),
-  ]),
-  _Group('Panes', [
-    _Shortcut(['Tab'], 'Switch pane'),
-    _Shortcut(['Ctrl+←', 'Ctrl+→'], 'Focus tracker / panel'),
-    _Shortcut(['Ctrl+W', 'H', 'L'], 'Switch pane (vim)'),
-    _Shortcut(['/'], 'Search'),
-    _Shortcut(['Ctrl+,'], 'Settings'),
-    _Shortcut(['?'], 'This help'),
-  ]),
-  _Group('Side panel', [
-    _Shortcut(['A'], 'Add client'),
-    _Shortcut(['a'], 'Add project'),
-    _Shortcut(['n', 'N'], 'Next / previous project'),
-  ]),
-  _Group('Tracker', [
-    _Shortcut(['t'], 'Open tracker'),
-    _Shortcut(['Space'], 'Start / pause / resume'),
-    _Shortcut(['f'], 'Finish session'),
-    _Shortcut(['a'], 'Add task'),
-    _Shortcut(['A'], 'Add entry'),
-    _Shortcut(['i'], 'Focus description'),
-  ]),
-  _Group('Editors', [
-    _Shortcut(['Enter', 'Ctrl+S'], 'Save'),
-    _Shortcut(['d'], 'Delete (in an edit modal)'),
-    _Shortcut(['Esc'], 'Cancel / close'),
-  ]),
-];
+// Derive the displayed groups from the registry, preserving the order groups
+// first appear in the binding list.
+List<_Group> _buildGroups() {
+  final order = <String>[];
+  final byGroup = <String, List<_Shortcut>>{};
+  for (final b in Keymap.bindings) {
+    if (!b.showInHelp) continue;
+    final rows = byGroup.putIfAbsent(b.helpGroup, () {
+      order.add(b.helpGroup);
+      return [];
+    });
+    rows.add(_Shortcut(b.caps, b.description));
+  }
+  return [for (final g in order) _Group(g, byGroup[g]!)];
+}
 
 // Split the groups into two columns of roughly equal height (rows + a title
 // allowance), keeping their order — so tweaking the keymap can't unbalance it.
@@ -92,9 +69,10 @@ class _ShortcutsDialog extends StatelessWidget {
     // Wide: two columns so the whole map fits without scrolling. Narrow: a
     // single scrolling column. The split is balanced by row count.
     final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
+    final groups = _buildGroups();
     final Widget body;
     if (wide) {
-      final columns = _balanceColumns(_keymap);
+      final columns = _balanceColumns(groups);
       body = Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -104,7 +82,7 @@ class _ShortcutsDialog extends StatelessWidget {
         ],
       );
     } else {
-      body = _column(theme, _keymap);
+      body = _column(theme, groups);
     }
 
     return CallbackShortcuts(
