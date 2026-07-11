@@ -637,9 +637,11 @@ class _HowItWorksState extends State<_HowItWorks> {
               child: LayoutBuilder(
                 builder: (context, c) {
                   // Fill the shorter side of the available space, capped so the
-                  // hero doesn't get oversized on desktop. Colours are baked
-                  // into the two-tone SVG, so no colorFilter here.
-                  final size = c.biggest.shortestSide.clamp(0.0, 440.0);
+                  // hero doesn't get oversized — smaller on mobile so it doesn't
+                  // dominate a narrow window. Colours are baked into the two-tone
+                  // SVG, so no colorFilter here.
+                  final maxHero = widget.narrow ? 240.0 : 440.0;
+                  final size = c.biggest.shortestSide.clamp(0.0, maxHero);
                   return Center(
                     child: SvgPicture.asset(
                       asset,
