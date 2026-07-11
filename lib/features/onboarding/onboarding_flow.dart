@@ -619,15 +619,15 @@ class _HowItWorksState extends State<_HowItWorks> {
           key: ValueKey(_index),
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Large tinted panel behind the hero glyph — the flow-badge tint at
-            // scale (dim-green fill + bright-green glyph + faint accent border).
-            // Uses radiusLg so the big surface reads softer than the 7px badges.
+            // Large framed panel behind the hero glyph: just a faint accent
+            // border (no fill) so the bright glyph reads at full contrast on the
+            // background. radiusLg so the big surface reads softer than the 7px
+            // badges.
             Expanded(
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppTokens.spaceXl),
                 decoration: BoxDecoration(
-                  color: AppTokens.colorAccentDim,
                   borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                   border: Border.all(
                     color: AppTokens.colorBrandPrimary.withValues(alpha: 0.30),
