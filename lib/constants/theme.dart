@@ -231,7 +231,18 @@ ThemeData buildAppTheme(Brightness brightness) {
 
     // ── Dialogs ── 8px corner (radiusSm), not M3's large default. Covers the
     // entry editor and confirm dialogs alike.
-    dialogTheme: DialogThemeData(shape: panelShape),
+    dialogTheme: DialogThemeData(
+      shape: panelShape,
+      // Modal titles: Raleway Medium Italic (like other headings) in the primary
+      // colour. M3 would otherwise fall back to headlineSmall at onSurface.
+      titleTextStyle: TextStyle(
+        fontFamily: AppTokens.fontFamilyHeading,
+        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.w500,
+        fontSize: 24, // M3 headlineSmall size
+        color: scheme.primary,
+      ),
+    ),
 
     // ── Floating action button ──
     floatingActionButtonTheme: FloatingActionButtonThemeData(
