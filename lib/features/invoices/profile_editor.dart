@@ -1,12 +1,11 @@
-import 'dart:typed_data';
-
 import 'package:drift/drift.dart' show Value;
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/editor_common.dart';
+import 'package:timedart/features/invoices/editor_session.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
 import 'package:timedart/features/invoices/invoice_preview.dart';
 import 'package:timedart/features/invoices/invoice_region.dart';
@@ -21,15 +20,15 @@ class ProfileEditor extends StatefulWidget {
     super.key,
     required this.db,
     required this.onDone,
-    required this.onDirtyChanged,
-    required this.onSaveHandleReady,
+    required this.onSessionReady,
     this.initial,
     this.startEditing = false,
   });
   final AppDatabase db;
   final VoidCallback onDone;
-  final ValueChanged<bool> onDirtyChanged;
-  final ValueChanged<Future<bool> Function()> onSaveHandleReady;
+  // Hands the shell this editor's EditorSession, so its unsaved-changes guard
+  // reads one lifecycle object (dirty + save) rather than loose callbacks.
+  final ValueChanged<EditorSession> onSessionReady;
   final InvoiceProfile? initial;
   // Open straight into edit mode (the 'e' shortcut) instead of the read-only
   // view an existing profile otherwise opens to.
@@ -61,21 +60,13 @@ class _ProfileEditorState extends State<ProfileEditor> {
   // Available templates for the picker + preview, loaded once.
   List<InvoiceTemplate> _templates = const [];
 
-  bool _dirty = false;
-  // Reassigned after every successful save (the new baseline) — not `final`.
-  late Map<String, String> _initialTexts;
-  late bool _initialIsDefault;
-  late InvoiceRegion _initialRegion;
-  late bool _initialShowBank;
-  late bool _initialShowPaymentLink;
-  late bool _initialShowTax;
-  late bool _initialReverseCharge;
-  Uint8List? _initialLogo;
-  String? _initialLogoMime;
-  // Resolved once templates finish loading — see initState. Comparing against
-  // the pre-resolution `null` would falsely flag the auto-picked default
-  // template as a user edit.
-  int? _initialTemplateId;
+  // The dirty/save/rebaseline lifecycle. Dirty is a real diff of the current
+  // snapshot against the baseline — reverting a field to where it started
+  // clears dirty again. The baseline moves forward on each successful save
+  // without the shell re-mounting this widget, and is rebaselined once
+  // templates load (see initState) so the auto-picked default template doesn't
+  // read as a user edit.
+  late final EditorSession<_ProfileSnapshot> _session;
 
   // An existing profile opens read-only; a new one has nothing to view, so it
   // opens straight into editing.
@@ -125,17 +116,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
     _logo = p?.logo;
     _logoMime = p?.logoMime;
     _templateId = p?.templateId;
-    _initialTexts = {for (final f in _fields) f: _c[f]!.text};
-    _initialIsDefault = _isDefault;
-    _initialRegion = _region;
-    _initialShowBank = _showBank;
-    _initialShowPaymentLink = _showPaymentLink;
-    _initialShowTax = _showTax;
-    _initialReverseCharge = _reverseCharge;
-    _initialLogo = _logo;
-    _initialLogoMime = _logoMime;
     _editing = !_isEdit || widget.startEditing;
-    widget.onSaveHandleReady(_persist);
+    _session = EditorSession(snapshot: _snapshot, persist: _persist);
+    widget.onSessionReady(_session);
     // Load templates for the picker + preview. Default the selection to the
     // default template when the profile hasn't chosen one, so the picker always
     // reflects what will render.
@@ -144,36 +127,27 @@ class _ProfileEditorState extends State<ProfileEditor> {
       setState(() {
         _templates = list;
         _templateId ??= _defaultTemplate()?.id;
-        // Resolved after any auto-pick, so the baseline reflects what's on
-        // screen before the user has touched anything.
-        _initialTemplateId = _templateId;
       });
+      // Rebaseline after the auto-pick, so the on-screen default template is
+      // part of the baseline and doesn't read as a user edit.
+      _session.rebaseline();
     });
   }
 
-  bool _computeDirty() {
-    for (final f in _fields) {
-      if (_c[f]!.text != _initialTexts[f]) return true;
-    }
-    if (_isDefault != _initialIsDefault) return true;
-    if (_region != _initialRegion) return true;
-    if (_showBank != _initialShowBank) return true;
-    if (_showPaymentLink != _initialShowPaymentLink) return true;
-    if (_showTax != _initialShowTax) return true;
-    if (_reverseCharge != _initialReverseCharge) return true;
-    if (_templateId != _initialTemplateId) return true;
-    if (!listEquals(_logo, _initialLogo)) return true;
-    if (_logoMime != _initialLogoMime) return true;
-    return false;
-  }
-
-  void _checkDirty() {
-    final d = _computeDirty();
-    if (d != _dirty) {
-      _dirty = d;
-      widget.onDirtyChanged(d);
-    }
-  }
+  // The edited state as one comparable value — the field-by-field diff lives in
+  // _ProfileSnapshot's `==` (logo compared by content via LogoValue), not in a
+  // hand-rolled _computeDirty.
+  _ProfileSnapshot _snapshot() => _ProfileSnapshot(
+    texts: {for (final f in _fields) f: _c[f]!.text},
+    isDefault: _isDefault,
+    region: _region,
+    showBank: _showBank,
+    showPaymentLink: _showPaymentLink,
+    showTax: _showTax,
+    reverseCharge: _reverseCharge,
+    templateId: _templateId,
+    logo: LogoValue(_logo, _logoMime),
+  );
 
   static const _fields = [
     'name',
@@ -205,6 +179,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     for (final c in _c.values) {
       c.dispose();
     }
+    _session.dispose();
     super.dispose();
   }
 
@@ -314,18 +289,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
           : await widget.db.insertProfile(_companion());
       if (_isEdit) await widget.db.updateProfileById(id, _companion());
       if (_isDefault) await widget.db.setDefaultProfile(id);
-      // The just-saved values become the new baseline — dirty clears without
-      // needing widget.initial to change (this widget stays mounted).
-      _initialTexts = {for (final f in _fields) f: _c[f]!.text};
-      _initialIsDefault = _isDefault;
-      _initialRegion = _region;
-      _initialShowBank = _showBank;
-      _initialShowPaymentLink = _showPaymentLink;
-      _initialShowTax = _showTax;
-      _initialReverseCharge = _reverseCharge;
-      _initialTemplateId = _templateId;
-      _initialLogo = _logo;
-      _initialLogoMime = _logoMime;
+      // The session rebaselines on success, so dirty clears without needing
+      // widget.initial to change (this widget stays mounted).
       return true;
     } catch (e) {
       if (mounted) {
@@ -338,10 +303,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
   }
 
   Future<void> _save() async {
-    if (!await _persist() || !mounted) return;
+    if (!await _session.save() || !mounted) return;
     if (_isEdit) {
       setState(() => _editing = false);
-      _checkDirty();
     } else {
       widget.onDone();
     }
@@ -351,7 +315,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
   // there's anything to lose). A new (unsaved) profile has nothing to view,
   // so a discard leaves the screen as before.
   Future<void> _cancel() async {
-    if (_dirty) {
+    if (_session.isDirty) {
       final action = await confirmUnsavedChanges(context);
       if (action == null) return; // stay editing
       if (action == UnsavedChangesAction.save) {
@@ -365,22 +329,23 @@ class _ProfileEditorState extends State<ProfileEditor> {
       widget.onDone();
       return;
     }
+    final b = _session.baseline;
     setState(() {
       for (final f in _fields) {
-        _c[f]!.text = _initialTexts[f] ?? '';
+        _c[f]!.text = b.texts[f] ?? '';
       }
-      _isDefault = _initialIsDefault;
-      _region = _initialRegion;
-      _showBank = _initialShowBank;
-      _showPaymentLink = _initialShowPaymentLink;
-      _showTax = _initialShowTax;
-      _reverseCharge = _initialReverseCharge;
-      _templateId = _initialTemplateId;
-      _logo = _initialLogo;
-      _logoMime = _initialLogoMime;
+      _isDefault = b.isDefault;
+      _region = b.region;
+      _showBank = b.showBank;
+      _showPaymentLink = b.showPaymentLink;
+      _showTax = b.showTax;
+      _reverseCharge = b.reverseCharge;
+      _templateId = b.templateId;
+      _logo = b.logo.bytes;
+      _logoMime = b.logo.mime;
       _editing = false;
     });
-    _checkDirty();
+    _session.recompute();
   }
 
   Future<void> _pickLogo() async {
@@ -396,7 +361,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
       _logo = bytes;
       _logoMime = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
     });
-    _checkDirty();
+    _session.recompute();
   }
 
   Future<void> _delete() async {
@@ -469,7 +434,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
                     value: _isDefault,
                     onChanged: (v) => setState(() {
                       _isDefault = v;
-                      _checkDirty();
+                      _session.recompute();
                     }),
                   ),
                 ],
@@ -492,7 +457,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
                       ],
                       onChanged: (v) => setState(() {
                         _templateId = v;
-                        _checkDirty();
+                        _session.recompute();
                       }),
                     ),
                   ),
@@ -505,7 +470,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
                         : () => setState(() {
                             _logo = null;
                             _logoMime = null;
-                            _checkDirty();
+                            _session.recompute();
                           }),
                   ),
                 ],
@@ -570,7 +535,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
                     }
                     // Reverse charge is EU/UK-only — drop it if we leave.
                     if (!v.supportsReverseCharge) _reverseCharge = false;
-                    _checkDirty();
+                    _session.recompute();
                   });
                 },
               ),
@@ -688,7 +653,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
     number: number,
     // Non-blocking format hint, recomputed each keystroke (onChanged rebuilds).
     errorText: validator?.call(_c[key]!.text),
-    onChanged: (_) => setState(_checkDirty),
+    onChanged: (_) => setState(_session.recompute),
   );
 
   // A compact labelled switch for an invoice-inclusion default.
@@ -698,7 +663,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
         value: value,
         onChanged: (v) => setState(() {
           onChanged(v);
-          _checkDirty();
+          _session.recompute();
         }),
       );
 
@@ -786,4 +751,56 @@ class _LogoField extends StatelessWidget {
       ],
     );
   }
+}
+
+// The profile editor's dirty baseline — every edited field with an explicit
+// `==`, so the EditorSession diff is a single value comparison. Text fields
+// live in [texts] (keyed by _ProfileEditorState._fields); the logo is compared
+// by content through [LogoValue].
+@immutable
+class _ProfileSnapshot {
+  const _ProfileSnapshot({
+    required this.texts,
+    required this.isDefault,
+    required this.region,
+    required this.showBank,
+    required this.showPaymentLink,
+    required this.showTax,
+    required this.reverseCharge,
+    required this.templateId,
+    required this.logo,
+  });
+  final Map<String, String> texts;
+  final bool isDefault;
+  final InvoiceRegion region;
+  final bool showBank, showPaymentLink, showTax, reverseCharge;
+  final int? templateId;
+  final LogoValue logo;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ProfileSnapshot &&
+      other.isDefault == isDefault &&
+      other.region == region &&
+      other.showBank == showBank &&
+      other.showPaymentLink == showPaymentLink &&
+      other.showTax == showTax &&
+      other.reverseCharge == reverseCharge &&
+      other.templateId == templateId &&
+      other.logo == logo &&
+      mapEquals(other.texts, texts);
+
+  @override
+  int get hashCode => Object.hash(
+    isDefault,
+    region,
+    showBank,
+    showPaymentLink,
+    showTax,
+    reverseCharge,
+    templateId,
+    logo,
+    // Order-independent hash of the text entries; equality still uses mapEquals.
+    Object.hashAllUnordered(texts.values),
+  );
 }

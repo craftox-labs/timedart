@@ -58,6 +58,18 @@ _Avoid_: scene, render tree, view model.
 A renderer that turns an `InvoiceLayoutPlan` into one output toolkit — the Flutter preview painter and the `pdf` painter are the two adapters at this seam. A painter makes no layout decisions; it only draws primitives.
 _Avoid_: renderer (loosely), view.
 
+**EditorSession**:
+The dirty / save / rebaseline lifecycle of a content-pane editor, extracted as one pure `ValueNotifier`-based object (no `BuildContext`). It holds a baseline **Editor snapshot** and reports `dirty` as `snapshot() != baseline`; `save()` persists then rebaselines; `rebaseline()` adopts the on-screen values as baseline after an async default-fill. The profile/template editors and the shell's unsaved-changes guard all read one session, replacing the per-editor `_computeDirty` copies and the shell's loose `_editorDirty`/`_currentEditorSave`.
+_Avoid_: form controller, dirty flag.
+
+**Editor snapshot**:
+A small immutable value class capturing every edited field of one editor with an explicit `==` — the field-by-field diff relocated out of `_computeDirty`. Reverting a field to its original value makes the snapshot re-equal the baseline, clearing dirty for free. Also the record a Cancel reverts the on-screen fields to.
+_Avoid_: draft, model.
+
+**LogoValue**:
+A logo (image bytes + MIME) compared by **content**, not identity, so an unchanged logo in an editor snapshot doesn't read as a dirty edit.
+_Avoid_: image ref.
+
 ## Principles
 
 - **The invoice is a print artifact, not app chrome.** Preview/PDF styling follows the user's profile/template and is deliberately independent of `AppTextStyles`/theme, so re-skinning the app never mutates an exported invoice. Persisted, user-defined styling is separate from global app styling.

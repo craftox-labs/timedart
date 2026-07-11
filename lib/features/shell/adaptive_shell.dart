@@ -12,6 +12,7 @@ import 'package:timedart/features/tracker/timer_view.dart';
 import 'package:timedart/features/projects/project_form.dart';
 import 'package:timedart/features/clients/client_form.dart';
 import 'package:timedart/features/invoices/invoice_view.dart';
+import 'package:timedart/features/invoices/editor_session.dart';
 import 'package:timedart/features/invoices/profile_editor.dart';
 import 'package:timedart/features/invoices/template_editor.dart';
 import 'package:timedart/features/shell/settings_home.dart';
@@ -78,12 +79,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   _Detail _detail = const _Tracker();
   StreamSubscription<List<Project>>? _projectsSub;
 
-  // Whether the currently-mounted Template/Profile editor has unsaved changes,
-  // and a handle to trigger its save — both supplied by the editor itself
-  // (see onDirtyChanged/onSaveHandleReady). Gates every _detail transition
-  // via _navigateTo. Always false/null outside those two editors.
-  bool _editorDirty = false;
-  Future<bool> Function()? _currentEditorSave;
+  // The currently-mounted Template/Profile editor's lifecycle (dirty + save),
+  // handed up by the editor itself via onSessionReady. Its `isDirty` gates every
+  // _detail transition through _navigateTo, and `save()` runs the unsaved-changes
+  // dialog's Save. Null outside those two editors.
+  EditorSession? _activeEditor;
 
   // Settings mode swaps the side panel for the settings sections.
   bool get _inSettings =>
@@ -255,11 +255,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       _ => false,
     };
     if (sameEntity) return;
-    if (_editorDirty) {
+    if (_activeEditor?.isDirty ?? false) {
       final action = await confirmUnsavedChanges(context);
       if (action == null) return; // stay put, keep editing
       if (action == UnsavedChangesAction.save) {
-        final ok = await _currentEditorSave?.call() ?? true;
+        final ok = await _activeEditor?.save() ?? true;
         if (!ok) return; // validation failed; stay on the editor
       }
     }
@@ -268,8 +268,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final wasInSettings = _inSettings; // reads the *old* _detail
     setState(() {
       _detail = next;
-      _editorDirty = false;
-      _currentEditorSave = null;
+      _activeEditor = null;
     });
     // The panel's PageTransitionSwitcher swaps only when _inSettings flips, and
     // that swap drops keyboard focus to the root scope (the outgoing panel holds
@@ -386,8 +385,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           initial: template,
           startEditing: startEditing,
           onDone: _showSettingsHome,
-          onDirtyChanged: (d) => setState(() => _editorDirty = d),
-          onSaveHandleReady: (save) => _currentEditorSave = save,
+          onSessionReady: (s) => _activeEditor = s,
         ),
       _ProfileEditorDetail(:final profile, :final startEditing) =>
         ProfileEditor(
@@ -396,8 +394,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           initial: profile,
           startEditing: startEditing,
           onDone: _showSettingsHome,
-          onDirtyChanged: (d) => setState(() => _editorDirty = d),
-          onSaveHandleReady: (save) => _currentEditorSave = save,
+          onSessionReady: (s) => _activeEditor = s,
         ),
     };
     // Cross-fade between content-pane pages on a _detail change. PageTransitionSwitcher

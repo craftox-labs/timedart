@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/editor_common.dart';
+import 'package:timedart/features/invoices/editor_session.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
 import 'package:timedart/features/invoices/invoice_preview.dart';
 import 'package:timedart/widgets/confirm_dialog.dart';
@@ -19,15 +20,15 @@ class TemplateEditor extends StatefulWidget {
     super.key,
     required this.db,
     required this.onDone,
-    required this.onDirtyChanged,
-    required this.onSaveHandleReady,
+    required this.onSessionReady,
     this.initial,
     this.startEditing = false,
   });
   final AppDatabase db;
   final VoidCallback onDone;
-  final ValueChanged<bool> onDirtyChanged;
-  final ValueChanged<Future<bool> Function()> onSaveHandleReady;
+  // Hands the shell this editor's EditorSession, so its unsaved-changes guard
+  // reads one lifecycle object (dirty + save) rather than loose callbacks.
+  final ValueChanged<EditorSession> onSessionReady;
   final InvoiceTemplate? initial;
   // Open straight into edit mode (the 'e' shortcut) instead of the read-only
   // view an existing template otherwise opens to.
@@ -59,18 +60,15 @@ class _TemplateEditorState extends State<TemplateEditor> {
   late String _fontFamily;
   late bool _isDefault;
 
-  // The last-saved (or, for a new template, starting-blank) values. Dirty is
-  // diffed against these rather than [widget.initial] directly, because a
-  // successful save while viewing-then-editing an existing template moves the
-  // baseline forward without the shell re-mounting this widget.
-  late String _baseName;
-  late int _baseBg, _baseSurface, _basePrimary, _baseText, _baseAccent;
-  late String _baseFontFamily;
-  late bool _baseIsDefault;
+  // The dirty/save/rebaseline lifecycle. Dirty is a real diff of the current
+  // snapshot against the baseline (last-saved, or starting values) — reverting
+  // a field to where it started clears dirty again. A successful save while
+  // viewing-then-editing an existing template moves the baseline forward
+  // without the shell re-mounting this widget.
+  late final EditorSession<_TemplateSnapshot> _session;
 
   late final Future<InvoiceProfile?> _sampleProfile;
 
-  bool _dirty = false;
   // An existing template opens read-only; a new one has nothing to view, so
   // it opens straight into editing.
   late bool _editing;
@@ -91,15 +89,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
         ? t!.fontFamily
         : _fontFamilies.first;
     _isDefault = t?.isDefault ?? false;
-    _baseName = _name.text.trim();
-    _baseBg = _bg;
-    _baseSurface = _surface;
-    _basePrimary = _primary;
-    _baseText = _text;
-    _baseAccent = _accent;
-    _baseFontFamily = _fontFamily;
-    _baseIsDefault = _isDefault;
     _editing = !_isEdit || widget.startEditing;
+    _session = EditorSession(snapshot: _snapshot, persist: _persist);
+    widget.onSessionReady(_session);
     // A profile is needed only to dress the sample invoice; the default (or
     // first) is representative enough for a look preview.
     _sampleProfile = widget.db.watchProfiles().first.then((list) {
@@ -108,34 +100,25 @@ class _TemplateEditorState extends State<TemplateEditor> {
       }
       return list.isEmpty ? null : list.first;
     });
-    widget.onSaveHandleReady(_persist);
   }
 
-  // Real diff against the baseline, not a touched-flag: reverting a field
-  // back to where it started clears dirty again.
-  bool _computeDirty() {
-    if (_name.text.trim() != _baseName) return true;
-    if (_bg != _baseBg) return true;
-    if (_surface != _baseSurface) return true;
-    if (_primary != _basePrimary) return true;
-    if (_text != _baseText) return true;
-    if (_accent != _baseAccent) return true;
-    if (_fontFamily != _baseFontFamily) return true;
-    if (_isDefault != _baseIsDefault) return true;
-    return false;
-  }
-
-  void _checkDirty() {
-    final d = _computeDirty();
-    if (d != _dirty) {
-      _dirty = d;
-      widget.onDirtyChanged(d);
-    }
-  }
+  // The edited state as one comparable value — the field-by-field diff lives in
+  // _TemplateSnapshot's `==`, not in a hand-rolled _computeDirty.
+  _TemplateSnapshot _snapshot() => _TemplateSnapshot(
+    name: _name.text.trim(),
+    bg: _bg,
+    surface: _surface,
+    primary: _primary,
+    text: _text,
+    accent: _accent,
+    fontFamily: _fontFamily,
+    isDefault: _isDefault,
+  );
 
   @override
   void dispose() {
     _name.dispose();
+    _session.dispose();
     super.dispose();
   }
 
@@ -182,16 +165,8 @@ class _TemplateEditorState extends State<TemplateEditor> {
       }
       // Apply the default flag through the transaction that clears the others.
       if (_isDefault) await widget.db.setDefaultTemplate(id);
-      // The just-saved values become the new baseline — dirty clears without
-      // needing widget.initial to change (this widget stays mounted).
-      _baseName = _name.text.trim();
-      _baseBg = _bg;
-      _baseSurface = _surface;
-      _basePrimary = _primary;
-      _baseText = _text;
-      _baseAccent = _accent;
-      _baseFontFamily = _fontFamily;
-      _baseIsDefault = _isDefault;
+      // The session rebaselines on success, so dirty clears without needing
+      // widget.initial to change (this widget stays mounted).
       return true;
     } catch (e) {
       if (mounted) {
@@ -204,10 +179,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
   }
 
   Future<void> _save() async {
-    if (!await _persist() || !mounted) return;
+    if (!await _session.save() || !mounted) return;
     if (_isEdit) {
       setState(() => _editing = false);
-      _checkDirty();
     } else {
       widget.onDone();
     }
@@ -217,7 +191,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
   // there's anything to lose). A new (unsaved) template has nothing to view,
   // so a discard leaves the screen as before.
   Future<void> _cancel() async {
-    if (_dirty) {
+    if (_session.isDirty) {
       final action = await confirmUnsavedChanges(context);
       if (action == null) return; // stay editing
       if (action == UnsavedChangesAction.save) {
@@ -231,18 +205,19 @@ class _TemplateEditorState extends State<TemplateEditor> {
       widget.onDone();
       return;
     }
+    final b = _session.baseline;
     setState(() {
-      _name.text = _baseName;
-      _bg = _baseBg;
-      _surface = _baseSurface;
-      _primary = _basePrimary;
-      _text = _baseText;
-      _accent = _baseAccent;
-      _fontFamily = _baseFontFamily;
-      _isDefault = _baseIsDefault;
+      _name.text = b.name;
+      _bg = b.bg;
+      _surface = b.surface;
+      _primary = b.primary;
+      _text = b.text;
+      _accent = b.accent;
+      _fontFamily = b.fontFamily;
+      _isDefault = b.isDefault;
       _editing = false;
     });
-    _checkDirty();
+    _session.recompute();
   }
 
   Future<void> _delete() async {
@@ -317,7 +292,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
                 controller: _name,
                 label: 'Name',
                 persistentLabel: true,
-                onChanged: (_) => setState(_checkDirty),
+                onChanged: (_) => setState(_session.recompute),
               ),
             ),
             Field(
@@ -330,7 +305,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
                 ],
                 onChanged: (v) => setState(() {
                   _fontFamily = v ?? _fontFamily;
-                  _checkDirty();
+                  _session.recompute();
                 }),
               ),
             ),
@@ -342,7 +317,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
                   value: _isDefault,
                   onChanged: (v) => setState(() {
                     _isDefault = v;
-                    _checkDirty();
+                    _session.recompute();
                   }),
                 ),
               ),
@@ -385,7 +360,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
         ),
         onChanged: (v) => setState(() {
           set(v);
-          _checkDirty();
+          _session.recompute();
         }),
       );
 
@@ -422,6 +397,50 @@ class _TemplateEditorState extends State<TemplateEditor> {
       },
     );
   }
+}
+
+// The template editor's dirty baseline — every edited field with an explicit
+// `==`, so the EditorSession diff is a single value comparison.
+@immutable
+class _TemplateSnapshot {
+  const _TemplateSnapshot({
+    required this.name,
+    required this.bg,
+    required this.surface,
+    required this.primary,
+    required this.text,
+    required this.accent,
+    required this.fontFamily,
+    required this.isDefault,
+  });
+  final String name;
+  final int bg, surface, primary, text, accent;
+  final String fontFamily;
+  final bool isDefault;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _TemplateSnapshot &&
+      other.name == name &&
+      other.bg == bg &&
+      other.surface == surface &&
+      other.primary == primary &&
+      other.text == text &&
+      other.accent == accent &&
+      other.fontFamily == fontFamily &&
+      other.isDefault == isDefault;
+
+  @override
+  int get hashCode => Object.hash(
+    name,
+    bg,
+    surface,
+    primary,
+    text,
+    accent,
+    fontFamily,
+    isDefault,
+  );
 }
 
 // --- A #RRGGBB hex input (swatch supplied via [decoration] as a prefix). Opaque
