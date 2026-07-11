@@ -4,6 +4,7 @@ import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
 import 'package:timedart/features/invoices/invoice_layout.dart';
+import 'package:timedart/features/invoices/invoice_layout_plan.dart';
 
 /// A bordered frame that hugs an invoice preview tightly — the border traces
 /// the sheet's true edges so it reads as the actual page boundary rather than
@@ -71,9 +72,10 @@ Widget invoicePreviewPage({
 }
 
 /// On-screen WYSIWYG preview of an [InvoiceDocument] rendered with an
-/// [InvoiceTemplate]. Mirrors invoice_pdf.dart so what you see matches
-/// the export. Both renderers read from [InvoiceLayout] — edit that file
-/// to restyle both outputs simultaneously.
+/// [InvoiceTemplate]. Both this painter and invoice_pdf.dart consume the same
+/// [InvoiceLayoutPlan] from [InvoiceLayout.resolve] for every layout decision,
+/// so what you see matches the export by construction, not by hand-mirroring.
+/// Spacing/typography still come from [InvoiceLayout]; edit that to restyle both.
 class InvoicePreview extends StatelessWidget {
   final InvoiceDocument doc;
   final InvoiceTemplate template;
@@ -109,6 +111,7 @@ class InvoicePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final plan = InvoiceLayout.resolve(doc);
     return Container(
       color: _bg,
       padding: const EdgeInsets.all(InvoiceLayout.pageMargin),
@@ -116,11 +119,11 @@ class InvoicePreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _masthead(),
+          _masthead(plan.masthead),
           const SizedBox(height: InvoiceLayout.sectionGap),
-          _party(),
+          _party(plan.party, plan.geometry),
           const SizedBox(height: InvoiceLayout.partyBlockGap),
-          _recipientGrid(),
+          _recipientGrid(plan.recipient, plan.geometry),
           const SizedBox(height: InvoiceLayout.detailsBlockGap),
           Text(
             'Details',
@@ -133,8 +136,8 @@ class InvoicePreview extends StatelessWidget {
           const SizedBox(height: InvoiceLayout.detailsHeadingGap),
           _table(),
           const SizedBox(height: InvoiceLayout.totalsGap),
-          _totals(),
-          if (doc.reverseCharge) ...[
+          _totals(plan.totals),
+          if (plan.totals.showReverseCharge) ...[
             const SizedBox(height: InvoiceLayout.totalsGap),
             Text(
               InvoiceDocument.reverseChargeStatement,
@@ -146,7 +149,7 @@ class InvoicePreview extends StatelessWidget {
             ),
           ],
           const SizedBox(height: InvoiceLayout.sectionGap),
-          _payments(),
+          _payments(plan.payments),
         ],
       ),
     );
@@ -156,8 +159,8 @@ class InvoicePreview extends StatelessWidget {
   // both vertically centred so the logo sits on the details block's midline.
   // Separating the two gives whatever icon/logo the user supplies its own room
   // rather than stacking text beneath it.
-  Widget _masthead() {
-    final logo = _logo();
+  Widget _masthead(MastheadPlan masthead) {
+    final logo = _logo(masthead.logo);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -174,7 +177,7 @@ class InvoicePreview extends StatelessWidget {
                   fontWeight: InvoiceLayout.fontWeightBold,
                 ),
               ),
-              if (_present(doc.senderAddress))
+              if (masthead.showAddress)
                 Text(
                   doc.senderAddress!.trim(),
                   style: TextStyle(
@@ -188,7 +191,7 @@ class InvoicePreview extends StatelessWidget {
                     color: _muted,
                     fontSize: InvoiceLayout.fontValue,
                   ),
-                  children: _contactSpans(),
+                  children: _contactSpans(masthead.contact),
                 ),
               ),
             ],
@@ -204,19 +207,18 @@ class InvoicePreview extends StatelessWidget {
 
   // The masthead logo: the profile's own logo, else the fallback chosen by the
   // document (timedart mark / placeholder box / nothing → null).
-  Widget? _logo() {
-    if (doc.logo != null) {
-      return Image.memory(doc.logo!, height: InvoiceLayout.logoHeight);
-    }
-    switch (doc.logoFallback) {
-      case LogoFallback.brand:
+  Widget? _logo(LogoPlan logo) {
+    switch (logo.slot) {
+      case LogoSlot.image:
+        return Image.memory(logo.image!, height: InvoiceLayout.logoHeight);
+      case LogoSlot.brandMark:
         return Image.asset(
           'assets/logo/timedart_logo_horizontal.png',
           height: InvoiceLayout.logoHeight,
         );
-      case LogoFallback.placeholder:
+      case LogoSlot.placeholder:
         return _logoPlaceholder();
-      case LogoFallback.none:
+      case LogoSlot.none:
         return null;
     }
   }
@@ -243,136 +245,124 @@ class InvoicePreview extends StatelessWidget {
 
   // Masthead contact line: bold "e." / "t." / "w." prefixes, regular values,
   // four spaces between entries. Only present fields appear.
-  List<InlineSpan> _contactSpans() {
+  List<InlineSpan> _contactSpans(List<ContactSpan> contact) {
     final prefixStyle = TextStyle(
       fontWeight: InvoiceLayout.fontWeightLabel,
       color: _primary,
     );
-    final entries = <(String, String)>[
-      if (doc.senderEmail != null) ('e.', doc.senderEmail!),
-      if (doc.senderPhone != null) ('t.', doc.senderPhone!),
-      if (doc.senderWebsite != null) ('w.', doc.senderWebsite!),
-    ];
     return [
-      for (final (i, entry) in entries.indexed) ...[
+      for (final (i, entry) in contact.indexed) ...[
         if (i > 0) const TextSpan(text: '    '),
-        TextSpan(text: entry.$1, style: prefixStyle),
-        TextSpan(text: ' ${entry.$2}'),
+        TextSpan(text: entry.prefix, style: prefixStyle),
+        TextSpan(text: ' ${entry.value}'),
       ],
     ];
   }
 
-  Widget _party() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        doc.title.toUpperCase(),
-        style: TextStyle(
-          color: _primary,
-          fontSize: InvoiceLayout.fontPaymentsHeading,
-          fontWeight: InvoiceLayout.fontWeightBold,
-        ),
-      ),
-      const SizedBox(height: InvoiceLayout.headlineGap),
-      Text(
-        _iso(doc.issueDate),
-        style: TextStyle(color: _primary, fontSize: InvoiceLayout.fontLabel),
-      ),
-      if (doc.invoiceNumber != null)
+  Widget _party(PartyPlan party, GeometryPlan geometry) {
+    Widget headField(String label, String value) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: _label),
         Text(
-          doc.invoiceNumber!,
+          value,
           style: TextStyle(
             color: _primary,
-            fontSize: InvoiceLayout.fontInvoiceNumber,
+            fontSize: InvoiceLayout.fontHeadline,
             fontWeight: InvoiceLayout.fontWeightBold,
           ),
         ),
-      const SizedBox(height: InvoiceLayout.headlineGap),
-      // ATT takes ORGANISATION's half-width (two quarters) so RE starts on
-      // the EMAIL column's left edge below, not the org/email seam.
-      LayoutBuilder(
-        builder: (context, c) {
-          final quarter = (c.maxWidth - 2 * InvoiceLayout.gridGutter) / 4;
-          Widget headField(String label, String value) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: _label),
-              Text(
-                value,
-                style: TextStyle(
-                  color: _primary,
-                  fontSize: InvoiceLayout.fontHeadline,
-                  fontWeight: InvoiceLayout.fontWeightBold,
-                ),
-              ),
-            ],
-          );
-          return Row(
-            children: [
-              SizedBox(
-                width: 2 * quarter,
-                child: headField('ATT:', doc.attention ?? doc.organisation),
-              ),
-              const SizedBox(width: InvoiceLayout.gridGutter),
-              Expanded(child: headField('RE:', doc.reference)),
-            ],
-          );
-        },
-      ),
-    ],
-  );
+      ],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          doc.title.toUpperCase(),
+          style: TextStyle(
+            color: _primary,
+            fontSize: InvoiceLayout.fontPaymentsHeading,
+            fontWeight: InvoiceLayout.fontWeightBold,
+          ),
+        ),
+        const SizedBox(height: InvoiceLayout.headlineGap),
+        Text(
+          _iso(doc.issueDate),
+          style: TextStyle(
+            color: _primary,
+            fontSize: InvoiceLayout.fontLabel,
+          ),
+        ),
+        if (party.showInvoiceNumber)
+          Text(
+            doc.invoiceNumber!,
+            style: TextStyle(
+              color: _primary,
+              fontSize: InvoiceLayout.fontInvoiceNumber,
+              fontWeight: InvoiceLayout.fontWeightBold,
+            ),
+          ),
+        const SizedBox(height: InvoiceLayout.headlineGap),
+        // ATT takes ORGANISATION's half-width (two quarters) so RE starts on
+        // the EMAIL column's left edge below, not the org/email seam.
+        Row(
+          children: [
+            SizedBox(
+              width: geometry.attColWidth,
+              child: headField('ATT:', party.attValue),
+            ),
+            const SizedBox(width: InvoiceLayout.gridGutter),
+            Expanded(child: headField('RE:', doc.reference)),
+          ],
+        ),
+      ],
+    );
+  }
 
-  Widget _recipientGrid() {
-    final hasTax = doc.recipientAbn != null;
+  Widget _recipientGrid(RecipientPlan recipient, GeometryPlan geometry) {
     // First line: ORGANISATION (half) | EMAIL (quarter) | PHONE (quarter).
     // ORGANISATION spans half so it sits under ATT above, and EMAIL/PHONE
     // fall under RE. (The company moved here from the old TO row once ATT
     // took the contact person.) Second line: ADDRESS spanning the org+email
     // columns, with the tax number aligned under PHONE — or ADDRESS
     // full-width when there's no tax number. Shown only when address/tax exist.
-    return LayoutBuilder(
-      builder: (context, c) {
-        // PHONE's quarter-width; the tax cell copies it to land on its edges.
-        final quarter = (c.maxWidth - 2 * InvoiceLayout.gridGutter) / 4;
-        return Column(
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _field(doc.region.organisationLabel, doc.organisation),
-                ),
-                const SizedBox(width: InvoiceLayout.gridGutter),
-                Expanded(child: _field('EMAIL', doc.recipientEmail)),
-                const SizedBox(width: InvoiceLayout.gridGutter),
-                Expanded(child: _field('PHONE', doc.recipientPhone)),
-              ],
+            Expanded(
+              flex: 2,
+              child: _field(doc.region.organisationLabel, doc.organisation),
             ),
-            if (doc.recipientAddress != null || hasTax) ...[
-              const SizedBox(height: InvoiceLayout.recipientGap),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: doc.recipientAddress != null
-                        ? _field('ADDRESS', doc.recipientAddress)
-                        : const SizedBox(),
-                  ),
-                  if (hasTax) ...[
-                    const SizedBox(width: InvoiceLayout.gridGutter),
-                    // Fixed to PHONE's quarter so it lands on its edges above.
-                    SizedBox(
-                      width: quarter,
-                      child: _field(doc.recipientAbnLabel, doc.recipientAbn),
-                    ),
-                  ],
-                ],
-              ),
-            ],
+            const SizedBox(width: InvoiceLayout.gridGutter),
+            Expanded(child: _field('EMAIL', doc.recipientEmail)),
+            const SizedBox(width: InvoiceLayout.gridGutter),
+            Expanded(child: _field('PHONE', doc.recipientPhone)),
           ],
-        );
-      },
+        ),
+        if (recipient.showSecondRow) ...[
+          const SizedBox(height: InvoiceLayout.recipientGap),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: recipient.showAddress
+                    ? _field('ADDRESS', doc.recipientAddress)
+                    : const SizedBox(),
+              ),
+              if (recipient.showTaxCell) ...[
+                const SizedBox(width: InvoiceLayout.gridGutter),
+                // Fixed to PHONE's quarter so it lands on its edges above.
+                SizedBox(
+                  width: geometry.recipientQuarter,
+                  child: _field(doc.recipientAbnLabel, doc.recipientAbn),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -497,37 +487,34 @@ class InvoicePreview extends StatelessWidget {
     borderRadius: BorderRadius.circular(InvoiceLayout.fieldRadius),
   );
 
-  // Flex of the leftover label area (first three columns) and the value box
-  // (last two columns). Totals labels sit bare on the background; only the
-  // figures get a surface box, spanning those last two columns.
-  static const _labelSpan =
-      InvoiceLayout.colItem + InvoiceLayout.colDate + InvoiceLayout.colRate;
-
   // One totals line: a right-aligned bare label over the first three columns,
   // then caller-supplied cells over the last two (TIME + TOTAL). The two
   // leading gutters reproduce the ITEM|DATE and DATE|RATE gaps folded into the
   // merged label span; with the trailing gutter that makes four gutters total,
   // matching the line rows so every value box lands under its column exactly.
-  Widget _totalsRow(String label, List<Widget> trailing) => Padding(
-    padding: const EdgeInsets.only(bottom: InvoiceLayout.rowMarginBottom),
-    child: Row(
-      children: [
-        _gutter,
-        _gutter,
-        Expanded(
-          flex: _labelSpan,
-          child: _txt(label, right: true, style: _label),
+  Widget _totalsRow(String label, int labelSpan, List<Widget> trailing) =>
+      Padding(
+        padding: const EdgeInsets.only(
+          bottom: InvoiceLayout.rowMarginBottom,
         ),
-        _gutter,
-        ...trailing,
-      ],
-    ),
-  );
+        child: Row(
+          children: [
+            _gutter,
+            _gutter,
+            Expanded(
+              flex: labelSpan,
+              child: _txt(label, right: true, style: _label),
+            ),
+            _gutter,
+            ...trailing,
+          ],
+        ),
+      );
 
-  Widget _totals() => Column(
+  Widget _totals(TotalsPlan totals) => Column(
     children: [
       // TOTAL: time and amount each in their own box, aligned to the columns.
-      _totalsRow('TOTAL:', [
+      _totalsRow('TOTAL:', totals.labelSpan, [
         _box(
           flex: InvoiceLayout.colTime,
           child: _txt(doc.totalTime.hms, right: true),
@@ -538,8 +525,8 @@ class InvoicePreview extends StatelessWidget {
           child: _splitRow(_sym, _moneyNum(doc.subtotal)),
         ),
       ]),
-      if (doc.tax != null)
-        _totalsRow('${doc.tax!.label} (${doc.tax!.rate}%):', [
+      if (totals.showTaxRow)
+        _totalsRow('${doc.tax!.label} (${doc.tax!.rate}%):', totals.labelSpan, [
           const Spacer(flex: InvoiceLayout.colTime),
           _gutter,
           _box(
@@ -559,7 +546,7 @@ class InvoicePreview extends StatelessWidget {
             Expanded(child: _txt('AMOUNT DUE:', right: true, style: _label)),
             _gutter,
             Container(
-              width: InvoiceLayout.totalsValueWidth,
+              width: totals.amountDueWidth,
               padding: const EdgeInsets.symmetric(
                 horizontal: InvoiceLayout.rowPaddingH,
                 vertical: InvoiceLayout.rowPaddingV,
@@ -593,24 +580,11 @@ class InvoicePreview extends StatelessWidget {
     ],
   );
 
-  // Number of payment fields per row. The present, region-ordered bank fields
-  // wrap across rows so nothing is clipped and empty fields are dropped.
-  static const _payColumns = 3;
-
-  Widget _payments() {
-    // Inclusion flags let the invoice deliberately omit a block that has data.
-    final fields = doc.showBank
-        ? doc.paymentFields
-        : const <(String, String)>[];
-    final showLink = doc.showPaymentLink && _present(doc.paymentLink);
+  Widget _payments(PaymentsPlan payments) {
     // Nothing to pay to — omit the whole block rather than show an empty heading.
-    if (fields.isEmpty && !showLink) {
+    if (!payments.visible) {
       return const SizedBox.shrink();
     }
-    final rows = <List<(String, String)>>[
-      for (var i = 0; i < fields.length; i += _payColumns)
-        fields.sublist(i, (i + _payColumns).clamp(0, fields.length)),
-    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -623,16 +597,16 @@ class InvoicePreview extends StatelessWidget {
           ),
         ),
         const SizedBox(height: InvoiceLayout.paymentsHeadingGap),
-        if (showLink) ...[
+        if (payments.showLink) ...[
           _field('LINK', doc.paymentLink),
-          if (rows.isNotEmpty)
+          if (payments.rows.isNotEmpty)
             const SizedBox(height: InvoiceLayout.paymentsFieldGap),
         ],
-        for (final (i, row) in rows.indexed) ...[
+        for (final (i, row) in payments.rows.indexed) ...[
           if (i > 0) const SizedBox(height: InvoiceLayout.paymentsFieldGap),
           _paymentRow(row),
         ],
-        if (fields.isNotEmpty && doc.region.paymentNote != null) ...[
+        if (payments.showPaymentNote) ...[
           const SizedBox(height: InvoiceLayout.paymentsFieldGap),
           Text(
             doc.region.paymentNote!,
@@ -646,15 +620,13 @@ class InvoicePreview extends StatelessWidget {
   // One row of payment fields. The row's items divide its full width evenly, so
   // a short row (e.g. a lone BANK) still spans 100% — columns intentionally do
   // NOT align across rows of differing counts.
-  Widget _paymentRow(List<(String, String)> row) => Row(
+  Widget _paymentRow(List<PayField> row) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       for (var c = 0; c < row.length; c++) ...[
         if (c > 0) const SizedBox(width: InvoiceLayout.gridGutter),
-        Expanded(child: _field(row[c].$1, row[c].$2)),
+        Expanded(child: _field(row[c].label, row[c].value)),
       ],
     ],
   );
-
-  static bool _present(String? s) => s != null && s.trim().isNotEmpty;
 }

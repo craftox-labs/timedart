@@ -7,6 +7,9 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_layout_plan.dart';
+
 abstract class InvoiceLayout {
   // ── Coordinate spaces ──────────────────────────────────────────────
   static const double designWidth = 820.0;
@@ -98,4 +101,96 @@ abstract class InvoiceLayout {
   // This is PHONE's quarter-width; the tax-no cell copies it so it lands on the
   // PHONE column's edges, and ADDRESS (an Expanded) fills the org+email span.
   static const double recipientCol = (contentWidth - 2 * gridGutter) / 4;
+
+  // Payment/bank fields wrap into rows of this many columns.
+  static const int payColumns = 3;
+
+  // The TOTAL/tax rows span these leading columns with the row label before the
+  // value cells begin (ITEM + DATE + RATE); TIME + TOTAL carry the values.
+  static const int labelSpan = colItem + colDate + colRate;
+
+  // ── Layout resolution ───────────────────────────────────────────────
+  // Resolve an [InvoiceDocument] into an [InvoiceLayoutPlan]: every presence
+  // decision and the risky recipient geometry, computed once so the preview and
+  // PDF painters can't drift. Both painters consume the plan; neither decides
+  // layout itself. See invoice_layout_plan.dart.
+  static InvoiceLayoutPlan resolve(InvoiceDocument doc) {
+    // Masthead logo: real bytes, else the fallback the document chose.
+    final LogoPlan logo = doc.logo != null
+        ? LogoPlan(LogoSlot.image, doc.logo)
+        : switch (doc.logoFallback) {
+            LogoFallback.brand => const LogoPlan(LogoSlot.brandMark),
+            LogoFallback.placeholder => const LogoPlan(LogoSlot.placeholder),
+            LogoFallback.none => const LogoPlan(LogoSlot.none),
+          };
+
+    // Contact line: only present fields, in e./t./w. order (gate on non-null to
+    // match the existing renderers exactly).
+    final contact = <ContactSpan>[
+      if (doc.senderEmail != null) ContactSpan('e.', doc.senderEmail!),
+      if (doc.senderPhone != null) ContactSpan('t.', doc.senderPhone!),
+      if (doc.senderWebsite != null) ContactSpan('w.', doc.senderWebsite!),
+    ];
+
+    final masthead = MastheadPlan(
+      logo: logo,
+      showAddress: _present(doc.senderAddress),
+      contact: contact,
+    );
+
+    final party = PartyPlan(
+      showInvoiceNumber: doc.invoiceNumber != null,
+      attValue: doc.attention ?? doc.organisation,
+    );
+
+    // Recipient grid row 2.
+    final hasTaxCell = doc.recipientAbn != null;
+    final hasAddress = doc.recipientAddress != null;
+    final recipient = RecipientPlan(
+      showSecondRow: hasAddress || hasTaxCell,
+      showAddress: hasAddress,
+      showTaxCell: hasTaxCell,
+    );
+
+    // Totals: tax row and reverse-charge statement are mutually exclusive.
+    // Upstream already nulls [tax] under reverse charge; encode the XOR here so
+    // a broken invariant can't print both.
+    final showTaxRow = doc.tax != null;
+    final totals = TotalsPlan(
+      labelSpan: labelSpan,
+      amountDueWidth: totalsValueWidth,
+      showTaxRow: showTaxRow,
+      showReverseCharge: doc.reverseCharge && !showTaxRow,
+    );
+
+    // Payments: bank fields (gated by showBank), chunked into rows.
+    final fields = doc.showBank
+        ? [for (final (l, v) in doc.paymentFields) PayField(l, v)]
+        : const <PayField>[];
+    final rows = <List<PayField>>[
+      for (var i = 0; i < fields.length; i += payColumns)
+        fields.sublist(i, (i + payColumns).clamp(0, fields.length)),
+    ];
+    final showLink = doc.showPaymentLink && _present(doc.paymentLink);
+    final payments = PaymentsPlan(
+      visible: rows.isNotEmpty || showLink,
+      rows: rows,
+      showLink: showLink,
+      showPaymentNote: rows.isNotEmpty && doc.region.paymentNote != null,
+    );
+
+    return InvoiceLayoutPlan(
+      masthead: masthead,
+      party: party,
+      recipient: recipient,
+      totals: totals,
+      payments: payments,
+      geometry: const GeometryPlan(
+        recipientQuarter: recipientCol,
+        attColWidth: 2 * recipientCol,
+      ),
+    );
+  }
+
+  static bool _present(String? s) => s != null && s.trim().isNotEmpty;
 }

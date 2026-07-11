@@ -1,0 +1,65 @@
+# timedart
+
+Domain language for the timedart time-tracking + invoicing app. One term per concept — when several words exist, the chosen one is canonical and the rest are listed under `_Avoid_`. Keep future work (and architecture reviews) speaking this vocabulary.
+
+## Language
+
+### Tracking
+
+**Client**:
+A person or organisation the work is billed to. Owns projects and a default rate.
+_Avoid_: customer, account.
+
+**Project**:
+A billable body of work for one client. Carries an optional rate override and a reference code. Top of the tracking hierarchy under a client.
+_Avoid_: job (the old name, renamed in schema v7), matter.
+
+**Task**:
+A named unit of work within a project. First-class entity between project and entry.
+_Avoid_: activity, item.
+
+**TimeEntry**:
+A single tracked interval against a task — a start, a duration in seconds, and an optional note. The atom that a timer produces and an invoice line consumes.
+_Avoid_: log, record, session (a session is the live timer, not the persisted interval).
+
+**Timer session**:
+The live, in-progress timing of a task before it becomes a `TimeEntry` — start/tick/finish state.
+_Avoid_: stopwatch, tracker.
+
+### Invoicing
+
+**Invoice**:
+A request for payment assembled from a project's time entries over a period. Rendered two ways from one `InvoiceDocument`: an on-screen preview and an exported PDF.
+_Avoid_: bill, statement.
+
+**InvoiceDocument**:
+The resolved, pure domain model of an invoice — parties, lines, tax, totals, payment fields — with no layout or rendering concerns. The single input to layout.
+_Avoid_: invoice model, DTO.
+
+**Profile**:
+The sender's billing identity — business name, logo, contact, bank/payment details, region, and which template it uses. Owns what appears on an invoice.
+_Avoid_: account, sender, business.
+
+**Template**:
+The chosen visual look for an invoice (font, etc.), selected by a profile. Distinct from **theme** (reserved for future app-wide UI theming).
+_Avoid_: theme, style, skin.
+
+**Region**:
+The sender's jurisdiction (`InvoiceRegion`) — drives tax label, currency, buyer tax-ID label, bank field set, and reverse-charge rules.
+_Avoid_: locale, country.
+
+### Architecture
+
+**InvoiceLayoutPlan**:
+The pure-data result of resolving an `InvoiceDocument` for layout — ordered section descriptors (masthead, party block, recipient grid, line table, totals, payments) with all presence decisions made and all geometry (column/cell widths, chunked payment rows) resolved. Both the preview and the PDF painter consume it as their one argument; it is the test surface where preview/PDF parity is asserted. Produced by `InvoiceLayout.resolve()`.
+_Avoid_: scene, render tree, view model.
+
+**Painter (adapter)**:
+A renderer that turns an `InvoiceLayoutPlan` into one output toolkit — the Flutter preview painter and the `pdf` painter are the two adapters at this seam. A painter makes no layout decisions; it only draws primitives.
+_Avoid_: renderer (loosely), view.
+
+## Principles
+
+- **The invoice is a print artifact, not app chrome.** Preview/PDF styling follows the user's profile/template and is deliberately independent of `AppTextStyles`/theme, so re-skinning the app never mutates an exported invoice. Persisted, user-defined styling is separate from global app styling.
+- **Shared primitives, separate semantics.** The palette, spacing scale, radius scale, and font family live once in `tokens.dart`; both the app theme and the invoice's own tokens *reference* those primitives. Invoice semantic choices (label weight, muted alpha, masthead gaps) stay owned by the invoice, not the app.
+- **Parity is structural, not comment-enforced.** Preview and PDF agree because they consume the same `InvoiceLayoutPlan`, not because a `// Mirrors …` comment says so.
