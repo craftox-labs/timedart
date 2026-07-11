@@ -1,0 +1,170 @@
+# Release pipeline (#161). Tag-driven: push `vX.Y.Z` (or run manually) and each
+# platform builds on its own free runner and uploads to a single GitHub Release.
+#
+# Releases publish as DRAFTS so nothing goes public until reviewed; `-beta`/`v0.*`
+# tags are additionally marked pre-release (the "latest" badge never points at a
+# beta). First tag: v0.9.0-beta.1.
+#
+# All artifacts are unsigned except Android (upload-key). Linux/Windows/macOS run
+# with no paid signing — see the download notes in the release body for the
+# first-run "unknown developer" click-through per OS.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the Release + upload assets
+
+env:
+  # Marks -beta / v0.x tags as GitHub pre-releases.
+  PRERELEASE: ${{ contains(github.ref_name, '-beta') || startsWith(github.ref_name, 'v0.') }}
+
+jobs:
+  # ── Linux: AppImage + tarball ──────────────────────────────────────────────
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Tarball
+        run: |
+          tar -czf timedart-linux-x86_64.tar.gz \
+            -C build/linux/x64/release/bundle .
+      - name: AppImage
+        run: |
+          set -eux
+          APPDIR=AppDir
+          mkdir -p "$APPDIR/usr/bin"
+          cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
+          # Launcher
+          cat > "$APPDIR/AppRun" <<'SH'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/timedart" "$@"
+          SH
+          chmod +x "$APPDIR/AppRun"
+          # Desktop entry + icon (Icon= must match the icon basename)
+          cat > "$APPDIR/timedart.desktop" <<'D'
+          [Desktop Entry]
+          Name=timedart
+          Exec=timedart
+          Icon=timedart
+          Type=Application
+          Categories=Office;Utility;
+          D
+          cp assets/logo/timedart_symbol.svg "$APPDIR/timedart.svg"
+          # appimagetool (extract-and-run avoids needing FUSE on the runner)
+          wget -q -O appimagetool \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
+            "$APPDIR" timedart-linux-x86_64.AppImage
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ env.PRERELEASE }}
+          files: |
+            timedart-linux-x86_64.tar.gz
+            timedart-linux-x86_64.AppImage
+
+  # ── Windows: portable zip (unsigned) ───────────────────────────────────────
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Zip
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath timedart-windows-x64.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ env.PRERELEASE }}
+          files: timedart-windows-x64.zip
+
+  # ── macOS: universal .app zip (unsigned) ───────────────────────────────────
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter config --enable-macos-desktop
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Zip .app (preserving the bundle)
+        run: |
+          set -eux
+          APP=$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -1)
+          # Log the architectures so we can confirm it's universal (arm64 + x86_64).
+          lipo -archs "$APP/Contents/MacOS/"* || true
+          ditto -c -k --keepParent "$APP" timedart-macos-universal.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ env.PRERELEASE }}
+          files: timedart-macos-universal.zip
+
+  # ── Android: signed APK ────────────────────────────────────────────────────
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      # Write the keystore + key.properties from secrets when present. Guarded in
+      # bash (the secrets context isn't reliable in a step `if:`). Without the
+      # secrets the build still runs, debug-signed, via the Gradle fallback.
+      - name: Configure release signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "No ANDROID_KEYSTORE_BASE64 secret — building debug-signed."
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          echo "Release signing configured."
+      - run: flutter build apk --release
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk timedart-android.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ env.PRERELEASE }}
+          files: timedart-android.apk
