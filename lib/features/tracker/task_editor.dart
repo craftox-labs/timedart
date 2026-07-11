@@ -3,42 +3,19 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/util/parse_rate.dart';
 import 'package:timedart/features/deletions.dart';
+import 'package:timedart/widgets/entity_editor.dart';
 
-// Add/edit/delete a task under a project. Presented adaptively — a modal dialog on
-// wide windows, a bottom sheet on narrow — mirroring showEntryEditor.
+// Add/edit/delete a task under a project, in the shared adaptive entity-editor
+// shell.
 Future<void> showTaskEditor(
   BuildContext context, {
   required AppDatabase db,
   required int projectId,
   Task? task,
-}) {
-  final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
-  if (wide) {
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(AppTokens.spaceXl),
-            child: TaskForm(db: db, projectId: projectId, task: task),
-          ),
-        ),
-      ),
-    );
-  }
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.spaceLg),
-        child: TaskForm(db: db, projectId: projectId, task: task),
-      ),
-    ),
-  );
-}
+}) => showEntityEditor<void>(
+  context,
+  builder: (ctx) => TaskForm(db: db, projectId: projectId, task: task),
+);
 
 class TaskForm extends StatefulWidget {
   const TaskForm({super.key, required this.db, required this.projectId, this.task});
@@ -108,15 +85,14 @@ class _TaskFormState extends State<TaskForm> {
 
   @override
   Widget build(BuildContext context) {
-    final form = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          _isEdit ? 'Edit task' : 'New task',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: AppTokens.spaceXl),
+    return EntityForm(
+      title: _isEdit ? 'Edit task' : 'New task',
+      isEdit: _isEdit,
+      submitLabel: _isEdit ? 'Save' : 'Add',
+      onSubmit: _submit,
+      onCancel: () => Navigator.pop(context),
+      onDelete: _isEdit ? _confirmDelete : null,
+      fields: [
         TextField(
           controller: _title,
           autofocus: !_isEdit,
@@ -138,29 +114,7 @@ class _TaskFormState extends State<TaskForm> {
           ),
           onSubmitted: (_) => _submit(),
         ),
-        const SizedBox(height: AppTokens.spaceXl),
-        Row(
-          children: [
-            if (_isEdit)
-              TextButton(
-                onPressed: _confirmDelete,
-                child: const Text('Delete'),
-              ),
-            const Spacer(),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
-            FilledButton(onPressed: _submit, child: const Text('Save')),
-          ],
-        ),
       ],
     );
-
-    // In edit mode, `d` triggers Delete (a focused field eats it while typing).
-    return _isEdit
-        ? DeleteHotkey(onDelete: _confirmDelete, child: form)
-        : form;
   }
 }

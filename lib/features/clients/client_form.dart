@@ -3,41 +3,17 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/util/parse_rate.dart';
 import 'package:timedart/features/deletions.dart';
+import 'package:timedart/widgets/entity_editor.dart';
 
-// Add/edit/delete a client. Presented adaptively — a modal dialog on wide
-// windows, a bottom sheet on narrow — mirroring showTaskEditor / showProjectEditor.
+// Add/edit/delete a client, in the shared adaptive entity-editor shell.
 Future<void> showClientEditor(
   BuildContext context, {
   required AppDatabase db,
   Client? client,
-}) {
-  final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
-  if (wide) {
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(AppTokens.spaceXl),
-            child: ClientForm(db: db, initial: client),
-          ),
-        ),
-      ),
-    );
-  }
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.spaceLg),
-        child: ClientForm(db: db, initial: client),
-      ),
-    ),
-  );
-}
+}) => showEntityEditor<void>(
+  context,
+  builder: (ctx) => ClientForm(db: db, initial: client),
+);
 
 class ClientForm extends StatefulWidget {
   const ClientForm({super.key, required this.db, this.initial});
@@ -145,16 +121,14 @@ class _ClientFormState extends State<ClientForm> {
 
   @override
   Widget build(BuildContext context) {
-    final form = SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _isEdit ? 'Edit client' : 'New client',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        const SizedBox(height: AppTokens.spaceXl),
+    return EntityForm(
+      title: _isEdit ? 'Edit client' : 'New client',
+      isEdit: _isEdit,
+      submitLabel: _isEdit ? 'Save' : 'Add',
+      onSubmit: _submit,
+      onCancel: () => Navigator.pop(context),
+      onDelete: _isEdit ? _confirmDelete : null,
+      fields: [
         TextField(
           controller: _name,
           onSubmitted: (_) => _submit(),
@@ -202,33 +176,7 @@ class _ClientFormState extends State<ClientForm> {
             errorText: _rateError,
           ),
         ),
-        const SizedBox(height: AppTokens.spaceXl),
-        Row(
-          children: [
-            if (_isEdit)
-              TextButton(
-                onPressed: _confirmDelete,
-                child: const Text('Delete'),
-              ),
-            const Spacer(),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
-            FilledButton(
-              onPressed: _submit,
-              child: Text(_isEdit ? 'Save' : 'Add'),
-            ),
-          ],
-        ),
       ],
-    ),
-  );
-
-    // In edit mode, `d` triggers Delete (a focused field eats it while typing).
-    return _isEdit
-        ? DeleteHotkey(onDelete: _confirmDelete, child: form)
-        : form;
+    );
   }
 }

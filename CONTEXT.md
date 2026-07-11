@@ -70,6 +70,10 @@ _Avoid_: draft, model.
 A logo (image bytes + MIME) compared by **content**, not identity, so an unchanged logo in an editor snapshot doesn't read as a dirty edit.
 _Avoid_: image ref.
 
+**Entity editor** (`EntityForm` + `showEntityEditor`):
+The shared modal chrome for the four CRUD editors (client / project / task / entry) — the modal counterpart to the content-pane `EditorSession`. `showEntityEditor<T>` is the one adaptive presenter (centred `Dialog` wide / bottom sheet narrow); `EntityForm` is the one scaffold (title + the form's fields + Delete/Cancel/Save action row + the `d`-to-delete hotkey). Each form supplies only its fields and its submit/cancel/delete logic (validation, DB write, save-error snackbar, popping the route) — the chrome is shared, the entity logic is not.
+_Avoid_: dialog, sheet (for the concept), form base class.
+
 **Keymap**:
 The single registry of the app's keyboard model — a list of `Binding`s mapping key strokes to a `KeyIntent`, tagged with a `scope` and the help metadata. `Keymap.resolve(event, detector, scopes)` answers key→intent (chords included) for the four raw-key handlers (shell, side panel, settings panel, tracker); the help dialog iterates the same registry, so it can't drift. Flutter's `Shortcuts`/`Actions` can't express the vim multi-key sequences, hence a custom registry over the existing raw `onKeyEvent` handlers.
 _Avoid_: shortcuts table, key map (two words).

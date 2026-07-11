@@ -2,50 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/widgets/dropdown_field.dart';
+import 'package:timedart/widgets/entity_editor.dart';
 import 'package:timedart/util/parse_rate.dart';
 import 'package:timedart/features/deletions.dart';
 
-// Add/edit/delete a project. Presented adaptively — a modal dialog on wide windows,
-// a bottom sheet on narrow — mirroring showTaskEditor / showEntryEditor.
-// Returns the new project's id when one was just created (so the caller can select
-// it), or null on edit / delete / cancel.
+// Add/edit/delete a project, in the shared adaptive entity-editor shell.
+// Returns the new project's id when one was just created (so the caller can
+// select it), or null on edit / delete / cancel.
 Future<int?> showProjectEditor(
   BuildContext context, {
   required AppDatabase db,
   Project? project,
   int? initialClientId,
-}) {
-  final wide = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd;
-  if (wide) {
-    return showDialog<int?>(
-      context: context,
-      builder: (ctx) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(AppTokens.spaceXl),
-            child: ProjectForm(
-              db: db,
-              initial: project,
-              initialClientId: initialClientId,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-  return showModalBottomSheet<int?>(
-    context: context,
-    isScrollControlled: true,
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.spaceLg),
-        child: ProjectForm(db: db, initial: project, initialClientId: initialClientId),
-      ),
-    ),
-  );
-}
+}) => showEntityEditor<int?>(
+  context,
+  builder: (ctx) =>
+      ProjectForm(db: db, initial: project, initialClientId: initialClientId),
+);
 
 class ProjectForm extends StatefulWidget {
   const ProjectForm({
@@ -133,16 +106,14 @@ class _ProjectFormState extends State<ProjectForm> {
 
   @override
   Widget build(BuildContext context) {
-    final form = SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _isEdit ? 'Edit project' : 'New project',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        const SizedBox(height: AppTokens.spaceXl),
+    return EntityForm(
+      title: _isEdit ? 'Edit project' : 'New project',
+      isEdit: _isEdit,
+      submitLabel: _isEdit ? 'Save' : 'Add',
+      onSubmit: _submit,
+      onCancel: () => Navigator.pop(context),
+      onDelete: _isEdit ? _confirmDelete : null,
+      fields: [
         StreamBuilder<List<Client>>(
           stream: _clientsStream,
           builder: (context, snap) {
@@ -185,38 +156,9 @@ class _ProjectFormState extends State<ProjectForm> {
           controller: _rate,
           keyboardType: TextInputType.number,
           onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(
-            labelText: 'Rate',
-            errorText: _rateError,
-          ),
-        ),
-        const SizedBox(height: AppTokens.spaceXl),
-        Row(
-          children: [
-            if (_isEdit)
-              TextButton(
-                onPressed: _confirmDelete,
-                child: const Text('Delete'),
-              ),
-            const Spacer(),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
-            FilledButton(
-              onPressed: _submit,
-              child: Text(_isEdit ? 'Save' : 'Add'),
-            ),
-          ],
+          decoration: InputDecoration(labelText: 'Rate', errorText: _rateError),
         ),
       ],
-    ),
-  );
-
-    // In edit mode, `d` triggers Delete (a focused field eats it while typing).
-    return _isEdit
-        ? DeleteHotkey(onDelete: _confirmDelete, child: form)
-        : form;
+    );
   }
 }
