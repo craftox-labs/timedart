@@ -635,12 +635,17 @@ class _HowItWorksState extends State<_HowItWorks> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Icon(
-                          icon,
-                          size: size,
-                          fill: 1,
-                          opticalSize: 48,
-                          color: AppTokens.colorAccentDim,
+                        // Muted fill, shrunk a touch so the solid silhouette
+                        // tucks inside the outline instead of rimming past it.
+                        Transform.scale(
+                          scale: 0.92,
+                          child: Icon(
+                            icon,
+                            size: size,
+                            fill: 1,
+                            opticalSize: 48,
+                            color: AppTokens.colorAccentDim,
+                          ),
                         ),
                         Icon(
                           icon,
