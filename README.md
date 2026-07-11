@@ -12,8 +12,9 @@
 <p align="center">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-69e228.svg">
   <img alt="Built with Flutter" src="https://img.shields.io/badge/built%20with-Flutter-02569B.svg?logo=flutter&logoColor=white">
-  <img alt="Platforms" src="https://img.shields.io/badge/desktop-Linux%20·%20macOS%20·%20Windows-4a5142.svg">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Linux%20·%20macOS%20·%20Windows%20·%20Android-4a5142.svg">
   <img alt="Local-first" src="https://img.shields.io/badge/data-local--first-69e228.svg">
+  <a href="https://github.com/craftox-labs/timedart/releases"><img alt="Download" src="https://img.shields.io/badge/download-beta-69e228.svg"></a>
   <a href="https://timedart.netlify.app"><img alt="Website" src="https://img.shields.io/badge/website-timedart.netlify.app-69e228.svg"></a>
   <a href="https://timedart-demo.netlify.app"><img alt="Live demo" src="https://img.shields.io/badge/try-live%20demo-1f480a.svg"></a>
 </p>
@@ -32,7 +33,7 @@
   <a href="#feature-tour">Features</a> ·
   <a href="#keyboard">Keyboard</a> ·
   <a href="https://timedart-demo.netlify.app">Demo</a> ·
-  <a href="#install">Install</a> ·
+  <a href="#download">Download</a> ·
   <a href="#roadmap">Roadmap</a>
 </p>
 
@@ -120,7 +121,25 @@ timedart is built to be flown from the keyboard. Navigation is identical across 
 > `j`/`k` before the page sees them. The keyboard experience is complete in the desktop build; on the
 > web, disable such extensions for the demo site (or just use the mouse).
 
-## Install
+## Download
+
+**timedart is in open beta (`v0.9.0-beta`).** Grab a build from the
+[**Releases page**](https://github.com/craftox-labs/timedart/releases):
+
+| Platform | Download | First launch |
+|---|---|---|
+| **Linux** | `AppImage` or `tar.gz` | `chmod +x`, run — no install |
+| **Windows** | portable `.zip` | SmartScreen → More info → Run anyway |
+| **macOS** | universal `.zip` (Intel + Apple Silicon) | right-click → Open (unsigned) |
+| **Android** | `.apk` | allow install from unknown sources |
+
+Beta builds are unsigned (bar the Android upload key), so your OS asks you to confirm the first
+launch — that's expected for a direct download, not a problem with the app. Data never leaves your
+machine.
+
+> Pre-1.0 while in beta: the local database format may still change between versions.
+
+## Build from source
 
 Requires the Flutter SDK ([install guide](https://docs.flutter.dev/get-started/install)).
 
