@@ -709,15 +709,33 @@ class _FlowCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Muted icon container, mirroring the marketing site's flow badges:
+            // the active stage gets the full tint (dim-green fill + bright-green
+            // glyph + faint accent border, same as the primary button); inactive
+            // stages sit in a quiet neutral box so the current step stands out.
             // Material Symbols is a variable font: `weight` sets stroke
-            // thickness (100–700; lower = finer). The active card thickens to
-            // reinforce the highlight; `opticalSize` tunes detail for the size.
-            Icon(
-              icon,
-              size: compact ? 34 : 48,
-              weight: active ? 400 : 200,
-              opticalSize: 48,
-              color: color,
+            // thickness (100–700; lower = finer).
+            Container(
+              padding: EdgeInsets.all(
+                compact ? AppTokens.space2xs : AppTokens.spaceXs,
+              ),
+              decoration: BoxDecoration(
+                color: active ? AppTokens.colorAccentDim : t.colorScheme.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusButton),
+                border: Border.all(
+                  color: active
+                      ? AppTokens.colorBrandPrimary.withValues(alpha: 0.30)
+                      : AppTokens.colorBorder,
+                  width: AppTokens.strokeThin,
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: compact ? 28 : 40,
+                weight: active ? 400 : 200,
+                opticalSize: 48,
+                color: active ? AppTokens.colorAccentText : color,
+              ),
             ),
             SizedBox(height: compact ? AppTokens.space3xs : AppTokens.spaceXs),
             Text(
