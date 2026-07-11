@@ -627,35 +627,13 @@ class _HowItWorksState extends State<_HowItWorks> {
                   // directly (vs FittedBox) keeps the glyph sharp and lets the
                   // variable-font weight apply at the real size.
                   final size = c.biggest.shortestSide.clamp(0.0, 440.0);
-                  // Duotone via the Material Symbols FILL axis: a solid muted
-                  // silhouette underneath, the fine bright outline on top. Same
-                  // glyph on both layers so they register exactly, giving the
-                  // icon's negative space a muted-green fill.
                   return Center(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Muted fill, shrunk a touch so the solid silhouette
-                        // tucks inside the outline instead of rimming past it.
-                        Transform.scale(
-                          scale: 0.92,
-                          child: Icon(
-                            icon,
-                            size: size,
-                            fill: 1,
-                            opticalSize: 48,
-                            color: AppTokens.colorAccentDim,
-                          ),
-                        ),
-                        Icon(
-                          icon,
-                          size: size,
-                          weight: 100,
-                          fill: 0,
-                          opticalSize: 48,
-                          color: t.colorScheme.primary,
-                        ),
-                      ],
+                    child: Icon(
+                      icon,
+                      size: size,
+                      weight: 100,
+                      opticalSize: 48,
+                      color: t.colorScheme.primary,
                     ),
                   );
                 },
