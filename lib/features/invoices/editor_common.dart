@@ -322,7 +322,7 @@ Widget editorHeader({
             style: theme.textTheme.titleLarge?.copyWith(
               fontFamily: AppTokens.fontFamily,
               fontStyle: FontStyle.normal,
-              color: theme.colorScheme.primary,
+              color: theme.colorScheme.onSurface,
             ),
           ),
         ),
