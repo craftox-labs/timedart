@@ -90,6 +90,10 @@ _Avoid_: mode, context.
 Per-handler state for an in-progress multi-key sequence (`gg`, `G`, `Ctrl-w h/l`) — the armed prefix. One instance per raw-key handler, `reset()` on a focus excursion. Replaces the hand-rolled `_pendingG`/`_pendingCtrlW` copies; the pane that owns the completion keys (h/l) must own the chord, which is why each list pane holds its own detector.
 _Avoid_: pending flag, sequence state.
 
+**Backup (BackupSnapshot / codec)**:
+The whole database as one portable file (PRD #189, Phase 1). `BackupSnapshot` is an in-memory copy of every table's rows (typed drift data classes, value equality); `readBackupSnapshot` fills it via the same public drift accessors all reads use. `encodeBackup`/`decodeBackup` serialise it to/from self-describing JSON bytes carrying a version envelope — a `format` marker, the backup `formatVersion`, and the DB `schemaVersion` it was written at (the tag a later, forward-compatible importer keys off across the Phase 2 UUID migration). `decodeBackup` validates and throws `BackupFormatException` (never a partial result). Deliberately Flutter-free (lives in `lib/data`) so the future CLI can reuse it; blob columns (the profile logo) are base64-encoded via a small `ValueSerializer` wrapper since drift's default JSON serializer can't represent bytes. UI glue (file dialog, snackbar) lives in the shell; the platform save helper is `lib/util/save_file.dart` (a generalised `pdf_saver`).
+_Avoid_: dump, snapshot (for the file), sync (unrelated — that's Phase 4).
+
 ## Principles
 
 - **The invoice is a print artifact, not app chrome.** Preview/PDF styling follows the user's profile/template and is deliberately independent of `AppTextStyles`/theme, so re-skinning the app never mutates an exported invoice. Persisted, user-defined styling is separate from global app styling.

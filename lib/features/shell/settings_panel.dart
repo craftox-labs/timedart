@@ -27,6 +27,7 @@ class SettingsPanel extends StatefulWidget {
     this.onAddProfile,
     this.onEditProfile,
     this.onRerunOnboarding,
+    this.onExportData,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -59,9 +60,11 @@ class SettingsPanel extends StatefulWidget {
   final VoidCallback? onAddProfile;
   final void Function(InvoiceProfile, {bool startEditing})? onEditProfile;
   // App-level actions under the General section. Replays first-run onboarding
-  // (also the dev/test reset); null hides the row. Future data actions
-  // (import/export) will join it in the same section.
+  // (also the dev/test reset); null hides the row.
   final Future<void> Function()? onRerunOnboarding;
+  // Export the whole database to a portable backup file (PRD #189, #190);
+  // null hides the row. Import (#191) will join it in the same section.
+  final Future<void> Function()? onExportData;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -201,7 +204,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
   };
 
   // The wired General-section actions (only those with a callback present).
+  // Data actions first, then the dev/reset re-run.
   List<_ActionRow> _actionRows() => [
+    if (widget.onExportData != null)
+      _ActionRow(
+        label: 'Export data',
+        icon: Icons.file_download_outlined,
+        onTap: () => widget.onExportData!(),
+      ),
     if (widget.onRerunOnboarding != null)
       _ActionRow(
         label: 'Re-run setup',

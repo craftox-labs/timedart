@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/backup.dart';
+import 'package:timedart/util/save_file.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/page_header.dart';
@@ -268,6 +270,38 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _invoiceProject(Project project) =>
       setState(() => _detail = _Invoice(project));
 
+  // Export the whole database to a portable JSON backup the user chooses a
+  // location for (PRD #189, #190). Captures the messenger before the awaits so
+  // it survives the async gap, and guards on `mounted` after.
+  Future<void> _exportData() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final bytes = await exportBackupBytes(
+        widget.db,
+        exportedAt: DateTime.now(),
+      );
+      final date = DateTime.now().toIso8601String().split('T').first;
+      final saved = await saveBytes(
+        bytes,
+        suggestedName: 'timedart-backup-$date.json',
+        typeLabel: 'JSON backup',
+        extensions: const ['json'],
+        mimeType: 'application/json',
+      );
+      if (!mounted) return;
+      if (saved != null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Data exported.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
+  }
+
   // App Settings home.
   void _openSettings() => _navigateTo(const _Settings());
   void _showSettingsHome() => _navigateTo(const _Settings());
@@ -433,6 +467,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onEditProfile: (p, {startEditing = false}) =>
               run(() => _editProfile(p, startEditing: startEditing)),
           onRerunOnboarding: widget.onRerunOnboarding,
+          onExportData: () async => run(_exportData),
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),
