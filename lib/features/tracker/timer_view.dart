@@ -44,15 +44,29 @@ class TimerController extends ChangeNotifier {
   /// running. Called once by the shell after construction.
   Future<void> recover() async {
     await _store.recover(now: DateTime.now());
+    // Restore the session note into the field so a recovered timer shows it.
+    final note = _store.recoveredDescription;
+    if (note != null) description.text = note;
     if (_store.session.isRunning) _startTicker();
     notifyListeners();
+  }
+
+  String? get _note {
+    final t = description.text.trim();
+    return t.isEmpty ? null : t;
   }
 
   Future<void> startOrResume(String? projectId, String? taskId) async {
     if (_store.session.isRunning) return;
     // _store.start runs the state-machine transition synchronously before its
-    // first await, so the session is running by the time the ticker fires.
-    final persisted = _store.start(projectId, taskId, now: DateTime.now());
+    // first await, so the session is running by the time the ticker fires. The
+    // current note rides along so it survives a restart.
+    final persisted = _store.start(
+      projectId,
+      taskId,
+      now: DateTime.now(),
+      description: _note,
+    );
     _startTicker();
     notifyListeners();
     await persisted;
@@ -60,7 +74,7 @@ class TimerController extends ChangeNotifier {
 
   Future<void> pause() async {
     _ticker?.cancel();
-    final persisted = _store.pause(now: DateTime.now());
+    final persisted = _store.pause(now: DateTime.now(), description: _note);
     notifyListeners();
     await persisted;
   }
@@ -71,11 +85,7 @@ class TimerController extends ChangeNotifier {
   /// intact so the user can retry.
   Future<FinishedSession?> finish() async {
     _ticker?.cancel();
-    final desc = description.text.trim();
-    final result = await _store.finish(
-      now: DateTime.now(),
-      description: desc.isEmpty ? null : desc,
-    );
+    final result = await _store.finish(now: DateTime.now(), description: _note);
     description.clear();
     notifyListeners();
     return result;

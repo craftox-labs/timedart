@@ -5407,6 +5407,17 @@ class $ActiveTimersTable extends ActiveTimers
       'REFERENCES tasks (id)',
     ),
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _startedAtMeta = const VerificationMeta(
     'startedAt',
   );
@@ -5480,6 +5491,7 @@ class $ActiveTimersTable extends ActiveTimers
     id,
     projectId,
     taskId,
+    description,
     startedAt,
     accumulatedSeconds,
     runningSince,
@@ -5512,6 +5524,15 @@ class $ActiveTimersTable extends ActiveTimers
       context.handle(
         _taskIdMeta,
         taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
       );
     }
     if (data.containsKey('started_at')) {
@@ -5577,6 +5598,10 @@ class $ActiveTimersTable extends ActiveTimers
         DriftSqlType.string,
         data['${effectivePrefix}task_id'],
       ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
       startedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}started_at'],
@@ -5614,6 +5639,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
   final String id;
   final String? projectId;
   final String? taskId;
+  final String? description;
   final DateTime? startedAt;
   final int accumulatedSeconds;
   final DateTime? runningSince;
@@ -5624,6 +5650,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     required this.id,
     this.projectId,
     this.taskId,
+    this.description,
     this.startedAt,
     required this.accumulatedSeconds,
     this.runningSince,
@@ -5640,6 +5667,9 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     }
     if (!nullToAbsent || taskId != null) {
       map['task_id'] = Variable<String>(taskId);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
     }
     if (!nullToAbsent || startedAt != null) {
       map['started_at'] = Variable<DateTime>(startedAt);
@@ -5669,6 +5699,9 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       taskId: taskId == null && nullToAbsent
           ? const Value.absent()
           : Value(taskId),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
       startedAt: startedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(startedAt),
@@ -5697,6 +5730,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       id: serializer.fromJson<String>(json['id']),
       projectId: serializer.fromJson<String?>(json['projectId']),
       taskId: serializer.fromJson<String?>(json['taskId']),
+      description: serializer.fromJson<String?>(json['description']),
       startedAt: serializer.fromJson<DateTime?>(json['startedAt']),
       accumulatedSeconds: serializer.fromJson<int>(json['accumulatedSeconds']),
       runningSince: serializer.fromJson<DateTime?>(json['runningSince']),
@@ -5712,6 +5746,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       'id': serializer.toJson<String>(id),
       'projectId': serializer.toJson<String?>(projectId),
       'taskId': serializer.toJson<String?>(taskId),
+      'description': serializer.toJson<String?>(description),
       'startedAt': serializer.toJson<DateTime?>(startedAt),
       'accumulatedSeconds': serializer.toJson<int>(accumulatedSeconds),
       'runningSince': serializer.toJson<DateTime?>(runningSince),
@@ -5725,6 +5760,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     String? id,
     Value<String?> projectId = const Value.absent(),
     Value<String?> taskId = const Value.absent(),
+    Value<String?> description = const Value.absent(),
     Value<DateTime?> startedAt = const Value.absent(),
     int? accumulatedSeconds,
     Value<DateTime?> runningSince = const Value.absent(),
@@ -5735,6 +5771,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     id: id ?? this.id,
     projectId: projectId.present ? projectId.value : this.projectId,
     taskId: taskId.present ? taskId.value : this.taskId,
+    description: description.present ? description.value : this.description,
     startedAt: startedAt.present ? startedAt.value : this.startedAt,
     accumulatedSeconds: accumulatedSeconds ?? this.accumulatedSeconds,
     runningSince: runningSince.present ? runningSince.value : this.runningSince,
@@ -5747,6 +5784,9 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       id: data.id.present ? data.id.value : this.id,
       projectId: data.projectId.present ? data.projectId.value : this.projectId,
       taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
       startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
       accumulatedSeconds: data.accumulatedSeconds.present
           ? data.accumulatedSeconds.value
@@ -5766,6 +5806,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
           ..write('id: $id, ')
           ..write('projectId: $projectId, ')
           ..write('taskId: $taskId, ')
+          ..write('description: $description, ')
           ..write('startedAt: $startedAt, ')
           ..write('accumulatedSeconds: $accumulatedSeconds, ')
           ..write('runningSince: $runningSince, ')
@@ -5781,6 +5822,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     id,
     projectId,
     taskId,
+    description,
     startedAt,
     accumulatedSeconds,
     runningSince,
@@ -5795,6 +5837,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
           other.id == this.id &&
           other.projectId == this.projectId &&
           other.taskId == this.taskId &&
+          other.description == this.description &&
           other.startedAt == this.startedAt &&
           other.accumulatedSeconds == this.accumulatedSeconds &&
           other.runningSince == this.runningSince &&
@@ -5807,6 +5850,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
   final Value<String> id;
   final Value<String?> projectId;
   final Value<String?> taskId;
+  final Value<String?> description;
   final Value<DateTime?> startedAt;
   final Value<int> accumulatedSeconds;
   final Value<DateTime?> runningSince;
@@ -5818,6 +5862,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     this.id = const Value.absent(),
     this.projectId = const Value.absent(),
     this.taskId = const Value.absent(),
+    this.description = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.accumulatedSeconds = const Value.absent(),
     this.runningSince = const Value.absent(),
@@ -5830,6 +5875,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     this.id = const Value.absent(),
     this.projectId = const Value.absent(),
     this.taskId = const Value.absent(),
+    this.description = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.accumulatedSeconds = const Value.absent(),
     this.runningSince = const Value.absent(),
@@ -5842,6 +5888,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     Expression<String>? id,
     Expression<String>? projectId,
     Expression<String>? taskId,
+    Expression<String>? description,
     Expression<DateTime>? startedAt,
     Expression<int>? accumulatedSeconds,
     Expression<DateTime>? runningSince,
@@ -5854,6 +5901,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
       if (id != null) 'id': id,
       if (projectId != null) 'project_id': projectId,
       if (taskId != null) 'task_id': taskId,
+      if (description != null) 'description': description,
       if (startedAt != null) 'started_at': startedAt,
       if (accumulatedSeconds != null) 'accumulated_seconds': accumulatedSeconds,
       if (runningSince != null) 'running_since': runningSince,
@@ -5868,6 +5916,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     Value<String>? id,
     Value<String?>? projectId,
     Value<String?>? taskId,
+    Value<String?>? description,
     Value<DateTime?>? startedAt,
     Value<int>? accumulatedSeconds,
     Value<DateTime?>? runningSince,
@@ -5880,6 +5929,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
       id: id ?? this.id,
       projectId: projectId ?? this.projectId,
       taskId: taskId ?? this.taskId,
+      description: description ?? this.description,
       startedAt: startedAt ?? this.startedAt,
       accumulatedSeconds: accumulatedSeconds ?? this.accumulatedSeconds,
       runningSince: runningSince ?? this.runningSince,
@@ -5901,6 +5951,9 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     }
     if (taskId.present) {
       map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
     }
     if (startedAt.present) {
       map['started_at'] = Variable<DateTime>(startedAt.value);
@@ -5932,6 +5985,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
           ..write('id: $id, ')
           ..write('projectId: $projectId, ')
           ..write('taskId: $taskId, ')
+          ..write('description: $description, ')
           ..write('startedAt: $startedAt, ')
           ..write('accumulatedSeconds: $accumulatedSeconds, ')
           ..write('runningSince: $runningSince, ')
@@ -9704,6 +9758,7 @@ typedef $$ActiveTimersTableCreateCompanionBuilder =
       Value<String> id,
       Value<String?> projectId,
       Value<String?> taskId,
+      Value<String?> description,
       Value<DateTime?> startedAt,
       Value<int> accumulatedSeconds,
       Value<DateTime?> runningSince,
@@ -9717,6 +9772,7 @@ typedef $$ActiveTimersTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String?> projectId,
       Value<String?> taskId,
+      Value<String?> description,
       Value<DateTime?> startedAt,
       Value<int> accumulatedSeconds,
       Value<DateTime?> runningSince,
@@ -9776,6 +9832,11 @@ class $$ActiveTimersTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9870,6 +9931,11 @@ class $$ActiveTimersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get startedAt => $composableBuilder(
     column: $table.startedAt,
     builder: (column) => ColumnOrderings(column),
@@ -9958,6 +10024,11 @@ class $$ActiveTimersTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get startedAt =>
       $composableBuilder(column: $table.startedAt, builder: (column) => column);
@@ -10059,6 +10130,7 @@ class $$ActiveTimersTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String?> projectId = const Value.absent(),
                 Value<String?> taskId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<DateTime?> startedAt = const Value.absent(),
                 Value<int> accumulatedSeconds = const Value.absent(),
                 Value<DateTime?> runningSince = const Value.absent(),
@@ -10070,6 +10142,7 @@ class $$ActiveTimersTableTableManager
                 id: id,
                 projectId: projectId,
                 taskId: taskId,
+                description: description,
                 startedAt: startedAt,
                 accumulatedSeconds: accumulatedSeconds,
                 runningSince: runningSince,
@@ -10083,6 +10156,7 @@ class $$ActiveTimersTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String?> projectId = const Value.absent(),
                 Value<String?> taskId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<DateTime?> startedAt = const Value.absent(),
                 Value<int> accumulatedSeconds = const Value.absent(),
                 Value<DateTime?> runningSince = const Value.absent(),
@@ -10094,6 +10168,7 @@ class $$ActiveTimersTableTableManager
                 id: id,
                 projectId: projectId,
                 taskId: taskId,
+                description: description,
                 startedAt: startedAt,
                 accumulatedSeconds: accumulatedSeconds,
                 runningSince: runningSince,

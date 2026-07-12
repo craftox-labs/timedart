@@ -130,6 +130,27 @@ void main() {
     expect(store.session.hasSession, isFalse);
   });
 
+  test('description persists on the row and is recovered across a restart', () async {
+    final first = TimerStore(db);
+    await first.start(projectId, taskId, now: t0, description: 'wire up auth');
+
+    // The note is on the row…
+    expect((await db.activeTimer())!.description, 'wire up auth');
+
+    // …and a fresh store recovers it (the UI seeds its field from this).
+    final recovered = TimerStore(db);
+    await recovered.recover(now: t0.add(const Duration(seconds: 10)));
+    expect(recovered.recoveredDescription, 'wire up auth');
+
+    // Finishing the recovered timer writes the note onto the entry.
+    final finished = await recovered.finish(
+      now: t0.add(const Duration(seconds: 10)),
+      description: recovered.recoveredDescription,
+    );
+    expect(finished, isNotNull);
+    expect((await db.select(db.timeEntries).get()).single.description, 'wire up auth');
+  });
+
   test('finish with nothing recorded still clears the row', () async {
     final store = TimerStore(db);
     await store.start(projectId, taskId, now: t0);

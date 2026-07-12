@@ -223,6 +223,9 @@ class ActiveTimers extends Table {
   // can't misattribute time).
   TextColumn get projectId => text().nullable().references(Projects, #id)();
   TextColumn get taskId => text().nullable().references(Tasks, #id)();
+  // The in-progress session note (becomes the finished entry's description).
+  // Persisted here so it survives a restart, not just the bound work (v15).
+  TextColumn get description => text().nullable()();
   DateTimeColumn get startedAt => dateTime().nullable()();
   IntColumn get accumulatedSeconds =>
       integer().withDefault(const Constant(0))();
@@ -264,7 +267,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -766,6 +769,23 @@ class AppDatabase extends _$AppDatabase {
       // creates it. Guarded from<14 so a future bump can't re-run createTable.
       if (from < 14) {
         await m.createTable(activeTimers);
+      }
+      // v14 → v15: persist the session note on the active-timer row so it
+      // survives a restart (not just the bound project/task). Nullable add —
+      // legal ALTER; guarded add-if-missing (a from<14 DB just created the table
+      // at the current shape, which already has the column).
+      if (from < 15) {
+        final exists = (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = 'active_timers'",
+        ).get()).isNotEmpty;
+        if (exists) {
+          final cols = await customSelect(
+            'PRAGMA table_info(active_timers)',
+          ).get();
+          if (!cols.any((r) => r.read<String>('name') == 'description')) {
+            await m.addColumn(activeTimers, activeTimers.description);
+          }
+        }
       }
     },
     beforeOpen: (details) async {
