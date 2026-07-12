@@ -62,6 +62,8 @@ InvoiceProfile _profile({
   showRateColumn: true,
   showTimeColumn: true,
   reverseCharge: reverseCharge,
+  createdAt: _t,
+  updatedAt: _t,
 );
 
 Client _client({
@@ -81,6 +83,8 @@ Client _client({
   address: address,
   abn: abn,
   defaultRate: defaultRate,
+  createdAt: _t,
+  updatedAt: _t,
 );
 
 Project _project({String code = 'CD002', double? rate}) => Project(
@@ -91,6 +95,7 @@ Project _project({String code = 'CD002', double? rate}) => Project(
   rate: rate,
   status: 'active',
   createdAt: _t,
+  updatedAt: _t,
 );
 
 Task _task({int id = 1, double? rate, String title = 'Mobile'}) => Task(
@@ -100,6 +105,7 @@ Task _task({int id = 1, double? rate, String title = 'Mobile'}) => Task(
   rate: rate,
   status: 'active',
   createdAt: _t,
+  updatedAt: _t,
 );
 
 TimeEntry _entry({
@@ -115,6 +121,8 @@ TimeEntry _entry({
   startedAt: _t,
   endedAt: _t.add(Duration(seconds: seconds)),
   seconds: seconds,
+  createdAt: _t,
+  updatedAt: _t,
 );
 
 InvoiceDocument _doc({

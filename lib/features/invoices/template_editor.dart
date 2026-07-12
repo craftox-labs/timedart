@@ -132,6 +132,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
     colorAccent: _accent,
     fontFamily: _fontFamily,
     isDefault: _isDefault,
+    // Transient preview object (never persisted); timestamps are placeholders.
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
   );
 
   TemplatesCompanion _companion() => TemplatesCompanion(

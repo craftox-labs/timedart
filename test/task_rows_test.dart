@@ -9,6 +9,7 @@ Task _task(int id, String title) => Task(
   rate: null,
   status: 'active',
   createdAt: DateTime(2026),
+  updatedAt: DateTime(2026),
 );
 
 TimeEntry _entry(int id, int taskId, int seconds) => TimeEntry(
@@ -18,6 +19,8 @@ TimeEntry _entry(int id, int taskId, int seconds) => TimeEntry(
   startedAt: DateTime(2026),
   endedAt: DateTime(2026),
   seconds: seconds,
+  createdAt: DateTime(2026),
+  updatedAt: DateTime(2026),
 );
 
 void main() {

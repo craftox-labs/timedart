@@ -12,6 +12,11 @@ import 'package:timedart/data/database.dart';
 // round-trip and the version envelope. The reader test proves it works over
 // real drift rows (all columns) including a null logo blob.
 
+// Audit timestamps (schema v11) — a fixed local time; values are arbitrary but
+// must be local (drift decodes epoch millis to local; DateTime.== needs isUtc
+// to match) and stable so round-trips compare equal.
+final _ts = DateTime(2026, 1, 1);
+
 BackupSnapshot _sampleSnapshot() => BackupSnapshot(
   clients: [
     Client(
@@ -24,6 +29,8 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
       abn: null,
       defaultRate: 120.0,
       archivedAt: null,
+      createdAt: _ts,
+      updatedAt: _ts,
     ),
   ],
   projects: [
@@ -35,6 +42,7 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
       rate: null,
       status: 'active',
       createdAt: DateTime(2026, 1, 2, 3, 4, 5),
+      updatedAt: _ts,
     ),
   ],
   tasks: [
@@ -45,6 +53,7 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
       rate: 150.0,
       status: 'active',
       createdAt: DateTime(2026, 1, 3),
+      updatedAt: _ts,
     ),
   ],
   timeEntries: [
@@ -56,6 +65,8 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
       startedAt: DateTime(2026, 1, 3, 9),
       endedAt: DateTime(2026, 1, 3, 11),
       seconds: 7200,
+      createdAt: _ts,
+      updatedAt: _ts,
     ),
   ],
   templates: [
@@ -69,6 +80,8 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
       colorAccent: 0xFF2E6C0F,
       fontFamily: 'Mona',
       isDefault: true,
+      createdAt: _ts,
+      updatedAt: _ts,
     ),
   ],
   profiles: [
@@ -108,9 +121,13 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
       showRateColumn: true,
       showTimeColumn: true,
       reverseCharge: false,
+      createdAt: _ts,
+      updatedAt: _ts,
     ),
   ],
-  settings: [const AppSetting(key: 'onboarding_complete', value: 'true')],
+  settings: [
+    AppSetting(key: 'onboarding_complete', value: 'true', updatedAt: _ts),
+  ],
 );
 
 void main() {
@@ -361,6 +378,8 @@ void main() {
               abn: null,
               defaultRate: 100,
               archivedAt: null,
+              createdAt: _ts,
+              updatedAt: _ts,
             ),
           ],
           projects: [
@@ -372,6 +391,7 @@ void main() {
               rate: null,
               status: 'active',
               createdAt: DateTime(2026, 1, 1),
+              updatedAt: _ts,
             ),
           ],
           tasks: [
@@ -383,6 +403,7 @@ void main() {
               rate: null,
               status: 'active',
               createdAt: DateTime(2026, 1, 1),
+              updatedAt: _ts,
             ),
             // orphan (project 3 gone)
             Task(
@@ -392,6 +413,7 @@ void main() {
               rate: null,
               status: 'active',
               createdAt: DateTime(2026, 1, 1),
+              updatedAt: _ts,
             ),
           ],
           timeEntries: [
@@ -404,6 +426,8 @@ void main() {
               startedAt: DateTime(2026, 1, 1, 9),
               endedAt: DateTime(2026, 1, 1, 10),
               seconds: 3600,
+              createdAt: _ts,
+              updatedAt: _ts,
             ),
             // orphan (project 3 gone)
             TimeEntry(
@@ -414,6 +438,8 @@ void main() {
               startedAt: DateTime(2026, 1, 1, 9),
               endedAt: DateTime(2026, 1, 1, 10),
               seconds: 3600,
+              createdAt: _ts,
+              updatedAt: _ts,
             ),
           ],
           templates: const [],
@@ -450,6 +476,7 @@ void main() {
         rate: null,
         status: 'active',
         createdAt: DateTime(2026, 1, 1),
+        updatedAt: _ts,
       );
       final broken = Backup(
         formatVersion: backupFormatVersion,
@@ -467,6 +494,8 @@ void main() {
               abn: null,
               defaultRate: 1,
               archivedAt: null,
+              createdAt: _ts,
+              updatedAt: _ts,
             ),
           ],
           projects: [proj(1, 'DUP'), proj(2, 'DUP')], // clash

@@ -238,6 +238,9 @@ class _ProfileEditorState extends State<ProfileEditor> {
     // Rate/Time column toggles are a follow-up (#128) — carry stored values.
     showRateColumn: widget.initial?.showRateColumn ?? true,
     showTimeColumn: widget.initial?.showTimeColumn ?? true,
+    // Transient preview object (never persisted); timestamps are placeholders.
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
   );
 
   ProfilesCompanion _companion() => ProfilesCompanion(

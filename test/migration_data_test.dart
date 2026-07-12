@@ -58,4 +58,36 @@ void main() {
     expect(profile.logo!.toList(), [1, 2, 3, 4, 5]);
     expect(profile.logoMime, 'image/png');
   });
+
+  // v10→v11 adds row-audit timestamps and backfills existing rows to the
+  // migration time, so no pre-existing row is left with a null updatedAt.
+  test('v10→v11: existing rows get backfilled timestamps', () async {
+    final schema = await verifier.schemaAt(10);
+    schema.rawDatabase.execute('''
+      INSERT INTO clients (id, name, default_rate) VALUES (1, 'Acme', 50);
+      INSERT INTO projects (id, client_id, code, title)
+        VALUES (1, 1, 'P1', 'Work');
+      INSERT INTO tasks (id, project_id, title) VALUES (1, 1, 'Build');
+      INSERT INTO time_entries (id, project_id, task_id, started_at, ended_at,
+        seconds) VALUES (1, 1, 1, 0, 3600, 3600);
+    ''');
+
+    final db = AppDatabase(schema.newConnection());
+    addTearDown(db.close);
+
+    final client =
+        await (db.select(db.clients)..where((c) => c.id.equals(1))).getSingle();
+    expect(client.updatedAt, isNotNull);
+    expect(client.createdAt, isNotNull);
+    final entry = await (db.select(
+      db.timeEntries,
+    )..where((e) => e.id.equals(1))).getSingle();
+    expect(entry.updatedAt, isNotNull);
+    expect(entry.createdAt, isNotNull);
+    // A subsequent update re-stamps updatedAt (choke-point behaviour).
+    await db.updateClient(id: 1, name: 'Acme 2', defaultRate: 50);
+    final after =
+        await (db.select(db.clients)..where((c) => c.id.equals(1))).getSingle();
+    expect(after.updatedAt, isNotNull);
+  });
 }

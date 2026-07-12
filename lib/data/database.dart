@@ -14,6 +14,15 @@ class Clients extends Table {
   TextColumn get abn => text().nullable()();
   RealColumn get defaultRate => real()(); // $/hr fallback — required
   DateTimeColumn get archivedAt => dateTime().nullable()();
+  // Row audit for sync (PRD #189, Phase 2a). createdAt/updatedAt default to now
+  // on insert; updatedAt is re-stamped on every update at the AppDatabase
+  // choke-point. Drives last-write-wins once sync lands. Nullable so the v11
+  // ALTER ADD COLUMN is legal (SQLite forbids a non-constant default on add);
+  // a Dart clientDefault keeps new rows populated.
+  DateTimeColumn get createdAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
 }
 
 class Projects extends Table {
@@ -24,6 +33,8 @@ class Projects extends Table {
   RealColumn get rate => real().nullable()(); // overrides client default
   TextColumn get status => text().withDefault(const Constant('active'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
 }
 
 // A unit of work under a project. Owns many time-entry segments, so multiple
@@ -36,6 +47,8 @@ class Tasks extends Table {
   RealColumn get rate => real().nullable()(); // overrides project.rate
   TextColumn get status => text().withDefault(const Constant('active'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
 }
 
 class TimeEntries extends Table {
@@ -50,6 +63,10 @@ class TimeEntries extends Table {
   DateTimeColumn get endedAt => dateTime()();
   IntColumn get seconds =>
       integer()(); // TRACKED time (excludes pauses) — see below
+  DateTimeColumn get createdAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
 }
 
 // ── Invoice branding (see PRD #79) ────────────────────────────────────────
@@ -73,6 +90,10 @@ class Templates extends Table {
   IntColumn get colorAccent => integer()();
   TextColumn get fontFamily => text().withDefault(const Constant('Mona'))();
   BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
 }
 
 /// The *details* of an invoice: sender identity + logo + payment + currency +
@@ -133,6 +154,10 @@ class Profiles extends Table {
   // Reverse-charge (EU/UK B2B) — wired by slice #123.
   BoolColumn get reverseCharge =>
       boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
 }
 
 /// App-level key-value preferences (PRD #133, schema v10). The single home for
@@ -143,6 +168,8 @@ class Profiles extends Table {
 class AppSettings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
   @override
   Set<Column> get primaryKey => {key};
 }
@@ -174,7 +201,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -216,9 +243,17 @@ class AppDatabase extends _$AppDatabase {
         await m.alterTable(
           TableMigration(
             timeEntries,
-            newColumns: [timeEntries.description],
+            // createdAt/updatedAt (v11) are declared new here so this rebuild to
+            // the current shape doesn't try to copy them from the old table.
+            newColumns: [
+              timeEntries.description,
+              timeEntries.createdAt,
+              timeEntries.updatedAt,
+            ],
             columnTransformer: {
               timeEntries.projectId: const CustomExpression('job_id'),
+              timeEntries.createdAt: currentDateAndTime,
+              timeEntries.updatedAt: currentDateAndTime,
             },
           ),
         );
@@ -234,12 +269,21 @@ class AppDatabase extends _$AppDatabase {
         await m.alterTable(
           TableMigration(
             clients,
-            newColumns: [clients.contactName, clients.phone],
+            // createdAt/updatedAt (v11) declared new so this rebuild to the
+            // current shape doesn't try to copy them from the old table.
+            newColumns: [
+              clients.contactName,
+              clients.phone,
+              clients.createdAt,
+              clients.updatedAt,
+            ],
             columnTransformer: {
               clients.defaultRate: coalesce([
                 clients.defaultRate,
                 const Constant(0.0),
               ]),
+              clients.createdAt: currentDateAndTime,
+              clients.updatedAt: currentDateAndTime,
             },
           ),
         );
@@ -319,7 +363,18 @@ class AppDatabase extends _$AppDatabase {
         );
         // Rebuild templates to the current schema — logo/logo_mime are no longer
         // declared, so the copy drops them; all remaining columns carry over.
-        await m.alterTable(TableMigration(templates));
+        // createdAt/updatedAt (v11) declared new so the copy doesn't look for
+        // them on the old table.
+        await m.alterTable(
+          TableMigration(
+            templates,
+            newColumns: [templates.createdAt, templates.updatedAt],
+            columnTransformer: {
+              templates.createdAt: currentDateAndTime,
+              templates.updatedAt: currentDateAndTime,
+            },
+          ),
+        );
       }
       // v8 → v9: region-aware invoicing (PRD #117). Add the region plus the
       // whole feature's remaining columns in one bump (region-specific bank
@@ -356,6 +411,76 @@ class AppDatabase extends _$AppDatabase {
       // re-run createTable on a v10 DB (which would throw "table exists").
       if (from < 10) {
         await m.createTable(appSettings);
+      }
+      // v10 → v11: row-audit timestamps for sync (PRD #189, Phase 2a). Add
+      // updatedAt to every table + createdAt to those lacking it. The columns
+      // are nullable (no default) so ALTER ADD COLUMN is legal; existing rows
+      // are then backfilled to now. Some upgrade paths already created these
+      // columns via an earlier createTable/rebuild to the current shape, so each
+      // add is guarded by a PRAGMA existence check rather than a from-version.
+      if (from < 11) {
+        Future<bool> tableExists(String name) async => (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(name)],
+        ).get()).isNotEmpty;
+
+        Future<void> addIfMissing(TableInfo t, GeneratedColumn c) async {
+          final cols = await customSelect(
+            'PRAGMA table_info(${t.actualTableName})',
+          ).get();
+          if (!cols.any((r) => r.read<String>('name') == c.name)) {
+            await m.addColumn(t, c);
+          }
+        }
+
+        // Add the timestamp columns (some paths already have them via an earlier
+        // createTable/rebuild — hence add-if-missing), then backfill nulls to the
+        // migration time. Skips tables absent in a partial DB (defensive; a real
+        // v1–v10 DB has them all — covered by the schema-ladder tests).
+        Future<void> ensure(
+          TableInfo t, {
+          GeneratedColumn? createdAt,
+          required GeneratedColumn updatedAt,
+        }) async {
+          if (!await tableExists(t.actualTableName)) return;
+          const now = "CAST(strftime('%s','now') AS INTEGER)";
+          if (createdAt != null) {
+            await addIfMissing(t, createdAt);
+            await customStatement(
+              'UPDATE ${t.actualTableName} SET created_at = $now '
+              'WHERE created_at IS NULL',
+            );
+          }
+          await addIfMissing(t, updatedAt);
+          await customStatement(
+            'UPDATE ${t.actualTableName} SET updated_at = $now '
+            'WHERE updated_at IS NULL',
+          );
+        }
+
+        await ensure(
+          clients,
+          createdAt: clients.createdAt,
+          updatedAt: clients.updatedAt,
+        );
+        await ensure(projects, updatedAt: projects.updatedAt);
+        await ensure(tasks, updatedAt: tasks.updatedAt);
+        await ensure(
+          timeEntries,
+          createdAt: timeEntries.createdAt,
+          updatedAt: timeEntries.updatedAt,
+        );
+        await ensure(
+          templates,
+          createdAt: templates.createdAt,
+          updatedAt: templates.updatedAt,
+        );
+        await ensure(
+          profiles,
+          createdAt: profiles.createdAt,
+          updatedAt: profiles.updatedAt,
+        );
+        await ensure(appSettings, updatedAt: appSettings.updatedAt);
       }
     },
     beforeOpen: (details) async {
@@ -425,6 +550,7 @@ class AppDatabase extends _$AppDatabase {
       startedAt: Value(startedAt),
       endedAt: Value(endedAt),
       seconds: Value(seconds),
+      updatedAt: Value(DateTime.now()),
     ),
   );
 
@@ -465,6 +591,7 @@ class AppDatabase extends _$AppDatabase {
       code: Value(code),
       title: Value(title),
       rate: Value(rate),
+      updatedAt: Value(DateTime.now()),
     ),
   );
 
@@ -539,7 +666,11 @@ class AppDatabase extends _$AppDatabase {
     required String title,
     double? rate,
   }) => (update(tasks)..where((t) => t.id.equals(id))).write(
-    TasksCompanion(title: Value(title), rate: Value(rate)),
+    TasksCompanion(
+      title: Value(title),
+      rate: Value(rate),
+      updatedAt: Value(DateTime.now()),
+    ),
   );
 
   // Blocked while the task still has time entries (they FK-reference it) —
@@ -600,6 +731,7 @@ class AppDatabase extends _$AppDatabase {
       address: Value(address),
       abn: Value(abn),
       defaultRate: Value(defaultRate),
+      updatedAt: Value(DateTime.now()),
     ),
   );
 
@@ -656,16 +788,19 @@ class AppDatabase extends _$AppDatabase {
   )..where((t) => t.isDefault.equals(true))).getSingleOrNull();
   Future<int> insertTemplate(TemplatesCompanion t) => into(templates).insert(t);
   Future<void> updateTemplateById(int id, TemplatesCompanion t) =>
-      (update(templates)..where((x) => x.id.equals(id))).write(t);
+      (update(templates)..where((x) => x.id.equals(id))).write(
+        t.copyWith(updatedAt: Value(DateTime.now())),
+      );
   // FK pragma is on, so this throws if a profile still references the template.
   Future<void> deleteTemplate(int id) =>
       (delete(templates)..where((x) => x.id.equals(id))).go();
   Future<void> setDefaultTemplate(int id) => transaction(() async {
-    await update(
-      templates,
-    ).write(const TemplatesCompanion(isDefault: Value(false)));
+    final now = DateTime.now();
+    await update(templates).write(
+      TemplatesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
+    );
     await (update(templates)..where((x) => x.id.equals(id))).write(
-      const TemplatesCompanion(isDefault: Value(true)),
+      TemplatesCompanion(isDefault: const Value(true), updatedAt: Value(now)),
     );
   });
 
@@ -679,15 +814,18 @@ class AppDatabase extends _$AppDatabase {
   )..where((p) => p.isDefault.equals(true))).getSingleOrNull();
   Future<int> insertProfile(ProfilesCompanion p) => into(profiles).insert(p);
   Future<void> updateProfileById(int id, ProfilesCompanion p) =>
-      (update(profiles)..where((x) => x.id.equals(id))).write(p);
+      (update(profiles)..where((x) => x.id.equals(id))).write(
+        p.copyWith(updatedAt: Value(DateTime.now())),
+      );
   Future<void> deleteProfile(int id) =>
       (delete(profiles)..where((x) => x.id.equals(id))).go();
   Future<void> setDefaultProfile(int id) => transaction(() async {
-    await update(
-      profiles,
-    ).write(const ProfilesCompanion(isDefault: Value(false)));
+    final now = DateTime.now();
+    await update(profiles).write(
+      ProfilesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
+    );
     await (update(profiles)..where((x) => x.id.equals(id))).write(
-      const ProfilesCompanion(isDefault: Value(true)),
+      ProfilesCompanion(isDefault: const Value(true), updatedAt: Value(now)),
     );
   });
 
@@ -705,7 +843,11 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _setSetting(String key, String value) =>
       into(appSettings).insertOnConflictUpdate(
-        AppSettingsCompanion(key: Value(key), value: Value(value)),
+        AppSettingsCompanion(
+          key: Value(key),
+          value: Value(value),
+          updatedAt: Value(DateTime.now()),
+        ),
       );
 
   Future<bool> _getFlag(String key) async => (await _getSetting(key)) == 'true';

@@ -5,7 +5,7 @@ import 'package:timedart/features/shell/panel_rows.dart';
 final _t = DateTime(2026, 1, 1);
 
 Client _client(int id, String name) =>
-    Client(id: id, name: name, defaultRate: 0);
+    Client(id: id, name: name, defaultRate: 0, createdAt: _t, updatedAt: _t);
 Project _project(int id, int clientId, String code, String title) => Project(
   id: id,
   clientId: clientId,
@@ -13,6 +13,7 @@ Project _project(int id, int clientId, String code, String title) => Project(
   title: title,
   status: 'active',
   createdAt: _t,
+  updatedAt: _t,
 );
 
 void main() {
