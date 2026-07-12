@@ -47,12 +47,17 @@ void main() {
     expect((await db.select(db.timeEntries).get()).length, 1);
   });
 
-  test('deleteTask removes a task with no entries', () async {
+  test('deleteTask soft-deletes a task with no entries', () async {
     final projectId = await db.ensureDefaultProject();
     final taskId = await db.addTask(projectId: projectId, title: 'Empty');
 
     await db.deleteTask(taskId);
 
-    expect(await db.select(db.tasks).get(), isEmpty);
+    // Gone from the filtered API, but the tombstone row survives (sync 2b).
+    expect(await db.watchTasksForProject(projectId).first, isEmpty);
+    final raw = await (db.select(
+      db.tasks,
+    )..where((t) => t.id.equals(taskId))).getSingle();
+    expect(raw.deletedAt, isNotNull);
   });
 }

@@ -90,4 +90,37 @@ void main() {
         await (db.select(db.clients)..where((c) => c.id.equals(1))).getSingle();
     expect(after.updatedAt, isNotNull);
   });
+
+  // v11→v12 adds the soft-delete tombstone column. Existing rows must survive
+  // with deletedAt NULL (live) and stay visible through the filtered API.
+  test('v11→v12: existing rows survive as live (deletedAt null)', () async {
+    final schema = await verifier.schemaAt(11);
+    schema.rawDatabase.execute('''
+      INSERT INTO clients (id, name, default_rate) VALUES (1, 'Acme', 50);
+      INSERT INTO projects (id, client_id, code, title)
+        VALUES (1, 1, 'P1', 'Work');
+      INSERT INTO tasks (id, project_id, title) VALUES (1, 1, 'Build');
+      INSERT INTO time_entries (id, project_id, task_id, started_at, ended_at,
+        seconds) VALUES (1, 1, 1, 0, 3600, 3600);
+    ''');
+
+    final db = AppDatabase(schema.newConnection());
+    addTearDown(db.close);
+
+    final client =
+        await (db.select(db.clients)..where((c) => c.id.equals(1))).getSingle();
+    expect(client.deletedAt, isNull);
+    // Visible through the filtered read paths (which now exclude tombstones).
+    expect(await db.watchClients().first, hasLength(1));
+    expect(await db.watchProjects().first, hasLength(1));
+    expect(await db.watchEntriesForProject(1).first, hasLength(1));
+
+    // And a soft-delete then hides it while keeping the row.
+    await db.deleteEntry(1);
+    expect(await db.watchEntriesForProject(1).first, isEmpty);
+    final raw = await (db.select(
+      db.timeEntries,
+    )..where((t) => t.id.equals(1))).getSingle();
+    expect(raw.deletedAt, isNotNull);
+  });
 }

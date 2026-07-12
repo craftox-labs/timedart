@@ -98,6 +98,10 @@ _Avoid_: dump, snapshot (for the file), sync (unrelated — that's Phase 4).
 Every table carries `createdAt` and `updatedAt` (schema v11, PRD #189 Phase 2a) — the change-tracking sync will do last-write-wins on. New rows get them from a Dart `clientDefault`; `updatedAt` is re-stamped on every update at the single `AppDatabase` mutation choke-point (no feature code writes drift directly, so it can't be bypassed). The columns are nullable purely so the `ALTER ADD COLUMN` migration is legal (SQLite forbids a non-constant default on add); the v11 migration backfills existing rows to the migration time.
 _Avoid_: modified date, mtime.
 
+**Soft-delete (`deletedAt` tombstone)**:
+The six content tables carry a nullable `deletedAt` (schema v12, PRD #189 Phase 2b). Deletes are **soft** — `deleteX` sets `deletedAt = now` (and bumps `updatedAt`) instead of a hard `DELETE`, so a removal propagates across devices once sync lands (a hard DELETE just reappears from the other device). NULL = live. Every read/watch query filters `deletedAt IS NULL`; the referential guards (`DeleteBlockedException`) count only **live** children, so a parent whose children are all tombstoned can itself be deleted. Two deliberate exceptions stay unfiltered so history still resolves: `templateById`/`profileById` (a since-deleted template/profile a past invoice points at) and `ensureDefaultProject`'s lookup (which *resurrects* a tombstoned `GENERAL` rather than colliding on its unique `code`). `readBackupSnapshot` also stays unfiltered on purpose — it dumps tombstones so deletes travel through a backup/restore. Distinct from `Clients.archivedAt`, which is a user-facing "archive" state, not a sync tombstone.
+_Avoid_: trash, recycle (UI concepts); "archive" (means `archivedAt`).
+
 ## Principles
 
 - **The invoice is a print artifact, not app chrome.** Preview/PDF styling follows the user's profile/template and is deliberately independent of `AppTextStyles`/theme, so re-skinning the app never mutates an exported invoice. Persisted, user-defined styling is separate from global app styling.

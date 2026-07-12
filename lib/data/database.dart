@@ -23,6 +23,12 @@ class Clients extends Table {
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
+  // Soft-delete tombstone for sync (PRD #189, Phase 2b). Deletes set this to
+  // now (+ bump updatedAt) instead of hard-DELETEing, so the removal propagates
+  // across devices (a hard DELETE just reappears from the other device). NULL =
+  // live. Distinct from [archivedAt], which is a user-facing "archive" concept.
+  // All reads/watch queries filter `deletedAt IS NULL`.
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 }
 
 class Projects extends Table {
@@ -35,6 +41,7 @@ class Projects extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
 }
 
 // A unit of work under a project. Owns many time-entry segments, so multiple
@@ -49,6 +56,7 @@ class Tasks extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
 }
 
 class TimeEntries extends Table {
@@ -67,6 +75,7 @@ class TimeEntries extends Table {
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
 }
 
 // ── Invoice branding (see PRD #79) ────────────────────────────────────────
@@ -94,6 +103,7 @@ class Templates extends Table {
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
 }
 
 /// The *details* of an invoice: sender identity + logo + payment + currency +
@@ -158,6 +168,7 @@ class Profiles extends Table {
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
 }
 
 /// App-level key-value preferences (PRD #133, schema v10). The single home for
@@ -201,7 +212,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -243,12 +254,15 @@ class AppDatabase extends _$AppDatabase {
         await m.alterTable(
           TableMigration(
             timeEntries,
-            // createdAt/updatedAt (v11) are declared new here so this rebuild to
-            // the current shape doesn't try to copy them from the old table.
+            // createdAt/updatedAt (v11) + deletedAt (v12) are declared new here
+            // so this rebuild to the current shape doesn't try to copy them from
+            // the old table. deletedAt is plain nullable → fills NULL, no
+            // transformer needed (unlike the timestamp cols).
             newColumns: [
               timeEntries.description,
               timeEntries.createdAt,
               timeEntries.updatedAt,
+              timeEntries.deletedAt,
             ],
             columnTransformer: {
               timeEntries.projectId: const CustomExpression('job_id'),
@@ -269,13 +283,15 @@ class AppDatabase extends _$AppDatabase {
         await m.alterTable(
           TableMigration(
             clients,
-            // createdAt/updatedAt (v11) declared new so this rebuild to the
-            // current shape doesn't try to copy them from the old table.
+            // createdAt/updatedAt (v11) + deletedAt (v12) declared new so this
+            // rebuild to the current shape doesn't try to copy them from the old
+            // table. deletedAt is plain nullable → fills NULL, no transformer.
             newColumns: [
               clients.contactName,
               clients.phone,
               clients.createdAt,
               clients.updatedAt,
+              clients.deletedAt,
             ],
             columnTransformer: {
               clients.defaultRate: coalesce([
@@ -363,12 +379,16 @@ class AppDatabase extends _$AppDatabase {
         );
         // Rebuild templates to the current schema — logo/logo_mime are no longer
         // declared, so the copy drops them; all remaining columns carry over.
-        // createdAt/updatedAt (v11) declared new so the copy doesn't look for
-        // them on the old table.
+        // createdAt/updatedAt (v11) + deletedAt (v12) declared new so the copy
+        // doesn't look for them on the old table.
         await m.alterTable(
           TableMigration(
             templates,
-            newColumns: [templates.createdAt, templates.updatedAt],
+            newColumns: [
+              templates.createdAt,
+              templates.updatedAt,
+              templates.deletedAt,
+            ],
             columnTransformer: {
               templates.createdAt: currentDateAndTime,
               templates.updatedAt: currentDateAndTime,
@@ -482,6 +502,35 @@ class AppDatabase extends _$AppDatabase {
         );
         await ensure(appSettings, updatedAt: appSettings.updatedAt);
       }
+      // v11 → v12: soft-delete tombstones for sync (PRD #189, Phase 2b). Add a
+      // nullable `deletedAt` to the six content tables. Nullable, no default →
+      // existing rows get NULL (= live), no backfill. Some upgrade paths already
+      // created the column via an earlier createTable/rebuild to the current
+      // shape, so each add is guarded by a PRAGMA existence check (add-if-missing)
+      // rather than a from-version — mirroring the v11 approach.
+      if (from < 12) {
+        Future<bool> tableExists(String name) async => (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(name)],
+        ).get()).isNotEmpty;
+
+        Future<void> addDeletedAt(TableInfo t, GeneratedColumn c) async {
+          if (!await tableExists(t.actualTableName)) return; // defensive
+          final cols = await customSelect(
+            'PRAGMA table_info(${t.actualTableName})',
+          ).get();
+          if (!cols.any((r) => r.read<String>('name') == c.name)) {
+            await m.addColumn(t, c);
+          }
+        }
+
+        await addDeletedAt(clients, clients.deletedAt);
+        await addDeletedAt(projects, projects.deletedAt);
+        await addDeletedAt(tasks, tasks.deletedAt);
+        await addDeletedAt(timeEntries, timeEntries.deletedAt);
+        await addDeletedAt(templates, templates.deletedAt);
+        await addDeletedAt(profiles, profiles.deletedAt);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -504,10 +553,23 @@ class AppDatabase extends _$AppDatabase {
   );
 
   Future<int> ensureDefaultProject() async {
+    // Look up by code IGNORING the tombstone: `code` is unique, so if a
+    // soft-deleted GENERAL exists, inserting a fresh one would collide. The
+    // default project must always be live — resurrect it if it was deleted.
     final existing = await (select(
       projects,
     )..where((p) => p.code.equals('GENERAL'))).getSingleOrNull();
-    if (existing != null) return existing.id;
+    if (existing != null) {
+      if (existing.deletedAt != null) {
+        await (update(projects)..where((p) => p.id.equals(existing.id))).write(
+          ProjectsCompanion(
+            deletedAt: const Value(null),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+      return existing.id;
+    }
     final clientId = await _defaultClientId();
     return into(projects).insert(
       ProjectsCompanion.insert(
@@ -554,11 +616,20 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<void> deleteEntry(int id) =>
-      (delete(timeEntries)..where((t) => t.id.equals(id))).go();
+  // Soft-delete (sync tombstone): set deletedAt + bump updatedAt instead of a
+  // hard DELETE, so the removal propagates across devices. Reads filter it out.
+  Future<void> deleteEntry(int id) {
+    final now = DateTime.now();
+    return (update(timeEntries)..where((t) => t.id.equals(id))).write(
+      TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+  }
 
   Future<int> _defaultClientId() async {
-    final c = await (select(clients)..limit(1)).getSingleOrNull();
+    final c = await (select(clients)
+          ..where((c) => c.deletedAt.isNull())
+          ..limit(1))
+        .getSingleOrNull();
     return c?.id ??
         await into(
           clients,
@@ -599,29 +670,37 @@ class AppDatabase extends _$AppDatabase {
   // it). Pre-checked in a transaction — portable and deterministic across the
   // native and web backends — rather than catching a backend-specific FK error.
   Future<void> deleteProject(int id) => transaction(() async {
+    // Count only LIVE children — a project whose tasks/entries are all
+    // soft-deleted can itself be deleted.
     final hasTasks =
         await (select(tasks)
-              ..where((t) => t.projectId.equals(id))
+              ..where((t) => t.projectId.equals(id) & t.deletedAt.isNull())
               ..limit(1))
             .getSingleOrNull() !=
         null;
     final hasEntries =
         await (select(timeEntries)
-              ..where((t) => t.projectId.equals(id))
+              ..where((t) => t.projectId.equals(id) & t.deletedAt.isNull())
               ..limit(1))
             .getSingleOrNull() !=
         null;
     if (hasTasks || hasEntries) throw const DeleteBlockedException('project');
-    await (delete(projects)..where((p) => p.id.equals(id))).go();
+    final now = DateTime.now();
+    await (update(projects)..where((p) => p.id.equals(id))).write(
+      ProjectsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
   });
 
   Stream<List<Project>> watchProjects() =>
-      (select(projects)..orderBy([(p) => OrderingTerm.asc(p.title)])).watch();
+      (select(projects)
+            ..where((p) => p.deletedAt.isNull())
+            ..orderBy([(p) => OrderingTerm.asc(p.title)]))
+          .watch();
 
   Stream<(Project, Client)?> watchProjectWithClient(int id) {
     final q = select(projects).join([
       innerJoin(clients, clients.id.equalsExp(projects.clientId)),
-    ])..where(projects.id.equals(id));
+    ])..where(projects.id.equals(id) & projects.deletedAt.isNull());
     return q.watchSingleOrNull().map(
       (row) => row == null
           ? null
@@ -631,7 +710,7 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<TimeEntry>> watchEntriesForProject(int projectId) =>
       (select(timeEntries)
-            ..where((t) => t.projectId.equals(projectId))
+            ..where((t) => t.projectId.equals(projectId) & t.deletedAt.isNull())
             ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
           .watch();
 
@@ -639,13 +718,13 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<Task>> watchTasksForProject(int projectId) =>
       (select(tasks)
-            ..where((t) => t.projectId.equals(projectId))
+            ..where((t) => t.projectId.equals(projectId) & t.deletedAt.isNull())
             ..orderBy([(t) => OrderingTerm.asc(t.title)]))
           .watch();
 
   Stream<List<TimeEntry>> watchEntriesForTask(int taskId) =>
       (select(timeEntries)
-            ..where((t) => t.taskId.equals(taskId))
+            ..where((t) => t.taskId.equals(taskId) & t.deletedAt.isNull())
             ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
           .watch();
 
@@ -679,19 +758,28 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteTask(int id) => transaction(() async {
     final hasEntries =
         await (select(timeEntries)
-              ..where((t) => t.taskId.equals(id))
+              ..where((t) => t.taskId.equals(id) & t.deletedAt.isNull())
               ..limit(1))
             .getSingleOrNull() !=
         null;
     if (hasEntries) throw const DeleteBlockedException('task');
-    await (delete(tasks)..where((t) => t.id.equals(id))).go();
+    final now = DateTime.now();
+    await (update(tasks)..where((t) => t.id.equals(id))).write(
+      TasksCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
   });
 
   Stream<List<Client>> watchClients() =>
-      (select(clients)..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
+      (select(clients)
+            ..where((c) => c.deletedAt.isNull())
+            ..orderBy([(c) => OrderingTerm.asc(c.name)]))
+          .watch();
 
   Stream<Project?> watchProject(int id) =>
-      (select(projects)..where((p) => p.id.equals(id))).watchSingleOrNull();
+      (select(projects)..where(
+            (p) => p.id.equals(id) & p.deletedAt.isNull(),
+          ))
+          .watchSingleOrNull();
 
   Future<int> addClient({
     required String name,
@@ -739,12 +827,15 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteClient(int id) => transaction(() async {
     final hasProjects =
         await (select(projects)
-              ..where((p) => p.clientId.equals(id))
+              ..where((p) => p.clientId.equals(id) & p.deletedAt.isNull())
               ..limit(1))
             .getSingleOrNull() !=
         null;
     if (hasProjects) throw const DeleteBlockedException('client');
-    await (delete(clients)..where((c) => c.id.equals(id))).go();
+    final now = DateTime.now();
+    await (update(clients)..where((c) => c.id.equals(id))).write(
+      ClientsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
   });
 
   // ── Invoice branding: seed + DAOs (PRD #79) ──────────────────────────────
@@ -780,20 +871,30 @@ class AppDatabase extends _$AppDatabase {
 
   // Templates (the visual style: colours, font)
   Stream<List<InvoiceTemplate>> watchTemplates() =>
-      (select(templates)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+      (select(templates)
+            ..where((t) => t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          .watch();
+  // Unfiltered by design: a since-deleted template must still resolve for any
+  // profile/invoice still pointing at it.
   Future<InvoiceTemplate> templateById(int id) =>
       (select(templates)..where((t) => t.id.equals(id))).getSingle();
-  Future<InvoiceTemplate?> defaultTemplate() => (select(
-    templates,
-  )..where((t) => t.isDefault.equals(true))).getSingleOrNull();
+  Future<InvoiceTemplate?> defaultTemplate() => (select(templates)..where(
+    (t) => t.isDefault.equals(true) & t.deletedAt.isNull(),
+  )).getSingleOrNull();
   Future<int> insertTemplate(TemplatesCompanion t) => into(templates).insert(t);
   Future<void> updateTemplateById(int id, TemplatesCompanion t) =>
       (update(templates)..where((x) => x.id.equals(id))).write(
         t.copyWith(updatedAt: Value(DateTime.now())),
       );
-  // FK pragma is on, so this throws if a profile still references the template.
-  Future<void> deleteTemplate(int id) =>
-      (delete(templates)..where((x) => x.id.equals(id))).go();
+  // Soft-delete: hide from [watchTemplates] but keep the row so any invoice/
+  // profile still pointing at it resolves via [templateById] (left unfiltered).
+  Future<void> deleteTemplate(int id) {
+    final now = DateTime.now();
+    return (update(templates)..where((x) => x.id.equals(id))).write(
+      TemplatesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+  }
   Future<void> setDefaultTemplate(int id) => transaction(() async {
     final now = DateTime.now();
     await update(templates).write(
@@ -806,19 +907,30 @@ class AppDatabase extends _$AppDatabase {
 
   // Profiles (business identity + payment; each points at a Template)
   Stream<List<InvoiceProfile>> watchProfiles() =>
-      (select(profiles)..orderBy([(p) => OrderingTerm.asc(p.name)])).watch();
+      (select(profiles)
+            ..where((p) => p.deletedAt.isNull())
+            ..orderBy([(p) => OrderingTerm.asc(p.name)]))
+          .watch();
+  // Unfiltered by design: a past invoice must still resolve a since-deleted
+  // profile.
   Future<InvoiceProfile> profileById(int id) =>
       (select(profiles)..where((p) => p.id.equals(id))).getSingle();
-  Future<InvoiceProfile?> defaultProfile() => (select(
-    profiles,
-  )..where((p) => p.isDefault.equals(true))).getSingleOrNull();
+  Future<InvoiceProfile?> defaultProfile() => (select(profiles)..where(
+    (p) => p.isDefault.equals(true) & p.deletedAt.isNull(),
+  )).getSingleOrNull();
   Future<int> insertProfile(ProfilesCompanion p) => into(profiles).insert(p);
   Future<void> updateProfileById(int id, ProfilesCompanion p) =>
       (update(profiles)..where((x) => x.id.equals(id))).write(
         p.copyWith(updatedAt: Value(DateTime.now())),
       );
-  Future<void> deleteProfile(int id) =>
-      (delete(profiles)..where((x) => x.id.equals(id))).go();
+  // Soft-delete: hide from [watchProfiles] but keep the row so a past invoice
+  // still resolves it via [profileById] (left unfiltered).
+  Future<void> deleteProfile(int id) {
+    final now = DateTime.now();
+    return (update(profiles)..where((x) => x.id.equals(id))).write(
+      ProfilesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+  }
   Future<void> setDefaultProfile(int id) => transaction(() async {
     final now = DateTime.now();
     await update(profiles).write(
@@ -865,12 +977,15 @@ class AppDatabase extends _$AppDatabase {
 
   // Row getters for assembling an InvoiceDocument (the pure builder lives in
   // features/invoices — the data layer only hands back rows).
-  Future<Project> getProject(int id) =>
-      (select(projects)..where((p) => p.id.equals(id))).getSingle();
-  Future<Client> getClient(int id) =>
-      (select(clients)..where((c) => c.id.equals(id))).getSingle();
-  Future<List<Task>> tasksForProject(int projectId) =>
-      (select(tasks)..where((t) => t.projectId.equals(projectId))).get();
+  Future<Project> getProject(int id) => (select(
+    projects,
+  )..where((p) => p.id.equals(id) & p.deletedAt.isNull())).getSingle();
+  Future<Client> getClient(int id) => (select(
+    clients,
+  )..where((c) => c.id.equals(id) & c.deletedAt.isNull())).getSingle();
+  Future<List<Task>> tasksForProject(int projectId) => (select(tasks)..where(
+    (t) => t.projectId.equals(projectId) & t.deletedAt.isNull(),
+  )).get();
   Future<List<TimeEntry>> entriesForProjectInPeriod(
     int projectId,
     DateTime from,
@@ -880,6 +995,7 @@ class AppDatabase extends _$AppDatabase {
             ..where(
               (t) =>
                   t.projectId.equals(projectId) &
+                  t.deletedAt.isNull() &
                   t.startedAt.isBiggerOrEqualValue(from) &
                   t.startedAt.isSmallerOrEqualValue(to),
             )
