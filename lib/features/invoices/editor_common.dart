@@ -350,15 +350,19 @@ Widget editorHeader({
       // pane. Measured against the actual title so a short "Template: timedart"
       // keeps Edit inline even on a phone-width pane.
       final titleText = hasName ? '$title: ${name.trim()}' : title;
-      final titleWidth = (TextPainter(
+      final textScaler = MediaQuery.textScalerOf(context);
+      final titlePainter = TextPainter(
         text: TextSpan(text: titleText, style: theme.textTheme.titleLarge),
         textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
+        textScaler: textScaler,
         maxLines: 1,
-      )..layout()).width;
-      // Rough width the buttons need — Edit alone in view mode, or
-      // Delete + Cancel + Save while editing.
-      final actionsWidth = editing ? 260.0 : 96.0;
+      )..layout();
+      final titleWidth = titlePainter.width;
+      titlePainter.dispose();
+      // Rough width the buttons need — Edit alone in view mode, or Delete +
+      // Cancel + Save while editing — scaled with the text so a large
+      // accessibility text size stacks rather than overflowing the inline Row.
+      final actionsWidth = (editing ? 260.0 : 96.0) * textScaler.scale(1);
       final stack = titleWidth + AppTokens.spaceLg + actionsWidth > c.maxWidth;
       if (stack) {
         // Title on its own line with the actions beneath, right-aligned and free
