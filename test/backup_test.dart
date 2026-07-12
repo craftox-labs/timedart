@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/data/backup.dart';
@@ -113,6 +114,10 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
 );
 
 void main() {
+  // The restore test legitimately opens a source + target in-memory DB in one
+  // test; silence drift's multiple-databases dev warning.
+  driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+
   test('snapshot round-trips through encode → decode unchanged', () {
     final snapshot = _sampleSnapshot();
     final when = DateTime.utc(2026, 7, 12, 8, 30);
@@ -213,5 +218,113 @@ void main() {
       exportedAt: DateTime.utc(2026, 7, 12),
     );
     expect(decodeBackup(bytes).snapshot, snapshot);
+  });
+
+  group('restore (import)', () {
+    test('replaces all existing data with the backup', () async {
+      // Seed the db with data the import must wipe.
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.ensureInvoiceDefaults();
+      final oldClient = await db.addClient(name: 'OldCo', defaultRate: 1);
+      await db.addProject(clientId: oldClient, code: 'OLD', title: 'Legacy');
+
+      // A different backup (built via the same reader on a second db).
+      final source = AppDatabase(NativeDatabase.memory());
+      addTearDown(source.close);
+      await source.ensureInvoiceDefaults();
+      final c = await source.addClient(name: 'NewCo', defaultRate: 200);
+      final p = await source.addProject(
+        clientId: c,
+        code: 'NEW-1',
+        title: 'Fresh',
+      );
+      final t = await source.addTask(projectId: p, title: 'Kickoff');
+      await source.addEntry(
+        projectId: p,
+        taskId: t,
+        startedAt: DateTime.utc(2026, 6, 1, 9),
+        endedAt: DateTime.utc(2026, 6, 1, 10),
+        seconds: 3600,
+      );
+      final wanted = await readBackupSnapshot(source);
+      final backup = decodeBackup(
+        encodeBackup(
+          wanted,
+          schemaVersion: source.schemaVersion,
+          exportedAt: DateTime.utc(2026, 7, 12),
+        ),
+      );
+
+      await restoreBackup(db, backup);
+
+      // The old data is gone and the db now equals the backup exactly.
+      expect(await readBackupSnapshot(db), wanted);
+      final clients = await db.select(db.clients).get();
+      expect(clients.map((c) => c.name), ['NewCo']);
+    });
+
+    test('rejects a backup from a newer schema', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final future = Backup(
+        formatVersion: backupFormatVersion,
+        schemaVersion: db.schemaVersion + 1,
+        exportedAt: DateTime.utc(2026, 7, 12),
+        snapshot: const BackupSnapshot(
+          clients: [],
+          projects: [],
+          tasks: [],
+          timeEntries: [],
+          templates: [],
+          profiles: [],
+          settings: [],
+        ),
+      );
+      expect(
+        () => restoreBackup(db, future),
+        throwsA(isA<BackupIncompatibleException>()),
+      );
+    });
+
+    test('a failing restore rolls back, leaving current data intact', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final keep = await db.addClient(name: 'KeepCo', defaultRate: 5);
+      await db.addProject(clientId: keep, code: 'K-1', title: 'Keep');
+
+      // A backup with a dangling FK (project → non-existent client) makes the
+      // parents-first insert fail; the transaction must roll back.
+      final broken = Backup(
+        formatVersion: backupFormatVersion,
+        schemaVersion: db.schemaVersion,
+        exportedAt: DateTime.utc(2026, 7, 12),
+        snapshot: BackupSnapshot(
+          clients: const [],
+          projects: [
+            Project(
+              id: 1,
+              clientId: 999, // no such client
+              code: 'X',
+              title: 'Dangling',
+              rate: null,
+              status: 'active',
+              createdAt: DateTime(2026, 1, 1),
+            ),
+          ],
+          tasks: const [],
+          timeEntries: const [],
+          templates: const [],
+          profiles: const [],
+          settings: const [],
+        ),
+      );
+
+      await expectLater(restoreBackup(db, broken), throwsA(anything));
+      // Original data survived the rolled-back import.
+      final clients = await db.select(db.clients).get();
+      expect(clients.map((c) => c.name), ['KeepCo']);
+      expect(await db.select(db.projects).get(), hasLength(1));
+    });
   });
 }

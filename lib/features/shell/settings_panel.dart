@@ -28,6 +28,7 @@ class SettingsPanel extends StatefulWidget {
     this.onEditProfile,
     this.onRerunOnboarding,
     this.onExportData,
+    this.onImportData,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -63,8 +64,10 @@ class SettingsPanel extends StatefulWidget {
   // (also the dev/test reset); null hides the row.
   final Future<void> Function()? onRerunOnboarding;
   // Export the whole database to a portable backup file (PRD #189, #190);
-  // null hides the row. Import (#191) will join it in the same section.
+  // null hides the row.
   final Future<void> Function()? onExportData;
+  // Import a backup file, replacing all data (PRD #189, #191); null hides it.
+  final Future<void> Function()? onImportData;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -211,6 +214,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
         label: 'Export data',
         icon: Icons.file_download_outlined,
         onTap: () => widget.onExportData!(),
+      ),
+    if (widget.onImportData != null)
+      _ActionRow(
+        label: 'Import data',
+        icon: Icons.file_upload_outlined,
+        onTap: () => widget.onImportData!(),
       ),
     if (widget.onRerunOnboarding != null)
       _ActionRow(

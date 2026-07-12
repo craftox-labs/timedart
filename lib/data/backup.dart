@@ -30,6 +30,22 @@ class BackupFormatException implements Exception {
   String toString() => 'BackupFormatException: $message';
 }
 
+/// Thrown by [restoreBackup] when a backup can't be imported into this app —
+/// currently only when it was written by a *newer* schema than this build
+/// understands (a forward-incompatible downgrade). The UI owns the wording.
+class BackupIncompatibleException implements Exception {
+  final int backupSchemaVersion;
+  final int appSchemaVersion;
+  const BackupIncompatibleException(
+    this.backupSchemaVersion,
+    this.appSchemaVersion,
+  );
+  @override
+  String toString() =>
+      'BackupIncompatibleException(backup v$backupSchemaVersion > app '
+      'v$appSchemaVersion)';
+}
+
 /// An in-memory copy of every table's rows. Typed drift data classes, so it has
 /// value equality per row and round-trips cleanly through [encodeBackup] /
 /// [decodeBackup].
@@ -117,6 +133,56 @@ Future<Uint8List> exportBackupBytes(
     schemaVersion: db.schemaVersion,
     exportedAt: exportedAt,
   );
+}
+
+/// Restore a decoded [backup] into [db], **replacing all existing data**
+/// (PRD #189, Phase 1b, #191). Runs in one transaction: wipe every table
+/// children-first, then re-insert the snapshot parents-first (FK enforcement
+/// stays on), preserving the stored row ids. All-or-nothing — a failure rolls
+/// back and leaves the current data intact.
+///
+/// Forward-compatibility seam: a backup from a *newer* schema is rejected
+/// ([BackupIncompatibleException]); a same-or-older backup is imported. Once the
+/// Phase 2 clean-break UUID migration lands, the int→UUID re-key of an older,
+/// int-keyed export is slotted in ahead of this insert (it needs the new schema
+/// to target, so it belongs with that change, not here). Today the only schema
+/// is v10, so a v10 export restores directly.
+Future<void> restoreBackup(AppDatabase db, Backup backup) async {
+  if (backup.schemaVersion > db.schemaVersion) {
+    throw BackupIncompatibleException(backup.schemaVersion, db.schemaVersion);
+  }
+  final s = backup.snapshot;
+  await db.transaction(() async {
+    // Children before parents (FK pragma is on).
+    await db.delete(db.timeEntries).go();
+    await db.delete(db.tasks).go();
+    await db.delete(db.projects).go();
+    await db.delete(db.profiles).go();
+    await db.delete(db.templates).go();
+    await db.delete(db.clients).go();
+    await db.delete(db.appSettings).go();
+    // Parents before children, ids preserved (nullToAbsent: false keeps
+    // explicit nulls so the restore is exact).
+    await db.batch((b) {
+      b.insertAll(db.clients, [for (final r in s.clients) r.toCompanion(false)]);
+      b.insertAll(db.templates, [
+        for (final r in s.templates) r.toCompanion(false),
+      ]);
+      b.insertAll(db.projects, [
+        for (final r in s.projects) r.toCompanion(false),
+      ]);
+      b.insertAll(db.tasks, [for (final r in s.tasks) r.toCompanion(false)]);
+      b.insertAll(db.profiles, [
+        for (final r in s.profiles) r.toCompanion(false),
+      ]);
+      b.insertAll(db.timeEntries, [
+        for (final r in s.timeEntries) r.toCompanion(false),
+      ]);
+      b.insertAll(db.appSettings, [
+        for (final r in s.settings) r.toCompanion(false),
+      ]);
+    });
+  });
 }
 
 /// Serialise a snapshot to pretty-printed JSON bytes with the version envelope.
