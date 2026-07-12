@@ -130,16 +130,18 @@ class _ShortcutsDialog extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      for (final group in groups) ...[
+      for (var i = 0; i < groups.length; i++) ...[
+        // Gap between groups only — not after the last, so the modal's bottom
+        // padding stays the outer 24px like the other (AlertDialog) modals.
+        if (i > 0) const SizedBox(height: AppTokens.spaceLg),
         Text(
-          group.title,
+          groups[i].title,
           style: theme.textTheme.titleSmall?.copyWith(
             color: theme.colorScheme.primary,
           ),
         ),
-        const SizedBox(height: AppTokens.spaceXs),
-        for (final s in group.shortcuts) _row(theme, s),
-        const SizedBox(height: AppTokens.spaceLg),
+        const SizedBox(height: AppTokens.spaceSm),
+        for (final s in groups[i].shortcuts) _row(theme, s),
       ],
     ],
   );
@@ -161,26 +163,37 @@ class _ShortcutsDialog extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: AppTokens.space4xs),
-            child: Text(s.label, style: theme.textTheme.bodyMedium),
+            child: Text(
+              s.label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w300,
+              ),
+            ),
           ),
         ),
       ],
     ),
   );
 
+  // Keycap: flat (sits on the modal background, defined by its border, not a
+  // fill), stronger border, 7px corner, mono-medium glyph. Content-sized so caps
+  // sit inline in the row's Wrap.
   Widget _cap(ThemeData theme, String key) => Container(
     padding: const EdgeInsets.symmetric(
       horizontal: AppTokens.space2xs,
-      vertical: AppTokens.space4xs,
+      vertical: AppTokens.space3xs,
     ),
     decoration: BoxDecoration(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-      border: Border.all(color: AppTokens.colorBorder),
+      borderRadius: BorderRadius.circular(AppTokens.radiusButton),
+      border: Border.all(
+        color: AppTokens.colorBorder,
+        width: AppTokens.strokeThin,
+      ),
     ),
     child: Text(
       key,
-      style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+      style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
     ),
   );
 }

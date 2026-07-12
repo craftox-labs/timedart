@@ -81,6 +81,9 @@ class AdaptiveShell extends StatefulWidget {
 class _AdaptiveShellState extends State<AdaptiveShell> {
   String? _selectedProjectId; // the project the timer records against
   _Detail _detail = const _Tracker();
+  // Narrow layout only: whether the project/settings list overlay is open. The
+  // bottom bar's centre button toggles it; the bar stays live underneath.
+  bool _panelOpen = false;
   StreamSubscription<List<Project>>? _projectsSub;
 
   // The currently-mounted Template/Profile editor's lifecycle (dirty + save),
@@ -292,15 +295,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       );
       if (!mounted) return;
       if (saved != null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Data exported.')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('Data exported.')));
       }
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
     }
   }
 
@@ -316,7 +315,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       );
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Could not open file: $e')));
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open file: $e')),
+      );
       return;
     }
     if (picked == null) return; // cancelled
@@ -503,17 +504,26 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     // the page header (same inset as the centred content column) but stretch
     // right to the panel divider so the preview + controls use the extra width.
     // Other pages stay centred within ContentBody's reading width.
-    final Widget content = _stretchContent
+    // Wide layout: stretch pages left-align under the header logo — margin centres
+    // a notional content column, +spaceMd matches the logo inset (keep in sync
+    // with page_header.dart). Narrow (mobile) has no left-aligned header logo, so
+    // match the tracker's plain spaceLg inset on all sides; the extra spaceMd
+    // otherwise reads as too much horizontal padding.
+    Widget buildContent({required bool wide}) => _stretchContent
         ? LayoutBuilder(
             builder: (context, c) {
-              final margin = ((c.maxWidth - AppTokens.maxContentWidth) / 2)
-                  .clamp(0.0, double.infinity);
+              final margin = wide
+                  ? ((c.maxWidth - AppTokens.maxContentWidth) / 2).clamp(
+                      0.0,
+                      double.infinity,
+                    )
+                  : 0.0;
+              final left = wide
+                  ? margin + AppTokens.spaceLg + AppTokens.spaceMd
+                  : AppTokens.spaceLg;
               return Padding(
-                // Left pad matches PageHeader's logo inset (leftInset + spaceMd)
-                // so the header logo aligns with the title/fields here. Keep in
-                // sync with page_header.dart.
                 padding: EdgeInsets.fromLTRB(
-                  margin + AppTokens.spaceLg + AppTokens.spaceMd,
+                  left,
                   AppTokens.spaceLg,
                   AppTokens.spaceLg,
                   AppTokens.spaceLg,
@@ -629,7 +639,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                             onOpenTracker: _showTracker,
                             settingsActive: _inSettings,
                           ),
-                          Expanded(child: content),
+                          Expanded(child: buildContent(wide: true)),
                         ],
                       ),
                     ),
@@ -668,6 +678,41 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             ),
           );
         }
+        final scheme = Theme.of(context).colorScheme;
+        // One mobile bottom-bar tab (icon over label), tinted by active state.
+        // `icon` is built with the resolved foreground colour.
+        Widget mobileTab({
+          required bool active,
+          required String label,
+          required Widget Function(Color) icon,
+          required VoidCallback onTap,
+        }) {
+          final fg = active ? scheme.primary : scheme.onSurfaceVariant;
+          return InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              width: 76,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  icon(fg),
+                  const SizedBox(height: AppTokens.space4xs),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: fg),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         return Scaffold(
           // Same logo-bar style as the wide layout, but full-width with no
           // rounding; a gap above matches the search field's gap in the drawer.
@@ -679,36 +724,180 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 padding: const EdgeInsets.only(top: AppTokens.spaceLg),
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 36),
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: scheme.surfaceContainerHighest,
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppTokens.spaceMd,
                     vertical: AppTokens.spaceXs,
                   ),
-                  child: Row(
-                    children: [
-                      SvgPicture.asset(
-                        'assets/logo/timedart_logo_horizontal.svg',
-                        height: 18,
-                      ),
-                      const Spacer(),
-                      Builder(
-                        builder: (context) => IconButton(
-                          icon: const Icon(Icons.menu),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Menu',
-                          onPressed: () => Scaffold.of(context).openEndDrawer(),
-                        ),
-                      ),
-                    ],
+                  // Logo centred now the hamburger is gone (nav is the bottom bar).
+                  child: Center(
+                    child: SvgPicture.asset(
+                      'assets/logo/timedart_logo_horizontal.svg',
+                      height: 18,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-          endDrawer: Drawer(child: panel(before: () => Navigator.pop(context))),
-          body: content,
+          // Bottom bar stays present while the panel is open: the centre button
+          // toggles the project/settings list as an overlay above the content,
+          // and the Tracker/Settings tabs remain tappable throughout.
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: AppTokens.strokeThin,
+                color: AppTokens.colorBorder,
+              ),
+              SafeArea(
+                top: false,
+                child: Material(
+                  color: scheme.surface,
+                  child: SizedBox(
+                    height: 64,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        mobileTab(
+                          active: !_inSettings,
+                          label: 'Tracker',
+                          icon: (c) => SvgPicture.asset(
+                            'assets/logo/timedart_symbol.svg',
+                            height: AppTokens.iconMd,
+                            colorFilter: ColorFilter.mode(c, BlendMode.srcIn),
+                          ),
+                          onTap: _showTracker,
+                        ),
+                        // Pronounced centre button — opens/closes the list panel.
+                        // Styled like the app's primary button: muted accent-dim
+                        // fill + accent text at rest (drawer closed), flipping to
+                        // the bright fill when open.
+                        Material(
+                          color: _panelOpen
+                              ? AppTokens.colorAccentText
+                              : AppTokens.colorAccentDim,
+                          clipBehavior: Clip.antiAlias,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTokens.radiusButton,
+                            ),
+                            side: BorderSide(
+                              color: AppTokens.colorBrandPrimary.withValues(
+                                alpha: 0.30,
+                              ),
+                              width: AppTokens.strokeThin,
+                            ),
+                          ),
+                          child: InkWell(
+                            onTap: () =>
+                                setState(() => _panelOpen = !_panelOpen),
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppTokens.spaceSm),
+                              child: Icon(
+                                _panelOpen ? Icons.close : Icons.menu,
+                                color: _panelOpen
+                                    ? AppTokens.colorOnAccent
+                                    : AppTokens.colorAccentText,
+                                size: AppTokens.iconMd,
+                              ),
+                            ),
+                          ),
+                        ),
+                        mobileTab(
+                          active: _inSettings,
+                          label: 'Settings',
+                          icon: (c) => Icon(
+                            Icons.settings,
+                            size: AppTokens.iconMd,
+                            color: c,
+                          ),
+                          onTap: _openSettings,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              Positioned.fill(child: buildContent(wide: false)),
+              // Scrim over the content (the bottom bar sits outside this Stack,
+              // so it stays live). Fades with the sheet; ignores taps when closed.
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_panelOpen,
+                  child: AnimatedOpacity(
+                    opacity: _panelOpen ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _panelOpen = false),
+                      child: const ColoredBox(color: Colors.black54),
+                    ),
+                  ),
+                ),
+              ),
+              // Project/settings list as a drawer-like sheet that slides up from
+              // the bottom. A real Scaffold endDrawer would cover the bottom bar;
+              // this body overlay keeps the bar live and toggleable.
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: IgnorePointer(
+                  ignoring: !_panelOpen,
+                  child: AnimatedSlide(
+                    offset: _panelOpen ? Offset.zero : const Offset(0, 1),
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    child: FractionallySizedBox(
+                      heightFactor: 0.85,
+                      child: Material(
+                        color: scheme.surface,
+                        clipBehavior: Clip.antiAlias,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(AppTokens.radiusLg),
+                          ),
+                          side: BorderSide(
+                            color: AppTokens.colorBorder,
+                            width: AppTokens.strokeThin,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            // Grab handle for the drawer feel.
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppTokens.spaceSm,
+                              ),
+                              child: Container(
+                                width: 36,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: AppTokens.colorBorder,
+                                  borderRadius: BorderRadius.circular(
+                                    AppTokens.radiusSm,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: panel(
+                                before: () =>
+                                    setState(() => _panelOpen = false),
+                                showFooter: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

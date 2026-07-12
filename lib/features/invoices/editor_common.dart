@@ -344,9 +344,29 @@ Widget editorHeader({
   ];
   return LayoutBuilder(
     builder: (context, c) {
-      // Narrow: title on its own line with the actions beneath, right-aligned
-      // and free to wrap, so the header never overflows on a phone-width pane.
-      if (c.maxWidth < 480) {
+      // Keep the actions on the title's row while they fit. Only when the title
+      // is long enough that the two would collide do we stack the actions beneath
+      // it (title then free to wrap), instead of forcing a stack on every narrow
+      // pane. Measured against the actual title so a short "Template: timedart"
+      // keeps Edit inline even on a phone-width pane.
+      final titleText = hasName ? '$title: ${name.trim()}' : title;
+      final textScaler = MediaQuery.textScalerOf(context);
+      final titlePainter = TextPainter(
+        text: TextSpan(text: titleText, style: theme.textTheme.titleLarge),
+        textDirection: Directionality.of(context),
+        textScaler: textScaler,
+        maxLines: 1,
+      )..layout();
+      final titleWidth = titlePainter.width;
+      titlePainter.dispose();
+      // Rough width the buttons need — Edit alone in view mode, or Delete +
+      // Cancel + Save while editing — scaled with the text so a large
+      // accessibility text size stacks rather than overflowing the inline Row.
+      final actionsWidth = (editing ? 260.0 : 96.0) * textScaler.scale(1);
+      final stack = titleWidth + AppTokens.spaceLg + actionsWidth > c.maxWidth;
+      if (stack) {
+        // Title on its own line with the actions beneath, right-aligned and free
+        // to wrap, so the header never overflows on a phone-width pane.
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -438,6 +458,12 @@ class _EditorShellState extends State<EditorShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Reserve a right gutter for the scrollbar only in the wide layout; in the
+    // narrow (mobile) layout drop it so the right inset matches the left — and the
+    // tracker. Keyed to the breakpoint the shell uses to switch layouts.
+    final gutter = MediaQuery.sizeOf(context).width >= AppTokens.breakpointMd
+        ? AppTokens.spaceMd
+        : 0.0;
     return FocusScope(
       child: Focus(
         focusNode: _root,
@@ -464,7 +490,7 @@ class _EditorShellState extends State<EditorShell> {
               // so the header's actions align with the form/preview's right
               // edge instead of overhanging past it.
               Padding(
-                padding: const EdgeInsets.only(right: AppTokens.spaceMd),
+                padding: EdgeInsets.only(right: gutter),
                 child: editorHeader(
                   context: context,
                   title: widget.title,
@@ -484,9 +510,9 @@ class _EditorShellState extends State<EditorShell> {
                 // isn't clipped by the scroll viewport's top edge. Right inset
                 // clears the desktop scrollbar off the fields'/preview's border.
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     top: AppTokens.spaceMd,
-                    right: AppTokens.spaceMd,
+                    right: gutter,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -32,6 +32,10 @@ ThemeData buildAppTheme(Brightness brightness) {
   // Dialogs/inputs stay on the 8px corner — decoupled from the button radius.
   final panelShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+    // Hairline outline so a modal reads as a distinct panel now that it sits on
+    // the base background (no elevation tint / shadow) — mirrors the marketing
+    // site's bordered keyboard panel.
+    side: BorderSide(color: borderColor, width: AppTokens.strokeThin),
   );
 
   return ThemeData(
@@ -232,6 +236,12 @@ ThemeData buildAppTheme(Brightness brightness) {
     // ── Dialogs ── 8px corner (radiusSm), not M3's large default. Covers the
     // entry editor and confirm dialogs alike.
     dialogTheme: DialogThemeData(
+      // Flat base background instead of M3's elevated surfaceContainerHigh tone;
+      // no elevation tint or shadow — the panelShape border defines the modal.
+      backgroundColor: scheme.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shadowColor: Colors.transparent,
       shape: panelShape,
       // Modal titles: Raleway Medium Italic (like other headings) in the primary
       // colour. M3 would otherwise fall back to headlineSmall at onSurface.
