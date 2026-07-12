@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/backup.dart';
 import 'package:timedart/util/save_file.dart';
+import 'package:timedart/util/pick_file.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/page_header.dart';
@@ -302,6 +303,79 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
   }
 
+  // Import a backup, replacing all data (PRD #189, #191). Pick → decode →
+  // confirm (replace-all is destructive) → restore → reset to a safe view.
+  Future<void> _importData() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final PickedFile? picked;
+    try {
+      picked = await pickFileBytes(
+        typeLabel: 'JSON backup',
+        extensions: const ['json'],
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Could not open file: $e')));
+      return;
+    }
+    if (picked == null) return; // cancelled
+    if (!mounted) return;
+
+    final Backup backup;
+    try {
+      backup = decodeBackup(picked.bytes);
+    } on BackupFormatException catch (e) {
+      await showInfoDialog(
+        context,
+        title: 'Invalid backup',
+        message: "That file isn't a valid timedart backup.\n\n${e.message}",
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final s = backup.snapshot;
+    final confirmed = await confirmAction(
+      context,
+      title: 'Replace all data?',
+      message:
+          'Importing "${picked.name}" deletes everything currently in timedart '
+          'and replaces it with the backup:\n\n'
+          '• ${s.clients.length} clients\n'
+          '• ${s.projects.length} projects\n'
+          '• ${s.tasks.length} tasks\n'
+          '• ${s.timeEntries.length} time entries\n\n'
+          'This cannot be undone.',
+      confirmLabel: 'Replace',
+    );
+    if (!confirmed || !mounted) return;
+
+    try {
+      await restoreBackup(widget.db, backup);
+    } on BackupIncompatibleException catch (e) {
+      if (!mounted) return;
+      await showInfoDialog(
+        context,
+        title: 'Newer backup',
+        message:
+            'This backup was made by a newer version of timedart '
+            '(schema v${e.backupSchemaVersion}). Update the app, then import '
+            'again.',
+      );
+      return;
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      return;
+    }
+    if (!mounted) return;
+    // The selected project may no longer exist; drop it and return to the
+    // tracker — the build re-defaults selection from the refreshed stream.
+    setState(() => _selectedProjectId = null);
+    _showTracker();
+    messenger.showSnackBar(const SnackBar(content: Text('Data imported.')));
+  }
+
   // App Settings home.
   void _openSettings() => _navigateTo(const _Settings());
   void _showSettingsHome() => _navigateTo(const _Settings());
@@ -468,6 +542,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               run(() => _editProfile(p, startEditing: startEditing)),
           onRerunOnboarding: widget.onRerunOnboarding,
           onExportData: () async => run(_exportData),
+          onImportData: () async => run(_importData),
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),

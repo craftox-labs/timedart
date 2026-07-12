@@ -28,6 +28,36 @@ Future<bool> confirmDelete(
   return ok ?? false;
 }
 
+/// A generic yes/no confirmation with a caller-supplied confirm label. Returns
+/// true only if the user confirms. Use for destructive actions other than a
+/// plain delete (e.g. "Replace" on a data import).
+Future<bool> confirmAction(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmLabel,
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          autofocus: true, // Enter confirms
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+
 /// Action chosen from [confirmUnsavedChanges]. `null` (dismissed, or the
 /// explicit Cancel button) means "stay put, keep editing".
 enum UnsavedChangesAction { save, discard }
