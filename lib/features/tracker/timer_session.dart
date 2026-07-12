@@ -1,7 +1,7 @@
 /// What a finished session should be persisted as.
 class FinishedSession {
-  final int projectId;
-  final int taskId;
+  final String projectId;
+  final String taskId;
   final DateTime startedAt;
   final DateTime endedAt;
   final int seconds;
@@ -28,18 +28,18 @@ class TimerSession {
   int _elapsed = 0;
   bool _running = false;
   DateTime? _startedAt;
-  int? _boundProjectId;
-  int? _boundTaskId;
+  String? _boundProjectId;
+  String? _boundTaskId;
 
   int get elapsed => _elapsed;
   bool get isRunning => _running;
-  int? get boundProjectId => _boundProjectId;
-  int? get boundTaskId => _boundTaskId;
+  String? get boundProjectId => _boundProjectId;
+  String? get boundTaskId => _boundTaskId;
   bool get hasSession => _running || _elapsed > 0;
 
   /// Start or resume. Binds [projectId]/[taskId] at first start so a selection
   /// change mid-session can't misattribute time; a no-op while running.
-  void start(int? projectId, int? taskId, {required DateTime now}) {
+  void start(String? projectId, String? taskId, {required DateTime now}) {
     if (_running) return;
     _startedAt ??= now;
     _boundProjectId ??= projectId;

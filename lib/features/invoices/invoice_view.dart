@@ -32,7 +32,7 @@ class _InvoiceViewState extends State<InvoiceView> {
   // Export-time profile chosen on the fly (its details + template), no need to
   // change settings.
   List<InvoiceProfile> _profiles = const [];
-  int? _profileId; // null → the default profile
+  String? _profileId; // null → the default profile
   // Which blocks (bank/payment link/tax) appear is the selected profile's
   // concern — set once there, not per invoice.
   final _invoiceNumber = TextEditingController();
@@ -76,7 +76,7 @@ class _InvoiceViewState extends State<InvoiceView> {
     super.dispose();
   }
 
-  int? _defaultProfileId(List<InvoiceProfile> list) {
+  String? _defaultProfileId(List<InvoiceProfile> list) {
     for (final p in list) {
       if (p.isDefault) return p.id;
     }
@@ -255,7 +255,7 @@ class _InvoiceViewState extends State<InvoiceView> {
     );
     final profileField = SizedBox(
       width: 220,
-      child: DropdownButtonFormField<int>(
+      child: DropdownButtonFormField<String>(
         initialValue: _profileId,
         isExpanded: true,
         icon: kDropdownChevron,

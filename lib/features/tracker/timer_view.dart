@@ -31,9 +31,9 @@ class TimerController extends ChangeNotifier {
   int get elapsed => _session.elapsed;
   bool get isRunning => _session.isRunning;
   bool get hasSession => _session.hasSession;
-  int? get boundTaskId => _session.boundTaskId;
+  String? get boundTaskId => _session.boundTaskId;
 
-  void startOrResume(int? projectId, int? taskId) {
+  void startOrResume(String? projectId, String? taskId) {
     if (_session.isRunning) return;
     _session.start(projectId, taskId, now: DateTime.now());
     _ticker?.cancel();
@@ -85,7 +85,7 @@ class TimerView extends StatefulWidget {
     this.onFocusPanel,
   });
   final AppDatabase db;
-  final int? projectId;
+  final String? projectId;
   final void Function(Project)
   onInvoice; // open the invoice view for this project
   // Keyboard cursor for the entry list (wide layout). When null, the pane has
@@ -115,7 +115,7 @@ class _TimerViewState extends State<TimerView> {
   // The task the timer will track against (armed by selecting it in the list).
   // The Start action is gated on this; a running session binds its task at
   // start, so changing this mid-run only affects the next session.
-  int? _selectedTaskId;
+  String? _selectedTaskId;
   final _descFocus = FocusNode(debugLabel: 'sessionDescription');
 
   // The cursor navigates a flattened task/entry row list (mirrors the side
@@ -125,7 +125,7 @@ class _TimerViewState extends State<TimerView> {
   List<TimeEntry> _entries = const [];
   StreamSubscription<List<Task>>? _tasksSub;
   StreamSubscription<List<TimeEntry>>? _entriesSub;
-  final Set<int> _expanded = {}; // expanded task ids
+  final Set<String> _expanded = {}; // expanded task ids
   List<TaskListRow> _rows = const [];
   int _cursor = 0;
   final _cursorKey = GlobalKey(); // rides the focused row for ensureVisible
@@ -212,7 +212,7 @@ class _TimerViewState extends State<TimerView> {
     });
   }
 
-  void _selectTask(int taskId) =>
+  void _selectTask(String taskId) =>
       setState(() => _selectedTaskId = taskId); // arm for the timer
 
   void _startOrResume() => _c.startOrResume(widget.projectId, _selectedTaskId);
@@ -252,7 +252,7 @@ class _TimerViewState extends State<TimerView> {
 
   // Open the add/edit-entry editor (adaptive modal/sheet). entry == null adds;
   // taskId preselects the task when adding under a specific one.
-  void _openEntryEditor(TimeEntry? entry, {int? taskId}) {
+  void _openEntryEditor(TimeEntry? entry, {String? taskId}) {
     final projectId = widget.projectId;
     if (projectId == null) return;
     showEntryEditor(
@@ -304,7 +304,7 @@ class _TimerViewState extends State<TimerView> {
     }
   }
 
-  void _toggleTask(int taskId) {
+  void _toggleTask(String taskId) {
     setState(() {
       if (!_expanded.remove(taskId)) _expanded.add(taskId);
     });
@@ -516,7 +516,7 @@ class _TimerViewState extends State<TimerView> {
     );
   }
 
-  Task? _taskById(int? id) {
+  Task? _taskById(String? id) {
     if (id == null) return null;
     for (final t in _tasks) {
       if (t.id == id) return t;
@@ -526,7 +526,7 @@ class _TimerViewState extends State<TimerView> {
 
   // Which task the timer is (or would be) tracking: the live session's bound
   // task, else the armed selection.
-  int? get _activeTaskId => _c.hasSession ? _c.boundTaskId : _selectedTaskId;
+  String? get _activeTaskId => _c.hasSession ? _c.boundTaskId : _selectedTaskId;
 
   Widget _armedLabel(BuildContext context) {
     final theme = Theme.of(context);

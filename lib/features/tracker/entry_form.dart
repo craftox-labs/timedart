@@ -12,9 +12,9 @@ import 'package:timedart/features/deletions.dart';
 Future<void> showEntryEditor(
   BuildContext context, {
   required AppDatabase db,
-  required int projectId,
+  required String projectId,
   TimeEntry? entry,
-  int? initialTaskId, // preselect the task when adding under a specific one
+  String? initialTaskId, // preselect the task when adding under a specific one
 }) => showEntityEditor<void>(
   context,
   builder: (ctx) => EntryForm(
@@ -34,9 +34,9 @@ class EntryForm extends StatefulWidget {
     this.initialTaskId,
   });
   final AppDatabase db;
-  final int projectId;
+  final String projectId;
   final TimeEntry? entry; // null = create, set = edit
-  final int? initialTaskId; // preselected task when adding
+  final String? initialTaskId; // preselected task when adding
 
   @override
   State<EntryForm> createState() => _EntryFormState();
@@ -44,7 +44,7 @@ class EntryForm extends StatefulWidget {
 
 class _EntryFormState extends State<EntryForm> {
   // Which task this entry belongs to, chosen from a dropdown of the project's tasks.
-  late int? _selectedTaskId = widget.entry?.taskId ?? widget.initialTaskId;
+  late String? _selectedTaskId = widget.entry?.taskId ?? widget.initialTaskId;
   List<Task> _tasks = const [];
   late final _description = TextEditingController(
     text: widget.entry?.description ?? '',
@@ -230,7 +230,7 @@ class _EntryFormState extends State<EntryForm> {
       onCancel: () => Navigator.pop(context),
       onDelete: _isEdit ? _confirmDelete : null,
       fields: [
-        DropdownButtonFormField<int>(
+        DropdownButtonFormField<String>(
           initialValue: _selectedTaskId,
           isExpanded: true,
           icon: kDropdownChevron,

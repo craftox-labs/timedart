@@ -50,8 +50,8 @@ class SettingsPanel extends StatefulWidget {
   // The entity currently open in the content pane, if any — drives the
   // highlighted row. The panel no longer owns its own selection: a row tap
   // opens that entity's editor directly (see onEditTemplate/onEditProfile).
-  final int? selectedTemplateId;
-  final int? selectedProfileId;
+  final String? selectedTemplateId;
+  final String? selectedProfileId;
   // Add/edit affordances per section — an add `+` on the header appears only
   // where the matching callback is wired. `startEditing` is true when the
   // entity should open straight into edit mode (the `e` shortcut) rather
@@ -119,7 +119,7 @@ class _HeaderRow extends _BRow {
 
 class _EntityRow extends _BRow {
   final _Section section;
-  final int id;
+  final String id;
   final String name;
   final bool isDefault;
   const _EntityRow(
@@ -229,7 +229,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       ),
   ];
 
-  void _edit(_Section s, int id, {bool startEditing = false}) {
+  void _edit(_Section s, String id, {bool startEditing = false}) {
     switch (s) {
       case _Section.templates:
         for (final x in _latestTemplates) {

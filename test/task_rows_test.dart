@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/tracker/task_rows.dart';
 
-Task _task(int id, String title) => Task(
+Task _task(String id, String title) => Task(
   id: id,
-  projectId: 1,
+  projectId: 'p1',
   title: title,
   rate: null,
   status: 'active',
@@ -12,9 +12,9 @@ Task _task(int id, String title) => Task(
   updatedAt: DateTime(2026),
 );
 
-TimeEntry _entry(int id, int taskId, int seconds) => TimeEntry(
+TimeEntry _entry(String id, String taskId, int seconds) => TimeEntry(
   id: id,
-  projectId: 1,
+  projectId: 'p1',
   taskId: taskId,
   startedAt: DateTime(2026),
   endedAt: DateTime(2026),
@@ -24,11 +24,11 @@ TimeEntry _entry(int id, int taskId, int seconds) => TimeEntry(
 );
 
 void main() {
-  final tasks = [_task(1, 'Alpha'), _task(2, 'Beta')];
+  final tasks = [_task('t1', 'Alpha'), _task('t2', 'Beta')];
   final entries = [
-    _entry(10, 1, 100),
-    _entry(11, 1, 200),
-    _entry(12, 2, 50),
+    _entry('e1', 't1', 100),
+    _entry('e2', 't1', 200),
+    _entry('e3', 't2', 50),
   ];
 
   test('collapsed tasks contribute only their headers', () {
@@ -45,15 +45,15 @@ void main() {
     final rows = buildTaskRows(
       tasks: tasks,
       entries: entries,
-      isExpanded: (id) => id == 1,
+      isExpanded: (id) => id == 't1',
     );
-    // header(1) + 2 entries + header(2)
+    // header(t1) + 2 entries + header(t2)
     expect(rows.length, 4);
     expect(rows[0], isA<TaskHeaderRow>());
     expect(rows[1], isA<TaskEntryRow>());
     expect(rows[2], isA<TaskEntryRow>());
     expect(rows[3], isA<TaskHeaderRow>());
-    expect((rows[3] as TaskHeaderRow).task.id, 2);
+    expect((rows[3] as TaskHeaderRow).task.id, 't2');
   });
 
   test('header rolls up total seconds and entry count regardless of expansion', () {
@@ -72,7 +72,7 @@ void main() {
 
   test('a task with no entries still shows, empty', () {
     final rows = buildTaskRows(
-      tasks: [_task(3, 'Gamma')],
+      tasks: [_task('t3', 'Gamma')],
       entries: const [],
       isExpanded: (_) => true,
     );

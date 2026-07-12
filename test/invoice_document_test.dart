@@ -34,7 +34,7 @@ InvoiceProfile _profile({
   bool showTax = true,
   bool reverseCharge = false,
 }) => InvoiceProfile(
-  id: 1,
+  id: 'pf1',
   name: 'Default',
   businessName: 'tmox.net',
   currency: currency,
@@ -75,7 +75,7 @@ Client _client({
   String? abn,
   double defaultRate = 46,
 }) => Client(
-  id: 1,
+  id: 'c1',
   name: name,
   contactName: contactName,
   email: email,
@@ -88,8 +88,8 @@ Client _client({
 );
 
 Project _project({String code = 'CD002', double? rate}) => Project(
-  id: 1,
-  clientId: 1,
+  id: 'p1',
+  clientId: 'c1',
   code: code,
   title: 'Care Direct work',
   rate: rate,
@@ -98,9 +98,9 @@ Project _project({String code = 'CD002', double? rate}) => Project(
   updatedAt: _t,
 );
 
-Task _task({int id = 1, double? rate, String title = 'Mobile'}) => Task(
+Task _task({String id = 't1', double? rate, String title = 'Mobile'}) => Task(
   id: id,
-  projectId: 1,
+  projectId: 'p1',
   title: title,
   rate: rate,
   status: 'active',
@@ -109,13 +109,13 @@ Task _task({int id = 1, double? rate, String title = 'Mobile'}) => Task(
 );
 
 TimeEntry _entry({
-  int id = 1,
-  int? taskId = 1,
+  String id = 'e1',
+  String? taskId = 't1',
   String? description,
   int seconds = 3600,
 }) => TimeEntry(
   id: id,
-  projectId: 1,
+  projectId: 'p1',
   taskId: taskId,
   description: description,
   startedAt: _t,
@@ -163,10 +163,10 @@ void main() {
         profile: _profile(),
         project: _project(rate: 80), // project overrides client default (46)
         client: _client(defaultRate: 46),
-        tasks: [_task(id: 1, rate: 120), _task(id: 2)], // task 1 overrides project
+        tasks: [_task(id: 't1', rate: 120), _task(id: 't2')], // task 1 overrides project
         entries: [
-          _entry(id: 1, taskId: 1, seconds: 3600), // → 120
-          _entry(id: 2, taskId: 2, seconds: 3600), // → project 80
+          _entry(id: 'e1', taskId: 't1', seconds: 3600), // → 120
+          _entry(id: 'e2', taskId: 't2', seconds: 3600), // → project 80
         ],
         from: DateTime(2026, 4, 1),
         to: DateTime(2026, 4, 30),
@@ -181,8 +181,8 @@ void main() {
         profile: _profile(),
         project: _project(rate: null),
         client: _client(defaultRate: 46),
-        tasks: [_task(id: 1)],
-        entries: [_entry(taskId: 1)],
+        tasks: [_task(id: 't1')],
+        entries: [_entry(taskId: 't1')],
         from: DateTime(2026, 4, 1),
         to: DateTime(2026, 4, 30),
         issueDate: _issue,
@@ -195,12 +195,12 @@ void main() {
         profile: _profile(),
         project: _project(),
         client: _client(),
-        tasks: [_task(id: 1, title: 'Mobile')],
+        tasks: [_task(id: 't1', title: 'Mobile')],
         entries: [
-          _entry(id: 1, taskId: 1), // task title only
-          _entry(id: 2, taskId: 1, description: 'bugfix'), // task · note
-          _entry(id: 3, taskId: null, description: 'ad hoc'), // note only
-          _entry(id: 4, taskId: null), // dash
+          _entry(id: 'e1', taskId: 't1'), // task title only
+          _entry(id: 'e2', taskId: 't1', description: 'bugfix'), // task · note
+          _entry(id: 'e3', taskId: null, description: 'ad hoc'), // note only
+          _entry(id: 'e4', taskId: null), // dash
         ],
         from: DateTime(2026, 4, 1),
         to: DateTime(2026, 4, 30),
@@ -214,7 +214,7 @@ void main() {
 
     test('one line per entry, in the given order', () {
       final doc = _doc(
-        entries: [_entry(id: 1), _entry(id: 2), _entry(id: 3)],
+        entries: [_entry(id: 'e1'), _entry(id: 'e2'), _entry(id: 'e3')],
       );
       expect(doc.lines.length, 3);
     });
@@ -223,7 +223,7 @@ void main() {
   group('totals + time', () {
     test('subtotal sums line amounts; total == subtotal with no tax', () {
       final doc = _doc(
-        entries: [_entry(id: 1, seconds: 3600), _entry(id: 2, seconds: 1800)],
+        entries: [_entry(id: 'e1', seconds: 3600), _entry(id: 'e2', seconds: 1800)],
       ); // (1 + 0.5)h @ 46 = 69
       expect(doc.subtotal, closeTo(69, 1e-9));
       expect(doc.tax, isNull);
@@ -234,8 +234,8 @@ void main() {
     test('total time as hh:mm:ss', () {
       final doc = _doc(
         entries: [
-          _entry(id: 1, seconds: 6464), // 01:47:44
-          _entry(id: 2, seconds: 8910), // 02:28:30
+          _entry(id: 'e1', seconds: 6464), // 01:47:44
+          _entry(id: 'e2', seconds: 8910), // 02:28:30
         ],
       );
       expect(doc.totalSeconds, 15374);

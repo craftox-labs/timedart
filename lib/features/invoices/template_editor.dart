@@ -123,7 +123,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
   }
 
   InvoiceTemplate _draft() => InvoiceTemplate(
-    id: widget.initial?.id ?? 0,
+    id: widget.initial?.id ?? '',
     name: _name.text.trim().isEmpty ? 'Untitled' : _name.text.trim(),
     colorBackground: _bg,
     colorSurface: _surface,
@@ -159,7 +159,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
       return false;
     }
     try {
-      int id;
+      String id;
       if (_isEdit) {
         id = widget.initial!.id;
         await widget.db.updateTemplateById(id, _companion());

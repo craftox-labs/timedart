@@ -141,16 +141,21 @@ void main() {
     expect(await db.select(db.templates).get(), isEmpty);
     expect(await db.select(db.profiles).get(), isEmpty);
 
-    // The new nullable Client columns are usable end to end.
+    // The new nullable Client columns are usable end to end. The v4 client's
+    // int id (1) is re-keyed to a UUID by the v12→v13 step, so look it up by
+    // name rather than the old literal.
+    final seeded = await (db.select(
+      db.clients,
+    )..where((t) => t.name.equals('Acme'))).getSingle();
     await db.updateClient(
-      id: 1,
+      id: seeded.id,
       name: 'Acme',
       contactName: 'Jane Doe',
       email: 'jane@acme.test',
       phone: '+61 400 000 000',
       defaultRate: 100,
     );
-    final c = await (db.select(db.clients)..where((t) => t.id.equals(1)))
+    final c = await (db.select(db.clients)..where((t) => t.id.equals(seeded.id)))
         .getSingle();
     expect(c.contactName, 'Jane Doe');
     expect(c.phone, '+61 400 000 000');
@@ -161,14 +166,18 @@ void main() {
     final db = _openV5();
     addTearDown(db.close);
 
-    // The old theme (id 7) is now a template; the pairing table is gone.
-    final tpl = await db.templateById(7);
-    expect(tpl.name, 'brand');
+    // The old theme (id 7) is now a template; the pairing table is gone. Its
+    // int id is re-keyed to a UUID by v12→v13, so resolve it by name.
+    final tpl = await (db.select(
+      db.templates,
+    )..where((t) => t.name.equals('brand'))).getSingle();
     expect(tpl.isDefault, isTrue);
 
     // The profile's templateId was backfilled from the old pairing (theme 7)…
-    final profile = await db.profileById(3);
-    expect(profile.templateId, 7);
+    final profile = await (db.select(
+      db.profiles,
+    )..where((p) => p.name.equals('Mine'))).getSingle();
+    expect(profile.templateId, tpl.id);
     // …and the v7→v8 step carried that template's logo onto the profile.
     expect(profile.logo, [0xDE, 0xAD, 0xBE, 0xEF]);
     expect(profile.logoMime, 'image/png');
@@ -182,15 +191,15 @@ void main() {
     final db = _openV7();
     addTearDown(db.close);
 
-    // Existing branding rows survive the upgrade (the bug wiped them).
+    // Existing branding rows survive the upgrade (the bug wiped them). Their
+    // int ids (5, 2) are re-keyed to UUIDs by v12→v13, so check the
+    // relationship rather than the old literal values.
     final tpl = await db.defaultTemplate();
     expect(tpl, isNotNull);
-    expect(tpl!.id, 5);
-    expect(tpl.name, 'timedart');
+    expect(tpl!.name, 'timedart');
     final profile = await db.defaultProfile();
     expect(profile, isNotNull);
-    expect(profile!.id, 2);
-    expect(profile.templateId, 5);
+    expect(profile!.templateId, tpl.id);
     // The logo moved off the template and onto the profile.
     expect(profile.logo, [0xCA, 0xFE]);
     expect(profile.logoMime, 'image/png');

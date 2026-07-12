@@ -7,7 +7,7 @@ import 'package:timedart/data/database.dart';
 
 sealed class PanelRow {
   const PanelRow();
-  int get clientId;
+  String get clientId;
 }
 
 class ClientRow extends PanelRow {
@@ -20,7 +20,7 @@ class ClientRow extends PanelRow {
     required this.hasProjects,
   });
   @override
-  int get clientId => client.id;
+  String get clientId => client.id;
 }
 
 class ProjectRow extends PanelRow {
@@ -28,7 +28,7 @@ class ProjectRow extends PanelRow {
   final Project project;
   const ProjectRow({required this.client, required this.project});
   @override
-  int get clientId => client.id;
+  String get clientId => client.id;
 }
 
 // Build the flattened, visible row list.
@@ -45,9 +45,9 @@ List<PanelRow> buildPanelRows({
   required List<Client> clients,
   required List<Project> projects,
   required String query,
-  required bool Function(int clientId) isExpanded,
+  required bool Function(String clientId) isExpanded,
 }) {
-  final projectsByClient = <int, List<Project>>{};
+  final projectsByClient = <String, List<Project>>{};
   for (final j in projects) {
     projectsByClient.putIfAbsent(j.clientId, () => []).add(j);
   }

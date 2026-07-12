@@ -2,10 +2,18 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'id.dart';
+
 part 'database.g.dart'; // generated — doesn't exist until you run build_runner
 
+// ── UUIDv7 primary keys (PRD #189, Phase 2c) ──────────────────────────────
+// Every content-table PK is a text UUIDv7 (see [id.dart]) instead of an
+// autoincrement int: sync needs ids that don't collide across devices. New rows
+// get one via a Dart `clientDefault`; the PK is declared explicitly since it's no
+// longer autoIncrement. The v12→v13 migration re-keys every existing row + FK.
+
 class Clients extends Table {
-  IntColumn get id => integer().autoIncrement()();
+  TextColumn get id => text().clientDefault(() => idGen.newId())();
   TextColumn get name => text().withLength(min: 1, max: 100)(); // organisation
   TextColumn get contactName => text().nullable()(); // the person (invoice TO)
   TextColumn get email => text().nullable()(); // nullable column
@@ -29,11 +37,13 @@ class Clients extends Table {
   // live. Distinct from [archivedAt], which is a user-facing "archive" concept.
   // All reads/watch queries filter `deletedAt IS NULL`.
   DateTimeColumn get deletedAt => dateTime().nullable()();
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 class Projects extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get clientId => integer().references(Clients, #id)(); // FK
+  TextColumn get id => text().clientDefault(() => idGen.newId())();
+  TextColumn get clientId => text().references(Clients, #id)(); // FK
   TextColumn get code => text().unique()(); // human project number
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides client default
@@ -42,14 +52,16 @@ class Projects extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 // A unit of work under a project. Owns many time-entry segments, so multiple
 // sessions accumulate against one task. `rate` overrides the project's rate (used
 // by a later invoicing pass); status leaves room for open/done/archived.
 class Tasks extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get projectId => integer().references(Projects, #id)();
+  TextColumn get id => text().clientDefault(() => idGen.newId())();
+  TextColumn get projectId => text().references(Projects, #id)();
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides project.rate
   TextColumn get status => text().withDefault(const Constant('active'))();
@@ -57,15 +69,17 @@ class Tasks extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 class TimeEntries extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get projectId => integer().references(Projects, #id)();
+  TextColumn get id => text().clientDefault(() => idGen.newId())();
+  TextColumn get projectId => text().references(Projects, #id)();
   // An entry belongs to a task; [description] is an optional per-segment note
   // (e.g. "fixed the login bug"). Nullable — most entries just inherit the
   // task's title in the UI.
-  IntColumn get taskId => integer().nullable().references(Tasks, #id)();
+  TextColumn get taskId => text().nullable().references(Tasks, #id)();
   TextColumn get description => text().nullable()();
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime()();
@@ -76,6 +90,8 @@ class TimeEntries extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 // ── Invoice branding (see PRD #79) ────────────────────────────────────────
@@ -90,7 +106,7 @@ class TimeEntries extends Table {
 /// Exactly one row is the default (see [AppDatabase.setDefaultTemplate]).
 @DataClassName('InvoiceTemplate')
 class Templates extends Table {
-  IntColumn get id => integer().autoIncrement()();
+  TextColumn get id => text().clientDefault(() => idGen.newId())();
   TextColumn get name => text().withLength(min: 1, max: 100)();
   IntColumn get colorBackground => integer()();
   IntColumn get colorSurface => integer()();
@@ -104,6 +120,8 @@ class Templates extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 /// The *details* of an invoice: sender identity + logo + payment + currency +
@@ -113,7 +131,7 @@ class Templates extends Table {
 /// [Templates]. Reusable across templates; one row is the default.
 @DataClassName('InvoiceProfile')
 class Profiles extends Table {
-  IntColumn get id => integer().autoIncrement()();
+  TextColumn get id => text().clientDefault(() => idGen.newId())();
   TextColumn get name =>
       text().withLength(min: 1, max: 100)(); // internal label
   TextColumn get businessName => text().withDefault(const Constant(''))();
@@ -137,7 +155,7 @@ class Profiles extends Table {
   BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
   // The template (visual style) this profile is rendered with. Null → the
   // default template. Replaces the old Theme+Profile pairing table.
-  IntColumn get templateId => integer().nullable().references(Templates, #id)();
+  TextColumn get templateId => text().nullable().references(Templates, #id)();
   // ── Region-aware invoicing (PRD #117, schema v9) ────────────────────────
   // The region shapes tax label + buyer-tax-ID label + invoice title, and
   // which bank fields the editor exposes. Stored as InvoiceRegion.name.
@@ -169,6 +187,8 @@ class Profiles extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get deletedAt => dateTime().nullable()(); // sync tombstone (2b)
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 /// App-level key-value preferences (PRD #133, schema v10). The single home for
@@ -212,7 +232,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -230,16 +250,23 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.createTable(tasks);
         await m.addColumn(timeEntries, timeEntries.taskId);
-        // tasks is created with the current schema (project_id); time_entries
-        // at v1 still uses job_id, so the SELECT reads job_id from the old rows.
+        // tasks is created at the current schema, whose id is now a *text* PK
+        // with no SQL default (its uuid clientDefault only fires on drift
+        // inserts, not this raw SQL). So synthesise a unique text id per distinct
+        // (job, task) — a placeholder the v12→v13 re-key below replaces with a
+        // real UUIDv7; it only has to be unique and match the FK set next. Every
+        // id/FK comparison casts to TEXT so int (job_id) and text ids compare
+        // consistently. time_entries at v1 still uses job_id, read from old rows.
         await customStatement(
-          'INSERT INTO tasks (project_id, title) '
-          'SELECT DISTINCT job_id, task FROM time_entries',
+          "INSERT INTO tasks (id, project_id, title) "
+          "SELECT CAST(job_id AS TEXT) || '|' || task, CAST(job_id AS TEXT), task "
+          "FROM (SELECT DISTINCT job_id, task FROM time_entries)",
         );
         await customStatement(
-          'UPDATE time_entries SET task_id = ('
-          'SELECT t.id FROM tasks t '
-          'WHERE t.project_id = time_entries.job_id AND t.title = time_entries.task)',
+          "UPDATE time_entries SET task_id = ("
+          "SELECT t.id FROM tasks t "
+          "WHERE t.project_id = CAST(time_entries.job_id AS TEXT) "
+          "AND t.title = time_entries.task)",
         );
       }
       // v2 → v3: the free-text `task` string is now redundant with taskId.
@@ -531,6 +558,177 @@ class AppDatabase extends _$AppDatabase {
         await addDeletedAt(templates, templates.deletedAt);
         await addDeletedAt(profiles, profiles.deletedAt);
       }
+      // v12 → v13: UUIDv7 primary keys for sync (PRD #189, Phase 2c). Re-key
+      // every content-table int PK + FK to a text UUIDv7 in place, preserving all
+      // relationships — nobody loses data. The historical rebuild steps above
+      // leave id/FK columns with mixed affinity (a plain-v12 DB is all-int; a DB
+      // that came up through a rebuild carries int-as-text), so every comparison
+      // here casts to TEXT to stay affinity-agnostic. FK enforcement is off
+      // during migration, so the intermediate states (a rebuilt child pointing at
+      // a not-yet-rebuilt parent) are safe. Guarded from<13 so a future bump
+      // can't re-run it. AppSettings keeps its natural text key — not re-keyed.
+      if (from < 13) {
+        // Some migration tests build a *partial* DB (only the tables a given
+        // step touches), so every operation here is guarded on table existence —
+        // mirroring the v11/v12 blocks. A real v1–v12 DB has all six.
+        Future<bool> has(String name) async => (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(name)],
+        ).get()).isNotEmpty;
+
+        // 1. Drop orphans first, cascade order (clients are the root, never
+        //    orphaned). The live DB carries children whose FK parent is gone
+        //    (SQLite never enforces FKs retroactively — see #196); mirror
+        //    sanitizeSnapshot so the not-null FK re-map below can't hit a NULL.
+        Future<void> dropOrphans(String sql, List<String> needs) async {
+          for (final t in needs) {
+            if (!await has(t)) return;
+          }
+          await customStatement(sql);
+        }
+
+        await dropOrphans(
+          'DELETE FROM projects WHERE CAST(client_id AS TEXT) NOT IN '
+          '(SELECT CAST(id AS TEXT) FROM clients)',
+          ['projects', 'clients'],
+        );
+        await dropOrphans(
+          'DELETE FROM tasks WHERE CAST(project_id AS TEXT) NOT IN '
+          '(SELECT CAST(id AS TEXT) FROM projects)',
+          ['tasks', 'projects'],
+        );
+        await dropOrphans(
+          'DELETE FROM time_entries WHERE CAST(project_id AS TEXT) NOT IN '
+          '(SELECT CAST(id AS TEXT) FROM projects) OR (task_id IS NOT NULL AND '
+          'CAST(task_id AS TEXT) NOT IN (SELECT CAST(id AS TEXT) FROM tasks))',
+          ['time_entries', 'projects', 'tasks'],
+        );
+        await dropOrphans(
+          'UPDATE profiles SET template_id = NULL WHERE template_id IS NOT NULL '
+          'AND CAST(template_id AS TEXT) NOT IN '
+          '(SELECT CAST(id AS TEXT) FROM templates)',
+          ['profiles', 'templates'],
+        );
+
+        // 2. Build an old-id → UUIDv7 map per (present) table (uuids come from
+        //    Dart — SQLite has no UUID function) into a temp table keyed by the
+        //    cast-to-text old id, so lookups below are affinity-agnostic.
+        const contentTables = [
+          'clients',
+          'projects',
+          'tasks',
+          'time_entries',
+          'templates',
+          'profiles',
+        ];
+        final present = [
+          for (final t in contentTables)
+            if (await has(t)) t,
+        ];
+        for (final table in present) {
+          await customStatement(
+            'CREATE TEMP TABLE _idmap_$table '
+            '(old_key TEXT PRIMARY KEY, new_id TEXT NOT NULL)',
+          );
+          final rows = await customSelect(
+            'SELECT CAST(id AS TEXT) AS k FROM $table',
+          ).get();
+          for (final r in rows) {
+            await customStatement(
+              'INSERT INTO _idmap_$table (old_key, new_id) VALUES (?, ?)',
+              [r.read<String>('k'), idGen.newId()],
+            );
+          }
+        }
+
+        // 3. Rebuild each present table to the v13 (text-id) shape, remapping its
+        //    own id and every FK through the maps. TableMigration recreates the
+        //    table at the current schema and copies via INSERT…SELECT; the
+        //    columnTransformer subqueries supply the new text ids. A NULL FK
+        //    (optional taskId / templateId) yields NULL from the subquery —
+        //    preserved. A present child always has its parent present too (valid
+        //    graph), so every referenced map exists.
+        String mapped(String mapTable, String col) =>
+            '(SELECT new_id FROM _idmap_$mapTable '
+            'WHERE old_key = CAST($col AS TEXT))';
+
+        Future<void> rekey(String name, TableMigration Function() build) async {
+          if (await has(name)) await m.alterTable(build());
+        }
+
+        await rekey(
+          'clients',
+          () => TableMigration(
+            clients,
+            columnTransformer: {
+              clients.id: CustomExpression(mapped('clients', 'id')),
+            },
+          ),
+        );
+        await rekey(
+          'projects',
+          () => TableMigration(
+            projects,
+            columnTransformer: {
+              projects.id: CustomExpression(mapped('projects', 'id')),
+              projects.clientId: CustomExpression(
+                mapped('clients', 'client_id'),
+              ),
+            },
+          ),
+        );
+        await rekey(
+          'tasks',
+          () => TableMigration(
+            tasks,
+            columnTransformer: {
+              tasks.id: CustomExpression(mapped('tasks', 'id')),
+              tasks.projectId: CustomExpression(
+                mapped('projects', 'project_id'),
+              ),
+            },
+          ),
+        );
+        await rekey(
+          'time_entries',
+          () => TableMigration(
+            timeEntries,
+            columnTransformer: {
+              timeEntries.id: CustomExpression(mapped('time_entries', 'id')),
+              timeEntries.projectId: CustomExpression(
+                mapped('projects', 'project_id'),
+              ),
+              timeEntries.taskId: CustomExpression(mapped('tasks', 'task_id')),
+            },
+          ),
+        );
+        await rekey(
+          'templates',
+          () => TableMigration(
+            templates,
+            columnTransformer: {
+              templates.id: CustomExpression(mapped('templates', 'id')),
+            },
+          ),
+        );
+        await rekey(
+          'profiles',
+          () => TableMigration(
+            profiles,
+            columnTransformer: {
+              profiles.id: CustomExpression(mapped('profiles', 'id')),
+              profiles.templateId: CustomExpression(
+                mapped('templates', 'template_id'),
+              ),
+            },
+          ),
+        );
+
+        // 4. Temp maps are per-connection — drop the ones we created.
+        for (final table in present) {
+          await customStatement('DROP TABLE _idmap_$table');
+        }
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -552,7 +750,7 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<int> ensureDefaultProject() async {
+  Future<String> ensureDefaultProject() async {
     // Look up by code IGNORING the tombstone: `code` is unique, so if a
     // soft-deleted GENERAL exists, inserting a fresh one would collide. The
     // default project must always be live — resurrect it if it was deleted.
@@ -571,18 +769,23 @@ class AppDatabase extends _$AppDatabase {
       return existing.id;
     }
     final clientId = await _defaultClientId();
-    return into(projects).insert(
+    // Generate the id up-front and return it: with a text PK, insert() yields
+    // the integer rowid, not the uuid the caller needs.
+    final id = idGen.newId();
+    await into(projects).insert(
       ProjectsCompanion.insert(
+        id: Value(id),
         clientId: clientId,
         code: 'GENERAL',
         title: 'Uncategorised',
       ),
     );
+    return id;
   }
 
   Future<void> addEntry({
-    required int projectId,
-    required int taskId,
+    required String projectId,
+    required String taskId,
     String? description,
     required DateTime startedAt,
     required DateTime endedAt,
@@ -599,8 +802,8 @@ class AppDatabase extends _$AppDatabase {
   );
 
   Future<void> updateEntry({
-    required int id,
-    required int taskId,
+    required String id,
+    required String taskId,
     String? description,
     required DateTime startedAt,
     required DateTime endedAt,
@@ -618,41 +821,49 @@ class AppDatabase extends _$AppDatabase {
 
   // Soft-delete (sync tombstone): set deletedAt + bump updatedAt instead of a
   // hard DELETE, so the removal propagates across devices. Reads filter it out.
-  Future<void> deleteEntry(int id) {
+  Future<void> deleteEntry(String id) {
     final now = DateTime.now();
     return (update(timeEntries)..where((t) => t.id.equals(id))).write(
       TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
   }
 
-  Future<int> _defaultClientId() async {
+  Future<String> _defaultClientId() async {
     final c = await (select(clients)
           ..where((c) => c.deletedAt.isNull())
           ..limit(1))
         .getSingleOrNull();
-    return c?.id ??
-        await into(
-          clients,
-        ).insert(ClientsCompanion.insert(name: 'Personal', defaultRate: 0.0));
+    if (c != null) return c.id;
+    final id = idGen.newId();
+    await into(clients).insert(
+      ClientsCompanion.insert(id: Value(id), name: 'Personal', defaultRate: 0.0),
+    );
+    return id;
   }
 
-  Future<int> addProject({
-    required int clientId,
+  Future<String> addProject({
+    required String clientId,
     required String code,
     required String title,
     double? rate,
-  }) => into(projects).insert(
-    ProjectsCompanion.insert(
-      clientId: clientId,
-      code: code,
-      title: title,
-      rate: rate == null ? const Value.absent() : Value(rate),
-    ),
-  );
+  }) {
+    final id = idGen.newId();
+    return into(projects)
+        .insert(
+          ProjectsCompanion.insert(
+            id: Value(id),
+            clientId: clientId,
+            code: code,
+            title: title,
+            rate: rate == null ? const Value.absent() : Value(rate),
+          ),
+        )
+        .then((_) => id);
+  }
 
   Future<void> updateProject({
-    required int id,
-    required int clientId,
+    required String id,
+    required String clientId,
     required String code,
     required String title,
     double? rate,
@@ -669,7 +880,7 @@ class AppDatabase extends _$AppDatabase {
   // Blocked while the project still has tasks or time entries (both FK-reference
   // it). Pre-checked in a transaction — portable and deterministic across the
   // native and web backends — rather than catching a backend-specific FK error.
-  Future<void> deleteProject(int id) => transaction(() async {
+  Future<void> deleteProject(String id) => transaction(() async {
     // Count only LIVE children — a project whose tasks/entries are all
     // soft-deleted can itself be deleted.
     final hasTasks =
@@ -697,7 +908,7 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(p) => OrderingTerm.asc(p.title)]))
           .watch();
 
-  Stream<(Project, Client)?> watchProjectWithClient(int id) {
+  Stream<(Project, Client)?> watchProjectWithClient(String id) {
     final q = select(projects).join([
       innerJoin(clients, clients.id.equalsExp(projects.clientId)),
     ])..where(projects.id.equals(id) & projects.deletedAt.isNull());
@@ -708,7 +919,7 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Stream<List<TimeEntry>> watchEntriesForProject(int projectId) =>
+  Stream<List<TimeEntry>> watchEntriesForProject(String projectId) =>
       (select(timeEntries)
             ..where((t) => t.projectId.equals(projectId) & t.deletedAt.isNull())
             ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
@@ -716,32 +927,38 @@ class AppDatabase extends _$AppDatabase {
 
   // --- Tasks ---
 
-  Stream<List<Task>> watchTasksForProject(int projectId) =>
+  Stream<List<Task>> watchTasksForProject(String projectId) =>
       (select(tasks)
             ..where((t) => t.projectId.equals(projectId) & t.deletedAt.isNull())
             ..orderBy([(t) => OrderingTerm.asc(t.title)]))
           .watch();
 
-  Stream<List<TimeEntry>> watchEntriesForTask(int taskId) =>
+  Stream<List<TimeEntry>> watchEntriesForTask(String taskId) =>
       (select(timeEntries)
             ..where((t) => t.taskId.equals(taskId) & t.deletedAt.isNull())
             ..orderBy([(t) => OrderingTerm.desc(t.endedAt)]))
           .watch();
 
-  Future<int> addTask({
-    required int projectId,
+  Future<String> addTask({
+    required String projectId,
     required String title,
     double? rate,
-  }) => into(tasks).insert(
-    TasksCompanion.insert(
-      projectId: projectId,
-      title: title,
-      rate: rate == null ? const Value.absent() : Value(rate),
-    ),
-  );
+  }) {
+    final id = idGen.newId();
+    return into(tasks)
+        .insert(
+          TasksCompanion.insert(
+            id: Value(id),
+            projectId: projectId,
+            title: title,
+            rate: rate == null ? const Value.absent() : Value(rate),
+          ),
+        )
+        .then((_) => id);
+  }
 
   Future<void> updateTask({
-    required int id,
+    required String id,
     required String title,
     double? rate,
   }) => (update(tasks)..where((t) => t.id.equals(id))).write(
@@ -755,7 +972,7 @@ class AppDatabase extends _$AppDatabase {
   // Blocked while the task still has time entries (they FK-reference it) —
   // matching how projects/clients guard their children. The caller surfaces
   // that as "delete its entries first".
-  Future<void> deleteTask(int id) => transaction(() async {
+  Future<void> deleteTask(String id) => transaction(() async {
     final hasEntries =
         await (select(timeEntries)
               ..where((t) => t.taskId.equals(id) & t.deletedAt.isNull())
@@ -775,13 +992,13 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(c) => OrderingTerm.asc(c.name)]))
           .watch();
 
-  Stream<Project?> watchProject(int id) =>
+  Stream<Project?> watchProject(String id) =>
       (select(projects)..where(
             (p) => p.id.equals(id) & p.deletedAt.isNull(),
           ))
           .watchSingleOrNull();
 
-  Future<int> addClient({
+  Future<String> addClient({
     required String name,
     String? contactName,
     String? email,
@@ -789,20 +1006,26 @@ class AppDatabase extends _$AppDatabase {
     String? address,
     String? abn,
     required double defaultRate,
-  }) => into(clients).insert(
-    ClientsCompanion.insert(
-      name: name,
-      contactName: Value(contactName),
-      email: email == null ? const Value.absent() : Value(email),
-      phone: Value(phone),
-      address: Value(address),
-      abn: Value(abn),
-      defaultRate: defaultRate,
-    ),
-  );
+  }) {
+    final id = idGen.newId();
+    return into(clients)
+        .insert(
+          ClientsCompanion.insert(
+            id: Value(id),
+            name: name,
+            contactName: Value(contactName),
+            email: email == null ? const Value.absent() : Value(email),
+            phone: Value(phone),
+            address: Value(address),
+            abn: Value(abn),
+            defaultRate: defaultRate,
+          ),
+        )
+        .then((_) => id);
+  }
 
   Future<void> updateClient({
-    required int id,
+    required String id,
     required String name,
     String? contactName,
     String? email,
@@ -824,7 +1047,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   // Blocked while the client still has projects (they FK-reference it).
-  Future<void> deleteClient(int id) => transaction(() async {
+  Future<void> deleteClient(String id) => transaction(() async {
     final hasProjects =
         await (select(projects)
               ..where((p) => p.clientId.equals(id) & p.deletedAt.isNull())
@@ -847,8 +1070,10 @@ class AppDatabase extends _$AppDatabase {
   Future<void> ensureInvoiceDefaults() async {
     final existing = await (select(templates)..limit(1)).getSingleOrNull();
     if (existing != null) return;
-    final templateId = await into(templates).insert(
+    final templateId = idGen.newId();
+    await into(templates).insert(
       TemplatesCompanion.insert(
+        id: Value(templateId),
         name: 'timedart',
         colorBackground: 0xFF11140E, // brand dark surface
         colorSurface: 0xFF23241F, // neutral dark card (was green-tinted)
@@ -877,25 +1102,31 @@ class AppDatabase extends _$AppDatabase {
           .watch();
   // Unfiltered by design: a since-deleted template must still resolve for any
   // profile/invoice still pointing at it.
-  Future<InvoiceTemplate> templateById(int id) =>
+  Future<InvoiceTemplate> templateById(String id) =>
       (select(templates)..where((t) => t.id.equals(id))).getSingle();
   Future<InvoiceTemplate?> defaultTemplate() => (select(templates)..where(
     (t) => t.isDefault.equals(true) & t.deletedAt.isNull(),
   )).getSingleOrNull();
-  Future<int> insertTemplate(TemplatesCompanion t) => into(templates).insert(t);
-  Future<void> updateTemplateById(int id, TemplatesCompanion t) =>
+  // Generates the uuid PK and returns it: insert() yields the int rowid, not the
+  // text id, so callers that need the new row's id get it from here.
+  Future<String> insertTemplate(TemplatesCompanion t) {
+    final id = idGen.newId();
+    return into(templates).insert(t.copyWith(id: Value(id))).then((_) => id);
+  }
+
+  Future<void> updateTemplateById(String id, TemplatesCompanion t) =>
       (update(templates)..where((x) => x.id.equals(id))).write(
         t.copyWith(updatedAt: Value(DateTime.now())),
       );
   // Soft-delete: hide from [watchTemplates] but keep the row so any invoice/
   // profile still pointing at it resolves via [templateById] (left unfiltered).
-  Future<void> deleteTemplate(int id) {
+  Future<void> deleteTemplate(String id) {
     final now = DateTime.now();
     return (update(templates)..where((x) => x.id.equals(id))).write(
       TemplatesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
   }
-  Future<void> setDefaultTemplate(int id) => transaction(() async {
+  Future<void> setDefaultTemplate(String id) => transaction(() async {
     final now = DateTime.now();
     await update(templates).write(
       TemplatesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
@@ -913,25 +1144,29 @@ class AppDatabase extends _$AppDatabase {
           .watch();
   // Unfiltered by design: a past invoice must still resolve a since-deleted
   // profile.
-  Future<InvoiceProfile> profileById(int id) =>
+  Future<InvoiceProfile> profileById(String id) =>
       (select(profiles)..where((p) => p.id.equals(id))).getSingle();
   Future<InvoiceProfile?> defaultProfile() => (select(profiles)..where(
     (p) => p.isDefault.equals(true) & p.deletedAt.isNull(),
   )).getSingleOrNull();
-  Future<int> insertProfile(ProfilesCompanion p) => into(profiles).insert(p);
-  Future<void> updateProfileById(int id, ProfilesCompanion p) =>
+  Future<String> insertProfile(ProfilesCompanion p) {
+    final id = idGen.newId();
+    return into(profiles).insert(p.copyWith(id: Value(id))).then((_) => id);
+  }
+
+  Future<void> updateProfileById(String id, ProfilesCompanion p) =>
       (update(profiles)..where((x) => x.id.equals(id))).write(
         p.copyWith(updatedAt: Value(DateTime.now())),
       );
   // Soft-delete: hide from [watchProfiles] but keep the row so a past invoice
   // still resolves it via [profileById] (left unfiltered).
-  Future<void> deleteProfile(int id) {
+  Future<void> deleteProfile(String id) {
     final now = DateTime.now();
     return (update(profiles)..where((x) => x.id.equals(id))).write(
       ProfilesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
   }
-  Future<void> setDefaultProfile(int id) => transaction(() async {
+  Future<void> setDefaultProfile(String id) => transaction(() async {
     final now = DateTime.now();
     await update(profiles).write(
       ProfilesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
@@ -977,17 +1212,17 @@ class AppDatabase extends _$AppDatabase {
 
   // Row getters for assembling an InvoiceDocument (the pure builder lives in
   // features/invoices — the data layer only hands back rows).
-  Future<Project> getProject(int id) => (select(
+  Future<Project> getProject(String id) => (select(
     projects,
   )..where((p) => p.id.equals(id) & p.deletedAt.isNull())).getSingle();
-  Future<Client> getClient(int id) => (select(
+  Future<Client> getClient(String id) => (select(
     clients,
   )..where((c) => c.id.equals(id) & c.deletedAt.isNull())).getSingle();
-  Future<List<Task>> tasksForProject(int projectId) => (select(tasks)..where(
+  Future<List<Task>> tasksForProject(String projectId) => (select(tasks)..where(
     (t) => t.projectId.equals(projectId) & t.deletedAt.isNull(),
   )).get();
   Future<List<TimeEntry>> entriesForProjectInPeriod(
-    int projectId,
+    String projectId,
     DateTime from,
     DateTime to,
   ) =>

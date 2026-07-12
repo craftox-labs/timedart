@@ -44,9 +44,10 @@ void main() {
     final profiles = await db.select(db.profiles).get();
     expect(profiles.length, 2);
 
-    // Region backfilled from the BSB heuristic.
-    final aussie = profiles.firstWhere((p) => p.id == 1);
-    final global = profiles.firstWhere((p) => p.id == 2);
+    // Region backfilled from the BSB heuristic. Ids are re-keyed to uuids by the
+    // v12→v13 step, so identify the two profiles by name, not id.
+    final aussie = profiles.firstWhere((p) => p.name == 'Aussie');
+    final global = profiles.firstWhere((p) => p.name == 'Global');
     expect(aussie.region, 'au');
     expect(global.region, 'other');
 

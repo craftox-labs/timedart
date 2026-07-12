@@ -14,14 +14,14 @@ import 'package:timedart/widgets/focus_ring.dart';
 class TaskList extends StatelessWidget {
   final List<TaskListRow> rows;
   final double? rate; // effective project/client rate; a task may override it
-  final int? selectedTaskId; // the task the timer is armed on / tracking
+  final String? selectedTaskId; // the task the timer is armed on / tracking
   final int cursor;
   final bool cursorActive;
   final Key? cursorKey; // rides the cursor row for ensureVisible
   final ScrollController? scrollController;
-  final void Function(int taskId) onSelectTask; // arm for the timer
-  final void Function(int taskId) onToggle; // expand/collapse
-  final void Function(int taskId) onAddEntryToTask;
+  final void Function(String taskId) onSelectTask; // arm for the timer
+  final void Function(String taskId) onToggle; // expand/collapse
+  final void Function(String taskId) onAddEntryToTask;
   final void Function(Task) onEditTask;
   final void Function(TimeEntry) onEditEntry;
 

@@ -73,13 +73,13 @@ class AdaptiveShell extends StatefulWidget {
   // The project to select on the first frame. The root gate already resolves
   // the default project while bootstrapping, so passing it here avoids the
   // tracker painting an empty (no-selection) frame that then pops to content.
-  final int? initialSelectedProjectId;
+  final String? initialSelectedProjectId;
   @override
   State<AdaptiveShell> createState() => _AdaptiveShellState();
 }
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
-  int? _selectedProjectId; // the project the timer records against
+  String? _selectedProjectId; // the project the timer records against
   _Detail _detail = const _Tracker();
   StreamSubscription<List<Project>>? _projectsSub;
 
@@ -246,7 +246,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   void _showTracker() => _navigateTo(const _Tracker());
-  void _selectProject(int id) => setState(() {
+  void _selectProject(String id) => setState(() {
     _selectedProjectId = id;
     _detail = const _Tracker(); // picking a project returns you to the timer
   });
@@ -255,7 +255,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // content pane rather than replacing it.
   void _editProject(Project project) =>
       showProjectEditor(context, db: widget.db, project: project);
-  Future<void> _addProject(int clientId) async {
+  Future<void> _addProject(String clientId) async {
     final createdProjectId = await showProjectEditor(
       context,
       db: widget.db,

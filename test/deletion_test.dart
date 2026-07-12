@@ -11,12 +11,12 @@ void main() {
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 
-  Future<int> seedClient() => db.addClient(name: 'Acme', defaultRate: 100);
+  Future<String> seedClient() => db.addClient(name: 'Acme', defaultRate: 100);
 
   // Raw row (bypasses the deletedAt filter) so tests can inspect the tombstone.
-  Future<Client?> rawClient(int id) =>
+  Future<Client?> rawClient(String id) =>
       (db.select(db.clients)..where((c) => c.id.equals(id))).getSingleOrNull();
-  Future<Project?> rawProject(int id) =>
+  Future<Project?> rawProject(String id) =>
       (db.select(db.projects)..where((p) => p.id.equals(id))).getSingleOrNull();
 
   test('deleteClient blocked while it has projects, then succeeds', () async {

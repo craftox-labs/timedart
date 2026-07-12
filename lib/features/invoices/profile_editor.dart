@@ -56,7 +56,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
   Uint8List? _logo;
   String? _logoMime;
   // The template (visual style) this profile renders with; null → default.
-  int? _templateId;
+  String? _templateId;
   // Available templates for the picker + preview, loaded once.
   List<InvoiceTemplate> _templates = const [];
 
@@ -203,7 +203,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
   }
 
   InvoiceProfile _draft() => InvoiceProfile(
-    id: widget.initial?.id ?? 0,
+    id: widget.initial?.id ?? '',
     name: _t('name').isEmpty ? 'Untitled' : _t('name'),
     businessName: _t('businessName'),
     logo: _logo,
@@ -451,7 +451,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
               Row(
                 children: [
                   Expanded(
-                    child: EditorDropdown<int>(
+                    child: EditorDropdown<String>(
                       label: 'Template',
                       value: _templateId,
                       items: [
@@ -777,7 +777,7 @@ class _ProfileSnapshot {
   final bool isDefault;
   final InvoiceRegion region;
   final bool showBank, showPaymentLink, showTax, reverseCharge;
-  final int? templateId;
+  final String? templateId;
   final LogoValue logo;
 
   @override

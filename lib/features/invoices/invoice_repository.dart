@@ -14,11 +14,11 @@ import 'package:timedart/features/invoices/invoice_document.dart';
 /// [AppDatabase.ensureInvoiceDefaults], but callers handle it).
 Future<({InvoiceDocument doc, InvoiceTemplate template})?> loadInvoiceDocument(
   AppDatabase db, {
-  required int projectId,
+  required String projectId,
   required DateTime from,
   required DateTime to,
   required DateTime issueDate,
-  int? profileId,
+  String? profileId,
   String? invoiceNumber,
   // Per-invoice inclusion overrides (null → the profile's stored default).
   bool? showBank,

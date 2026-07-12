@@ -31,10 +31,10 @@ class SidePanel extends StatefulWidget {
     this.autofocus = false,
   });
   final AppDatabase db;
-  final int? selectedProjectId;
-  final void Function(int)? onSelect; // select a project for the timer
+  final String? selectedProjectId;
+  final void Function(String)? onSelect; // select a project for the timer
   final void Function(Project) onEditProject;
-  final void Function(int clientId)
+  final void Function(String clientId)
   onAddProject; // add a project under this client
   final void Function(Client) onEditClient;
   final VoidCallback onAddClient;
@@ -81,8 +81,9 @@ class _SidePanelState extends State<SidePanel> {
   // Manually expanded clients. Selecting a project seeds its client here once (so
   // it opens but can still be collapsed); searching force-expands everything
   // at the effective-expansion layer without touching this set.
-  final Set<int> _expanded = {};
-  int? _seededSelection; // selectedProjectId we last auto-expanded a client for
+  final Set<String> _expanded = {};
+  String?
+  _seededSelection; // selectedProjectId we last auto-expanded a client for
 
   // Row cursor over the flattened visible list (clients + projects of expanded
   // clients). Kept valid against [_rows] after every rebuild.
@@ -144,14 +145,14 @@ class _SidePanelState extends State<SidePanel> {
     });
   }
 
-  int? _selectedClientId(List<Project> projects) {
+  String? _selectedClientId(List<Project> projects) {
     for (final j in projects) {
       if (j.id == widget.selectedProjectId) return j.clientId;
     }
     return null;
   }
 
-  int? _indexOfClient(int clientId) {
+  int? _indexOfClient(String clientId) {
     for (var i = 0; i < _rows.length; i++) {
       final r = _rows[i];
       if (r is ClientRow && r.clientId == clientId) return i;
@@ -229,7 +230,7 @@ class _SidePanelState extends State<SidePanel> {
   }
 
   // Mouse and keyboard share the one expansion set.
-  void _toggleClient(int clientId) {
+  void _toggleClient(String clientId) {
     setState(() {
       if (_expanded.contains(clientId)) {
         _expanded.remove(clientId);
@@ -424,7 +425,7 @@ class _SidePanelState extends State<SidePanel> {
 
     _searching = _query.trim().isNotEmpty;
     // Searching force-expands every visible client; otherwise the set decides.
-    bool effectiveExpanded(int clientId) =>
+    bool effectiveExpanded(String clientId) =>
         _searching || _expanded.contains(clientId);
 
     _rows = buildPanelRows(

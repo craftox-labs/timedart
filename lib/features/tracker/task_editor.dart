@@ -10,7 +10,7 @@ import 'package:timedart/widgets/entity_editor.dart';
 Future<void> showTaskEditor(
   BuildContext context, {
   required AppDatabase db,
-  required int projectId,
+  required String projectId,
   Task? task,
 }) => showEntityEditor<void>(
   context,
@@ -20,7 +20,7 @@ Future<void> showTaskEditor(
 class TaskForm extends StatefulWidget {
   const TaskForm({super.key, required this.db, required this.projectId, this.task});
   final AppDatabase db;
-  final int projectId;
+  final String projectId;
   final Task? task; // null = create, set = edit
 
   @override

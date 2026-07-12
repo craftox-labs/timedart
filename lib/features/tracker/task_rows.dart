@@ -7,7 +7,7 @@ import 'package:timedart/data/database.dart';
 
 sealed class TaskListRow {
   const TaskListRow();
-  int get taskId;
+  String get taskId;
 }
 
 class TaskHeaderRow extends TaskListRow {
@@ -22,7 +22,7 @@ class TaskHeaderRow extends TaskListRow {
     required this.entryCount,
   });
   @override
-  int get taskId => task.id;
+  String get taskId => task.id;
 }
 
 class TaskEntryRow extends TaskListRow {
@@ -30,7 +30,7 @@ class TaskEntryRow extends TaskListRow {
   final TimeEntry entry;
   const TaskEntryRow({required this.task, required this.entry});
   @override
-  int get taskId => task.id;
+  String get taskId => task.id;
 }
 
 // Flatten (tasks, their entries, expansion) into the visible row list. A
@@ -41,9 +41,9 @@ class TaskEntryRow extends TaskListRow {
 List<TaskListRow> buildTaskRows({
   required List<Task> tasks,
   required List<TimeEntry> entries,
-  required bool Function(int taskId) isExpanded,
+  required bool Function(String taskId) isExpanded,
 }) {
-  final byTask = <int, List<TimeEntry>>{};
+  final byTask = <String, List<TimeEntry>>{};
   for (final e in entries) {
     final tid = e.taskId;
     if (tid != null) byTask.putIfAbsent(tid, () => []).add(e);

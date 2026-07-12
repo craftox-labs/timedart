@@ -30,7 +30,7 @@ class _RootGateState extends State<RootGate> {
 
   // Resolved during bootstrap and handed to the shell so the tracker opens on a
   // project without an empty first frame.
-  int? _defaultProjectId;
+  String? _defaultProjectId;
 
   @override
   void initState() {

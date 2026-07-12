@@ -20,7 +20,7 @@ final _ts = DateTime(2026, 1, 1);
 BackupSnapshot _sampleSnapshot() => BackupSnapshot(
   clients: [
     Client(
-      id: 1,
+      id: 'c1',
       name: 'Acme Pty Ltd',
       contactName: 'Wile E.',
       email: 'a@b.com',
@@ -35,8 +35,8 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
   ],
   projects: [
     Project(
-      id: 2,
-      clientId: 1,
+      id: 'p2',
+      clientId: 'c1',
       code: 'ACME-1',
       title: 'Website',
       rate: null,
@@ -47,8 +47,8 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
   ],
   tasks: [
     Task(
-      id: 3,
-      projectId: 2,
+      id: 't3',
+      projectId: 'p2',
       title: 'Design',
       rate: 150.0,
       status: 'active',
@@ -58,9 +58,9 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
   ],
   timeEntries: [
     TimeEntry(
-      id: 4,
-      projectId: 2,
-      taskId: 3,
+      id: 'e4',
+      projectId: 'p2',
+      taskId: 't3',
       description: 'wireframes',
       startedAt: DateTime(2026, 1, 3, 9),
       endedAt: DateTime(2026, 1, 3, 11),
@@ -71,7 +71,7 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
   ],
   templates: [
     InvoiceTemplate(
-      id: 5,
+      id: 'tpl5',
       name: 'timedart',
       colorBackground: 0xFF11140E,
       colorSurface: 0xFF23241F,
@@ -86,7 +86,7 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
   ],
   profiles: [
     InvoiceProfile(
-      id: 6,
+      id: 'pf6',
       name: 'Default',
       businessName: 'My Studio',
       // A real blob: exercises the base64 serializer path.
@@ -107,7 +107,7 @@ BackupSnapshot _sampleSnapshot() => BackupSnapshot(
       taxLabel: 'GST',
       taxRate: 10.0,
       isDefault: true,
-      templateId: 5,
+      templateId: 'tpl5',
       region: 'au',
       iban: null,
       sortCode: null,
@@ -139,12 +139,14 @@ void main() {
     final snapshot = _sampleSnapshot();
     final when = DateTime.utc(2026, 7, 12, 8, 30);
 
-    final bytes = encodeBackup(snapshot, schemaVersion: 10, exportedAt: when);
+    // schemaVersion 13 is the current text-id schema, so decode does NOT re-key
+    // (the legacy int→uuid path has its own test); the round-trip is exact.
+    final bytes = encodeBackup(snapshot, schemaVersion: 13, exportedAt: when);
     final decoded = decodeBackup(bytes);
 
     expect(decoded.snapshot, snapshot);
     expect(decoded.formatVersion, backupFormatVersion);
-    expect(decoded.schemaVersion, 10);
+    expect(decoded.schemaVersion, 13);
     expect(decoded.exportedAt, when);
     // The logo blob survives base64 encoding intact.
     expect(decoded.snapshot.profiles.single.logo, snapshot.profiles.single.logo);
@@ -153,13 +155,13 @@ void main() {
   test('encoded backup is plain JSON with the version envelope', () {
     final bytes = encodeBackup(
       _sampleSnapshot(),
-      schemaVersion: 10,
+      schemaVersion: 13,
       exportedAt: DateTime.utc(2026, 7, 12),
     );
     final root = json.decode(utf8.decode(bytes)) as Map<String, dynamic>;
     expect(root['format'], backupFormatMarker);
     expect(root['formatVersion'], backupFormatVersion);
-    expect(root['schemaVersion'], 10);
+    expect(root['schemaVersion'], 13);
     expect((root['data'] as Map)['clients'], isA<List>());
   });
 
@@ -180,16 +182,18 @@ void main() {
     });
 
     test('a table row of the wrong shape', () {
+      // A non-numeric defaultRate is malformed for the required real column
+      // (ids are text now, so a string id is no longer a shape error).
       final bytes = Uint8List.fromList(
         utf8.encode(
           json.encode({
             'format': backupFormatMarker,
             'formatVersion': 1,
-            'schemaVersion': 10,
+            'schemaVersion': 13,
             'exportedAt': DateTime.utc(2026, 7, 12).toIso8601String(),
             'data': {
               'clients': [
-                {'id': 'not-an-int', 'name': 'x'},
+                {'id': 'c1', 'name': 'x', 'defaultRate': 'not-a-number'},
               ],
             },
           }),
@@ -289,7 +293,7 @@ void main() {
       addTearDown(source.close);
       await source.ensureInvoiceDefaults();
       final client = await source.addClient(name: 'MultiCo', defaultRate: 100);
-      final projectIds = <int>[];
+      final projectIds = <String>[];
       for (var i = 1; i <= 6; i++) {
         projectIds.add(
           await source.addProject(
@@ -369,7 +373,7 @@ void main() {
         snapshot: BackupSnapshot(
           clients: [
             Client(
-              id: 1,
+              id: 'c1',
               name: 'Co',
               contactName: null,
               email: null,
@@ -384,8 +388,8 @@ void main() {
           ],
           projects: [
             Project(
-              id: 1,
-              clientId: 1,
+              id: 'p1',
+              clientId: 'c1',
               code: 'P1',
               title: 'Real',
               rate: null,
@@ -395,20 +399,20 @@ void main() {
             ),
           ],
           tasks: [
-            // valid (project 1)
+            // valid (project p1)
             Task(
-              id: 1,
-              projectId: 1,
+              id: 't1',
+              projectId: 'p1',
               title: 'Keep',
               rate: null,
               status: 'active',
               createdAt: DateTime(2026, 1, 1),
               updatedAt: _ts,
             ),
-            // orphan (project 3 gone)
+            // orphan (project p3 gone)
             Task(
-              id: 5,
-              projectId: 3,
+              id: 't5',
+              projectId: 'p3',
               title: 'Orphan',
               rate: null,
               status: 'active',
@@ -419,9 +423,9 @@ void main() {
           timeEntries: [
             // valid
             TimeEntry(
-              id: 1,
-              projectId: 1,
-              taskId: 1,
+              id: 'e1',
+              projectId: 'p1',
+              taskId: 't1',
               description: null,
               startedAt: DateTime(2026, 1, 1, 9),
               endedAt: DateTime(2026, 1, 1, 10),
@@ -429,11 +433,11 @@ void main() {
               createdAt: _ts,
               updatedAt: _ts,
             ),
-            // orphan (project 3 gone)
+            // orphan (project p3 gone)
             TimeEntry(
-              id: 8,
-              projectId: 3,
-              taskId: 5,
+              id: 'e8',
+              projectId: 'p3',
+              taskId: 't5',
               description: null,
               startedAt: DateTime(2026, 1, 1, 9),
               endedAt: DateTime(2026, 1, 1, 10),
@@ -459,6 +463,88 @@ void main() {
       expect(await db.select(db.timeEntries).get(), hasLength(1));
     });
 
+    test('re-keys a legacy (int-keyed, pre-v13) backup into UUIDs', () async {
+      // The safeguard payoff: a pre-Phase-2 export carried autoincrement int
+      // ids. Build a real v13 snapshot, rewrite it to look like a v12 export
+      // (integer ids + schemaVersion 12) plus an injected orphan, then import.
+      // decodeBackup must re-key every id to a fresh uuid preserving the
+      // client→project→task→entry graph, and sanitize must drop the orphan.
+      final source = AppDatabase(NativeDatabase.memory());
+      addTearDown(source.close);
+      final c = await source.addClient(name: 'Legacy Co', defaultRate: 50);
+      final p = await source.addProject(clientId: c, code: 'L-1', title: 'Work');
+      final t = await source.addTask(projectId: p, title: 'Build');
+      await source.addEntry(
+        projectId: p,
+        taskId: t,
+        startedAt: DateTime.utc(2026, 1, 1, 9),
+        endedAt: DateTime.utc(2026, 1, 1, 10),
+        seconds: 3600,
+      );
+      final root =
+          json.decode(
+                utf8.decode(
+                  encodeBackup(
+                    await readBackupSnapshot(source),
+                    schemaVersion: 13,
+                    exportedAt: DateTime.utc(2026, 7, 12),
+                  ),
+                ),
+              )
+              as Map<String, dynamic>;
+
+      // Rewrite every string id/FK to a distinct int via one shared map, so a
+      // FK lands on the same int as the id it references (uuids are globally
+      // unique, so a single map is unambiguous).
+      final ints = <String, int>{};
+      int intFor(String uuid) => ints.putIfAbsent(uuid, () => ints.length + 1);
+      final data = root['data'] as Map<String, dynamic>;
+      void toInts(String table, List<String> keys) {
+        for (final row in (data[table] as List).cast<Map<String, dynamic>>()) {
+          for (final k in ['id', ...keys]) {
+            if (row[k] != null) row[k] = intFor(row[k] as String);
+          }
+        }
+      }
+
+      toInts('clients', const []);
+      toInts('projects', const ['clientId']);
+      toInts('tasks', const ['projectId']);
+      toInts('timeEntries', const ['projectId', 'taskId']);
+
+      // Inject an orphan task pointing at a project int that doesn't exist.
+      final tasks = data['tasks'] as List;
+      final orphan = Map<String, dynamic>.from(tasks.first as Map);
+      orphan['id'] = 9998;
+      orphan['projectId'] = 9999; // no such project
+      orphan['title'] = 'Orphan';
+      tasks.add(orphan);
+
+      root['schemaVersion'] = 12; // a pre-v13 (int-keyed) export
+      final backup = decodeBackup(
+        Uint8List.fromList(utf8.encode(json.encode(root))),
+      );
+
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repair = await restoreBackup(db, backup);
+
+      // The orphan task was dropped; the real graph survived, re-keyed to uuids.
+      expect(repair.droppedTasks, 1);
+      final client = (await db.select(db.clients).get()).single;
+      final project = (await db.select(db.projects).get()).single;
+      final task = (await db.select(db.tasks).get()).single;
+      final entry = (await db.select(db.timeEntries).get()).single;
+      expect(client.name, 'Legacy Co');
+      expect(task.title, 'Build');
+      // Ids are now uuids (not the ints we wrote), and the relationships hold.
+      expect(int.tryParse(client.id), isNull, reason: 're-keyed to a uuid');
+      expect(project.clientId, client.id);
+      expect(task.projectId, project.id);
+      expect(entry.projectId, project.id);
+      expect(entry.taskId, task.id);
+    });
+
     test('a failing restore rolls back, leaving current data intact', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -468,9 +554,9 @@ void main() {
       // Two projects sharing a code violates the UNIQUE(code) constraint —
       // something sanitize can't fix — so the batch insert fails and the whole
       // transaction must roll back.
-      Project proj(int id, String code) => Project(
+      Project proj(String id, String code) => Project(
         id: id,
-        clientId: 1,
+        clientId: 'c1',
         code: code,
         title: 'P$id',
         rate: null,
@@ -485,7 +571,7 @@ void main() {
         snapshot: BackupSnapshot(
           clients: [
             Client(
-              id: 1,
+              id: 'c1',
               name: 'NewCo',
               contactName: null,
               email: null,
@@ -498,7 +584,7 @@ void main() {
               updatedAt: _ts,
             ),
           ],
-          projects: [proj(1, 'DUP'), proj(2, 'DUP')], // clash
+          projects: [proj('p1', 'DUP'), proj('p2', 'DUP')], // clash
           tasks: const [],
           timeEntries: const [],
           templates: const [],

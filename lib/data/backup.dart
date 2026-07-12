@@ -3,6 +3,12 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/id.dart';
+
+/// The first schema whose ids are text UUIDv7 (PRD #189, Phase 2c). A backup
+/// written at an earlier schema carries integer ids, so [decodeBackup] re-keys
+/// its raw rows to fresh UUIDs before building the (text-id) data classes.
+const int _firstUuidSchemaVersion = 13;
 
 // Portable, self-describing backup of the whole database (PRD #189, Phase 1a,
 // issue #190). The safeguard that lets a user rescue their data across the
@@ -225,11 +231,10 @@ class SnapshotRepair {
 /// order (the pragma auto-resets at end of transaction).
 ///
 /// Forward-compatibility seam: a backup from a *newer* schema is rejected
-/// ([BackupIncompatibleException]); a same-or-older backup is imported. Once the
-/// Phase 2 clean-break UUID migration lands, the int→UUID re-key of an older,
-/// int-keyed export is slotted in ahead of this insert (it needs the new schema
-/// to target, so it belongs with that change, not here). Today the only schema
-/// is v10, so a v10 export restores directly.
+/// ([BackupIncompatibleException]); a same-or-older backup is imported. A
+/// pre-v13 (integer-keyed) export is re-keyed to text UUIDv7 ids inside
+/// [decodeBackup] (see [_rekeyLegacyGraph]) before it reaches this function, so
+/// by here every row already carries the v13 text ids the schema expects.
 Future<SnapshotRepair> restoreBackup(AppDatabase db, Backup backup) async {
   if (backup.schemaVersion > db.schemaVersion) {
     throw BackupIncompatibleException(backup.schemaVersion, db.schemaVersion);
@@ -318,6 +323,17 @@ Backup decodeBackup(Uint8List bytes) {
   final data = root['data'];
   if (data is! Map) throw const BackupFormatException('missing data section');
 
+  // Forward-compat re-key (PRD #189, Phase 2c): a pre-v13 backup has integer
+  // ids, but the current data classes expect text UUIDv7 ids. Re-key the raw
+  // JSON graph — new uuid per row, every FK rewritten to match — BEFORE fromJson,
+  // so an int-keyed export (e.g. the safeguard beta users are taking now)
+  // restores into the v13 schema with all relationships intact. Dangling FKs are
+  // left pointing at ids no row will own, so [sanitizeSnapshot] drops them just
+  // as it does for a same-version restore.
+  if (schemaVersion < _firstUuidSchemaVersion) {
+    _rekeyLegacyGraph(data);
+  }
+
   List<T> table<T extends DataClass>(
     String key,
     T Function(Map<String, dynamic>) fromJson,
@@ -362,6 +378,77 @@ Backup decodeBackup(Uint8List bytes) {
     exportedAt: exportedAt,
     snapshot: snapshot,
   );
+}
+
+/// Re-key a legacy (pre-v13, integer-keyed) backup graph in place: assign a
+/// fresh UUIDv7 to every row's `id` and rewrite every FK to match, preserving
+/// all relationships. Operates on the raw decoded JSON maps (before fromJson)
+/// because the current data classes only accept text ids. FK keys are drift's
+/// camelCase json names (clientId/projectId/taskId/templateId). A dangling FK
+/// (no row owns that old id) is pointed at a fresh uuid no row will have, so the
+/// downstream [sanitizeSnapshot] drops the orphan — same outcome as a
+/// same-version restore.
+void _rekeyLegacyGraph(Map<dynamic, dynamic> data) {
+  Map<String, String> buildMap(String key) {
+    final rows = data[key];
+    final map = <String, String>{};
+    if (rows is List) {
+      for (final row in rows) {
+        if (row is Map && row['id'] != null) {
+          map[row['id'].toString()] = idGen.newId();
+        }
+      }
+    }
+    return map;
+  }
+
+  final clientIds = buildMap('clients');
+  final projectIds = buildMap('projects');
+  final taskIds = buildMap('tasks');
+  final entryIds = buildMap('timeEntries');
+  final templateIds = buildMap('templates');
+  final profileIds = buildMap('profiles');
+
+  // Map a FK's old value to the parent's new uuid; a missing parent (orphan)
+  // becomes a fresh uuid that matches nothing, so sanitizeSnapshot drops it.
+  String remap(Map<String, String> parent, Object old) =>
+      parent[old.toString()] ?? idGen.newId();
+
+  void rekey(
+    String key,
+    Map<String, String> selfIds,
+    void Function(Map<dynamic, dynamic> row) rewriteFks,
+  ) {
+    final rows = data[key];
+    if (rows is! List) return;
+    for (final row in rows) {
+      if (row is! Map) continue;
+      if (row['id'] != null) row['id'] = selfIds[row['id'].toString()];
+      rewriteFks(row);
+    }
+  }
+
+  rekey('clients', clientIds, (_) {});
+  rekey('projects', projectIds, (r) {
+    if (r['clientId'] != null) r['clientId'] = remap(clientIds, r['clientId']);
+  });
+  rekey('tasks', taskIds, (r) {
+    if (r['projectId'] != null) {
+      r['projectId'] = remap(projectIds, r['projectId']);
+    }
+  });
+  rekey('timeEntries', entryIds, (r) {
+    if (r['projectId'] != null) {
+      r['projectId'] = remap(projectIds, r['projectId']);
+    }
+    if (r['taskId'] != null) r['taskId'] = remap(taskIds, r['taskId']);
+  });
+  rekey('templates', templateIds, (_) {});
+  rekey('profiles', profileIds, (r) {
+    if (r['templateId'] != null) {
+      r['templateId'] = remap(templateIds, r['templateId']);
+    }
+  });
 }
 
 int _int(Map<dynamic, dynamic> m, String key) {

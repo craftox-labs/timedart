@@ -39,8 +39,12 @@ void main() {
     addTearDown(db.close);
 
     // Distinct (job, title) pairs → three tasks: (1,Design) (1,Build) (2,Design).
+    // The full ladder runs through the v12→v13 re-key, so ids are now uuids —
+    // assert on the relationships, not on specific int id values.
     final tasks = await db.select(db.tasks).get();
     expect(tasks.length, 3);
+    // Every id is a re-keyed uuid, not a leftover int.
+    expect(tasks.every((t) => int.tryParse(t.id) == null), isTrue);
 
     // Every entry is repointed and no tracked time changed.
     final entries = await db.select(db.timeEntries).get();
@@ -49,14 +53,14 @@ void main() {
     expect(entries.fold<int>(0, (s, e) => s + e.seconds), 500);
 
     // The two (job 1, 'Design') entries land on the SAME task; the same title
-    // under job 2 is a DIFFERENT task.
+    // under job 2 is a DIFFERENT task (different project).
     Task taskOf(int entryIndex) =>
         tasks.firstWhere((t) => t.id == entries[entryIndex].taskId);
     expect(taskOf(0).id, taskOf(1).id); // both project-1 Design
     expect(taskOf(0).title, 'Design');
-    expect(taskOf(0).projectId, 1);
-    expect(taskOf(3).projectId, 2); // project-2 Design
+    expect(taskOf(3).title, 'Design'); // project-2 Design
     expect(taskOf(0).id, isNot(taskOf(3).id));
+    expect(taskOf(0).projectId, isNot(taskOf(3).projectId)); // different projects
   });
 
   test('v2→v3 drops task, adds description, and inserts still work', () async {
@@ -90,15 +94,17 @@ void main() {
     final db = AppDatabase(NativeDatabase.opened(raw));
     addTearDown(db.close);
 
-    // Existing entry survives with its taskId; description starts null.
+    // Existing entry survives, still pointing at the (re-keyed) task; the ladder
+    // through v13 turned its int ids into uuids, so read them back.
+    final task = (await db.select(db.tasks).get()).single;
     final migrated = await db.select(db.timeEntries).get();
-    expect(migrated.single.taskId, 1);
+    expect(migrated.single.taskId, task.id);
     expect(migrated.single.description, isNull);
 
     // A fresh insert (what "finish" does) succeeds against the migrated schema.
     await db.addEntry(
-      projectId: 1,
-      taskId: 1,
+      projectId: task.projectId,
+      taskId: task.id,
       description: 'a note',
       startedAt: DateTime(2026),
       endedAt: DateTime(2026),

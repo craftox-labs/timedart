@@ -9,12 +9,12 @@ import 'package:timedart/features/deletions.dart';
 // Add/edit/delete a project, in the shared adaptive entity-editor shell.
 // Returns the new project's id when one was just created (so the caller can
 // select it), or null on edit / delete / cancel.
-Future<int?> showProjectEditor(
+Future<String?> showProjectEditor(
   BuildContext context, {
   required AppDatabase db,
   Project? project,
-  int? initialClientId,
-}) => showEntityEditor<int?>(
+  String? initialClientId,
+}) => showEntityEditor<String?>(
   context,
   builder: (ctx) =>
       ProjectForm(db: db, initial: project, initialClientId: initialClientId),
@@ -29,7 +29,7 @@ class ProjectForm extends StatefulWidget {
   });
   final AppDatabase db;
   final Project? initial; // null = create, set = edit
-  final int? initialClientId; // preselect the client when adding under one
+  final String? initialClientId; // preselect the client when adding under one
   @override
   State<ProjectForm> createState() => _ProjectFormState();
 }
@@ -38,7 +38,7 @@ class _ProjectFormState extends State<ProjectForm> {
   late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
   late final _code = TextEditingController(text: widget.initial?.code ?? '');
   late final _title = TextEditingController(text: widget.initial?.title ?? '');
-  late int? _clientId =
+  late String? _clientId =
       widget.initial?.clientId ?? widget.initialClientId; // preselect
   late final _rate = TextEditingController(
     text: rateText(widget.initial?.rate),
@@ -69,7 +69,7 @@ class _ProjectFormState extends State<ProjectForm> {
     setState(() => _rateError = null);
     final rate = parsed.value;
 
-    int? createdProjectId;
+    String? createdProjectId;
     try {
       if (_isEdit) {
         await widget.db.updateProject(
@@ -124,7 +124,7 @@ class _ProjectFormState extends State<ProjectForm> {
             return InputDecorator(
               decoration: const InputDecoration(labelText: 'Client'),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<int>(
+                child: DropdownButton<String>(
                   isExpanded: true,
                   value: value,
                   icon: kDropdownChevron,
