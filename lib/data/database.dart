@@ -205,6 +205,40 @@ class AppSettings extends Table {
   Set<Column> get primaryKey => {key};
 }
 
+/// The single currently-running timer, persisted so it survives a restart and
+/// syncs across devices (PRD #189, Phase 3) — the durable source of truth that
+/// replaces the in-memory `TimerSession` singleton. At most one **live**
+/// (`deletedAt IS NULL`) row exists; [AppDatabase.watchActiveTimer] reads it and
+/// the timer store keeps it to one. Elapsed time is *derived*, never ticked into
+/// the DB: [accumulatedSeconds] is the tracked time frozen at the last pause, and
+/// [runningSince] is when the current run began (`null` = paused), so live
+/// elapsed = `accumulatedSeconds + (runningSince == null ? 0 : now - runningSince)`.
+/// The row is written only on transitions (start/pause/resume/finish), never per
+/// tick, which keeps sync quiet. On finish the row is tombstoned (Phase 2b).
+@DataClassName('ActiveTimer')
+class ActiveTimers extends Table {
+  TextColumn get id => text().clientDefault(() => idGen.newId())();
+  // The bound work — nullable until the timer is bound at first start (mirrors
+  // TimerSession binding project/task at start so a mid-session selection change
+  // can't misattribute time).
+  TextColumn get projectId => text().nullable().references(Projects, #id)();
+  TextColumn get taskId => text().nullable().references(Tasks, #id)();
+  // The in-progress session note (becomes the finished entry's description).
+  // Persisted here so it survives a restart, not just the bound work (v15).
+  TextColumn get description => text().nullable()();
+  DateTimeColumn get startedAt => dateTime().nullable()();
+  IntColumn get accumulatedSeconds =>
+      integer().withDefault(const Constant(0))();
+  DateTimeColumn get runningSince => dateTime().nullable()(); // null = paused
+  DateTimeColumn get createdAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get updatedAt =>
+      dateTime().nullable().clientDefault(() => DateTime.now())();
+  DateTimeColumn get deletedAt => dateTime().nullable()(); // tombstone on finish
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Thrown by a delete when a referential-integrity rule blocks it: the row has
 /// dependents that must be removed first. [entity] names what couldn't be
 /// deleted ('client' | 'project' | 'task') for logging and tests; the UI owns
@@ -225,6 +259,7 @@ class DeleteBlockedException implements Exception {
     Templates,
     Profiles,
     AppSettings,
+    ActiveTimers,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -232,7 +267,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 15;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -727,6 +762,29 @@ class AppDatabase extends _$AppDatabase {
         // 4. Temp maps are per-connection — drop the ones we created.
         for (final table in present) {
           await customStatement('DROP TABLE _idmap_$table');
+        }
+      }
+      // v13 → v14: DB-backed timer (PRD #189, Phase 3). A brand-new table for
+      // the persisted active timer — no prior DB has it, so every upgrade path
+      // creates it. Guarded from<14 so a future bump can't re-run createTable.
+      if (from < 14) {
+        await m.createTable(activeTimers);
+      }
+      // v14 → v15: persist the session note on the active-timer row so it
+      // survives a restart (not just the bound project/task). Nullable add —
+      // legal ALTER; guarded add-if-missing (a from<14 DB just created the table
+      // at the current shape, which already has the column).
+      if (from < 15) {
+        final exists = (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = 'active_timers'",
+        ).get()).isNotEmpty;
+        if (exists) {
+          final cols = await customSelect(
+            'PRAGMA table_info(active_timers)',
+          ).get();
+          if (!cols.any((r) => r.read<String>('name') == 'description')) {
+            await m.addColumn(activeTimers, activeTimers.description);
+          }
         }
       }
     },
@@ -1237,4 +1295,37 @@ class AppDatabase extends _$AppDatabase {
             ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
           .get();
 
+  // ── Active timer (DB-backed timer; PRD #189, Phase 3) ─────────────────────
+  // Raw accessors for the single live active-timer row. Transition/recovery
+  // logic lives in the TimerStore deep module (features/tracker/timer_store).
+  // `limit(1)` guards against ever seeing >1 live row (shouldn't happen before
+  // sync; watchSingleOrNull would otherwise throw).
+  Stream<ActiveTimer?> watchActiveTimer() =>
+      (select(activeTimers)
+            ..where((t) => t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+            ..limit(1))
+          .watchSingleOrNull();
+
+  Future<ActiveTimer?> activeTimer() =>
+      (select(activeTimers)
+            ..where((t) => t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+            ..limit(1))
+          .getSingleOrNull();
+
+  // Insert-or-update the active-timer row by id, re-stamping updatedAt at the
+  // choke-point (like every other write).
+  Future<void> saveActiveTimer(ActiveTimersCompanion row) => into(
+    activeTimers,
+  ).insertOnConflictUpdate(row.copyWith(updatedAt: Value(DateTime.now())));
+
+  // Soft-delete (tombstone) the active-timer row on finish, so the "stopped"
+  // propagates across devices once sync lands.
+  Future<void> tombstoneActiveTimer(String id) {
+    final now = DateTime.now();
+    return (update(activeTimers)..where((t) => t.id.equals(id))).write(
+      ActiveTimersCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+  }
 }

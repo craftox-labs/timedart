@@ -121,7 +121,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // Panel search field, owned here so `/` from any pane jumps into search.
   final FocusNode _panelSearch = FocusNode(debugLabel: 'panelSearch');
   // Lets a global Space toggle the timer from any pane while it's in view.
-  final TimerController _timer = TimerController();
+  // DB-backed (Phase 3) — constructed with the db and recovered in initState.
+  late final TimerController _timer;
   // Chord state for global sequences (the Ctrl-w window motion) when focus is
   // on a pane that bubbles them here (e.g. the content editors). The list panes
   // own their own detectors and forward focusTracker/focusPanel via callbacks.
@@ -394,6 +395,16 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void initState() {
     super.initState();
+    // DB-backed timer: build with the db and recover any persisted running
+    // session so it survives a restart (PRD #189, Phase 3). If a session comes
+    // back bound to a project, select it so the tracker opens on the work in
+    // progress (the tracker then reveals the active task itself).
+    _timer = TimerController(widget.db);
+    _timer.recover().then((_) {
+      if (!mounted) return;
+      final pid = _timer.boundProjectId;
+      if (pid != null) setState(() => _selectedProjectId = pid);
+    });
     // Start with the gate-resolved selection so the tracker paints content on
     // its first frame; fall back to seeding a default only if none was passed.
     _selectedProjectId = widget.initialSelectedProjectId;

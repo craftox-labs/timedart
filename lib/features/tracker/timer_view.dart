@@ -5,6 +5,7 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/tracker/timer_controls.dart';
 import 'package:timedart/features/tracker/timer_session.dart';
+import 'package:timedart/features/tracker/timer_store.dart';
 import 'package:timedart/constants/format.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/tracker/task_rows.dart';
@@ -18,7 +19,12 @@ import 'package:timedart/features/tracker/entry_form.dart';
 /// discards a running session. The view renders from this and listens for
 /// repaints.
 class TimerController extends ChangeNotifier {
-  final _session = TimerSession();
+  TimerController(AppDatabase db) : _store = TimerStore(db);
+
+  // The DB-backed timer store (PRD #189, Phase 3) — owns the pure state machine
+  // plus persistence of the active-timer row, so a running timer survives a
+  // restart and (once sync lands) travels across devices.
+  final TimerStore _store;
   Timer? _ticker;
   // Optional description for the session in progress, becoming the finished
   // entry's description. Lives here so it survives content-pane switches.
@@ -28,41 +34,69 @@ class TimerController extends ChangeNotifier {
   // Null when no tracker is on screen.
   VoidCallback? primary;
 
-  int get elapsed => _session.elapsed;
-  bool get isRunning => _session.isRunning;
-  bool get hasSession => _session.hasSession;
-  String? get boundTaskId => _session.boundTaskId;
+  int get elapsed => _store.session.elapsed;
+  bool get isRunning => _store.session.isRunning;
+  bool get hasSession => _store.session.hasSession;
+  String? get boundProjectId => _store.session.boundProjectId;
+  String? get boundTaskId => _store.session.boundTaskId;
 
-  void startOrResume(String? projectId, String? taskId) {
-    if (_session.isRunning) return;
-    _session.start(projectId, taskId, now: DateTime.now());
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      _session.tick();
-      notifyListeners();
-    });
+  /// Recover a persisted timer on startup and resume its ticker if it was
+  /// running. Called once by the shell after construction.
+  Future<void> recover() async {
+    await _store.recover(now: DateTime.now());
+    // Restore the session note into the field so a recovered timer shows it.
+    final note = _store.recoveredDescription;
+    if (note != null) description.text = note;
+    if (_store.session.isRunning) _startTicker();
     notifyListeners();
   }
 
-  void pause() {
-    _ticker?.cancel();
-    _session.pause();
-    notifyListeners();
+  String? get _note {
+    final t = description.text.trim();
+    return t.isEmpty ? null : t;
   }
 
-  /// Stop and return what to persist (or null when there's nothing). Does not
-  /// clear, so a failed write can be retried against an intact session.
-  FinishedSession? stop() {
+  Future<void> startOrResume(String? projectId, String? taskId) async {
+    if (_store.session.isRunning) return;
+    // _store.start runs the state-machine transition synchronously before its
+    // first await, so the session is running by the time the ticker fires. The
+    // current note rides along so it survives a restart.
+    final persisted = _store.start(
+      projectId,
+      taskId,
+      now: DateTime.now(),
+      description: _note,
+    );
+    _startTicker();
+    notifyListeners();
+    await persisted;
+  }
+
+  Future<void> pause() async {
     _ticker?.cancel();
-    final result = _session.finish(now: DateTime.now());
+    final persisted = _store.pause(now: DateTime.now(), description: _note);
+    notifyListeners();
+    await persisted;
+  }
+
+  /// Stop: persist the finished span as a TimeEntry, tombstone the active-timer
+  /// row, reset, and clear the description. Returns what was saved (null when
+  /// there's nothing to record). Rethrows a write failure with the session
+  /// intact so the user can retry.
+  Future<FinishedSession?> finish() async {
+    _ticker?.cancel();
+    final result = await _store.finish(now: DateTime.now(), description: _note);
+    description.clear();
     notifyListeners();
     return result;
   }
 
-  void reset() {
-    _session.reset();
-    description.clear();
-    notifyListeners();
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      _store.tick();
+      notifyListeners();
+    });
   }
 
   @override
@@ -107,7 +141,8 @@ class _TimerViewState extends State<TimerView> {
   // controller is supplied (standalone use) an internal one stands in.
   TimerController? _internalController;
   TimerController get _c =>
-      widget.controller ?? (_internalController ??= TimerController());
+      widget.controller ??
+      (_internalController ??= TimerController(widget.db)..recover());
   Stream<List<TimeEntry>>? _entriesStream; // entries for the selected project
   Stream<List<Task>>? _tasksStream; // tasks for the selected project
   Stream<(Project, Client)?>? _projectStream;
@@ -128,6 +163,9 @@ class _TimerViewState extends State<TimerView> {
   final Set<String> _expanded = {}; // expanded task ids
   List<TaskListRow> _rows = const [];
   int _cursor = 0;
+  // One-shot: on first load with a recovered/running session, move the cursor to
+  // the active task and scroll it into view (once its row is present).
+  bool _revealedActiveTask = false;
   final _cursorKey = GlobalKey(); // rides the focused row for ensureVisible
   final _scroll = ScrollController();
   static const _estRowHeight = 56.0; // rough row height for off-screen jumps
@@ -220,28 +258,12 @@ class _TimerViewState extends State<TimerView> {
   void _pause() => _c.pause();
 
   Future<void> _finish() async {
-    final result = _c.stop();
-
-    // Nothing to record (empty session, or no project/task was ever bound).
-    if (result == null) {
-      _c.reset();
-      return;
-    }
-
-    final desc = _c.description.text.trim();
     try {
-      // Await the write so a failure is caught rather than silently lost.
-      await widget.db.addEntry(
-        projectId: result.projectId,
-        taskId: result.taskId,
-        description: desc.isEmpty ? null : desc,
-        startedAt: result.startedAt,
-        endedAt: result.endedAt,
-        seconds: result.seconds,
-      );
-      _c.reset();
+      // The controller/store persists the entry, tombstones the active-timer
+      // row, and resets; await so a write failure is caught (session left
+      // intact for a retry) rather than silently lost.
+      await _c.finish();
     } catch (e) {
-      // Keep the session intact so the user can retry instead of losing time.
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -491,6 +513,21 @@ class _TimerViewState extends State<TimerView> {
     );
     if (_cursor >= _rows.length) {
       _cursor = _rows.isEmpty ? 0 : _rows.length - 1;
+    }
+
+    // Reveal the in-progress task once its row is available (after recovery has
+    // rebuilt the session and this project's tasks have loaded). Post-frame so
+    // we don't setState mid-build; guarded to fire only once.
+    if (!_revealedActiveTask && _c.hasSession) {
+      final i = _rows.indexWhere(
+        (r) => r is TaskHeaderRow && r.taskId == _c.boundTaskId,
+      );
+      if (i >= 0) {
+        _revealedActiveTask = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _jumpTo(i);
+        });
+      }
     }
 
     return ListenableBuilder(

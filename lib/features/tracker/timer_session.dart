@@ -33,9 +33,27 @@ class TimerSession {
 
   int get elapsed => _elapsed;
   bool get isRunning => _running;
+  DateTime? get startedAt => _startedAt;
   String? get boundProjectId => _boundProjectId;
   String? get boundTaskId => _boundTaskId;
   bool get hasSession => _running || _elapsed > 0;
+
+  /// Rebuild the session from persisted state (PRD #189, Phase 3 recovery). Used
+  /// by the [TimerStore] to restore a DB-backed timer on startup; [elapsed] is
+  /// the already-derived tracked seconds (accumulated + any running gap).
+  void restore({
+    required int elapsed,
+    required DateTime? startedAt,
+    required String? projectId,
+    required String? taskId,
+    required bool running,
+  }) {
+    _elapsed = elapsed;
+    _startedAt = startedAt;
+    _boundProjectId = projectId;
+    _boundTaskId = taskId;
+    _running = running;
+  }
 
   /// Start or resume. Binds [projectId]/[taskId] at first start so a selection
   /// change mid-session can't misattribute time; a no-op while running.

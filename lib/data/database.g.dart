@@ -5365,6 +5365,639 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   }
 }
 
+class $ActiveTimersTable extends ActiveTimers
+    with TableInfo<$ActiveTimersTable, ActiveTimer> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActiveTimersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: () => idGen.newId(),
+  );
+  static const VerificationMeta _projectIdMeta = const VerificationMeta(
+    'projectId',
+  );
+  @override
+  late final GeneratedColumn<String> projectId = GeneratedColumn<String>(
+    'project_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES projects (id)',
+    ),
+  );
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<String> taskId = GeneratedColumn<String>(
+    'task_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tasks (id)',
+    ),
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accumulatedSecondsMeta =
+      const VerificationMeta('accumulatedSeconds');
+  @override
+  late final GeneratedColumn<int> accumulatedSeconds = GeneratedColumn<int>(
+    'accumulated_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _runningSinceMeta = const VerificationMeta(
+    'runningSince',
+  );
+  @override
+  late final GeneratedColumn<DateTime> runningSince = GeneratedColumn<DateTime>(
+    'running_since',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now(),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now(),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    projectId,
+    taskId,
+    description,
+    startedAt,
+    accumulatedSeconds,
+    runningSince,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'active_timers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActiveTimer> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('project_id')) {
+      context.handle(
+        _projectIdMeta,
+        projectId.isAcceptableOrUnknown(data['project_id']!, _projectIdMeta),
+      );
+    }
+    if (data.containsKey('task_id')) {
+      context.handle(
+        _taskIdMeta,
+        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    }
+    if (data.containsKey('accumulated_seconds')) {
+      context.handle(
+        _accumulatedSecondsMeta,
+        accumulatedSeconds.isAcceptableOrUnknown(
+          data['accumulated_seconds']!,
+          _accumulatedSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('running_since')) {
+      context.handle(
+        _runningSinceMeta,
+        runningSince.isAcceptableOrUnknown(
+          data['running_since']!,
+          _runningSinceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ActiveTimer map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActiveTimer(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      projectId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}project_id'],
+      ),
+      taskId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}task_id'],
+      ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      ),
+      accumulatedSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}accumulated_seconds'],
+      )!,
+      runningSince: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}running_since'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $ActiveTimersTable createAlias(String alias) {
+    return $ActiveTimersTable(attachedDatabase, alias);
+  }
+}
+
+class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
+  final String id;
+  final String? projectId;
+  final String? taskId;
+  final String? description;
+  final DateTime? startedAt;
+  final int accumulatedSeconds;
+  final DateTime? runningSince;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  const ActiveTimer({
+    required this.id,
+    this.projectId,
+    this.taskId,
+    this.description,
+    this.startedAt,
+    required this.accumulatedSeconds,
+    this.runningSince,
+    this.createdAt,
+    this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || projectId != null) {
+      map['project_id'] = Variable<String>(projectId);
+    }
+    if (!nullToAbsent || taskId != null) {
+      map['task_id'] = Variable<String>(taskId);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || startedAt != null) {
+      map['started_at'] = Variable<DateTime>(startedAt);
+    }
+    map['accumulated_seconds'] = Variable<int>(accumulatedSeconds);
+    if (!nullToAbsent || runningSince != null) {
+      map['running_since'] = Variable<DateTime>(runningSince);
+    }
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  ActiveTimersCompanion toCompanion(bool nullToAbsent) {
+    return ActiveTimersCompanion(
+      id: Value(id),
+      projectId: projectId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(projectId),
+      taskId: taskId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(taskId),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      startedAt: startedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedAt),
+      accumulatedSeconds: Value(accumulatedSeconds),
+      runningSince: runningSince == null && nullToAbsent
+          ? const Value.absent()
+          : Value(runningSince),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory ActiveTimer.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActiveTimer(
+      id: serializer.fromJson<String>(json['id']),
+      projectId: serializer.fromJson<String?>(json['projectId']),
+      taskId: serializer.fromJson<String?>(json['taskId']),
+      description: serializer.fromJson<String?>(json['description']),
+      startedAt: serializer.fromJson<DateTime?>(json['startedAt']),
+      accumulatedSeconds: serializer.fromJson<int>(json['accumulatedSeconds']),
+      runningSince: serializer.fromJson<DateTime?>(json['runningSince']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'projectId': serializer.toJson<String?>(projectId),
+      'taskId': serializer.toJson<String?>(taskId),
+      'description': serializer.toJson<String?>(description),
+      'startedAt': serializer.toJson<DateTime?>(startedAt),
+      'accumulatedSeconds': serializer.toJson<int>(accumulatedSeconds),
+      'runningSince': serializer.toJson<DateTime?>(runningSince),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  ActiveTimer copyWith({
+    String? id,
+    Value<String?> projectId = const Value.absent(),
+    Value<String?> taskId = const Value.absent(),
+    Value<String?> description = const Value.absent(),
+    Value<DateTime?> startedAt = const Value.absent(),
+    int? accumulatedSeconds,
+    Value<DateTime?> runningSince = const Value.absent(),
+    Value<DateTime?> createdAt = const Value.absent(),
+    Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => ActiveTimer(
+    id: id ?? this.id,
+    projectId: projectId.present ? projectId.value : this.projectId,
+    taskId: taskId.present ? taskId.value : this.taskId,
+    description: description.present ? description.value : this.description,
+    startedAt: startedAt.present ? startedAt.value : this.startedAt,
+    accumulatedSeconds: accumulatedSeconds ?? this.accumulatedSeconds,
+    runningSince: runningSince.present ? runningSince.value : this.runningSince,
+    createdAt: createdAt.present ? createdAt.value : this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  ActiveTimer copyWithCompanion(ActiveTimersCompanion data) {
+    return ActiveTimer(
+      id: data.id.present ? data.id.value : this.id,
+      projectId: data.projectId.present ? data.projectId.value : this.projectId,
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      accumulatedSeconds: data.accumulatedSeconds.present
+          ? data.accumulatedSeconds.value
+          : this.accumulatedSeconds,
+      runningSince: data.runningSince.present
+          ? data.runningSince.value
+          : this.runningSince,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActiveTimer(')
+          ..write('id: $id, ')
+          ..write('projectId: $projectId, ')
+          ..write('taskId: $taskId, ')
+          ..write('description: $description, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('accumulatedSeconds: $accumulatedSeconds, ')
+          ..write('runningSince: $runningSince, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    projectId,
+    taskId,
+    description,
+    startedAt,
+    accumulatedSeconds,
+    runningSince,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActiveTimer &&
+          other.id == this.id &&
+          other.projectId == this.projectId &&
+          other.taskId == this.taskId &&
+          other.description == this.description &&
+          other.startedAt == this.startedAt &&
+          other.accumulatedSeconds == this.accumulatedSeconds &&
+          other.runningSince == this.runningSince &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
+  final Value<String> id;
+  final Value<String?> projectId;
+  final Value<String?> taskId;
+  final Value<String?> description;
+  final Value<DateTime?> startedAt;
+  final Value<int> accumulatedSeconds;
+  final Value<DateTime?> runningSince;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const ActiveTimersCompanion({
+    this.id = const Value.absent(),
+    this.projectId = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.description = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.accumulatedSeconds = const Value.absent(),
+    this.runningSince = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ActiveTimersCompanion.insert({
+    this.id = const Value.absent(),
+    this.projectId = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.description = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.accumulatedSeconds = const Value.absent(),
+    this.runningSince = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  static Insertable<ActiveTimer> custom({
+    Expression<String>? id,
+    Expression<String>? projectId,
+    Expression<String>? taskId,
+    Expression<String>? description,
+    Expression<DateTime>? startedAt,
+    Expression<int>? accumulatedSeconds,
+    Expression<DateTime>? runningSince,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (projectId != null) 'project_id': projectId,
+      if (taskId != null) 'task_id': taskId,
+      if (description != null) 'description': description,
+      if (startedAt != null) 'started_at': startedAt,
+      if (accumulatedSeconds != null) 'accumulated_seconds': accumulatedSeconds,
+      if (runningSince != null) 'running_since': runningSince,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ActiveTimersCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? projectId,
+    Value<String?>? taskId,
+    Value<String?>? description,
+    Value<DateTime?>? startedAt,
+    Value<int>? accumulatedSeconds,
+    Value<DateTime?>? runningSince,
+    Value<DateTime?>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return ActiveTimersCompanion(
+      id: id ?? this.id,
+      projectId: projectId ?? this.projectId,
+      taskId: taskId ?? this.taskId,
+      description: description ?? this.description,
+      startedAt: startedAt ?? this.startedAt,
+      accumulatedSeconds: accumulatedSeconds ?? this.accumulatedSeconds,
+      runningSince: runningSince ?? this.runningSince,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (projectId.present) {
+      map['project_id'] = Variable<String>(projectId.value);
+    }
+    if (taskId.present) {
+      map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (accumulatedSeconds.present) {
+      map['accumulated_seconds'] = Variable<int>(accumulatedSeconds.value);
+    }
+    if (runningSince.present) {
+      map['running_since'] = Variable<DateTime>(runningSince.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActiveTimersCompanion(')
+          ..write('id: $id, ')
+          ..write('projectId: $projectId, ')
+          ..write('taskId: $taskId, ')
+          ..write('description: $description, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('accumulatedSeconds: $accumulatedSeconds, ')
+          ..write('runningSince: $runningSince, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5375,6 +6008,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TemplatesTable templates = $TemplatesTable(this);
   late final $ProfilesTable profiles = $ProfilesTable(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $ActiveTimersTable activeTimers = $ActiveTimersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5387,6 +6021,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     templates,
     profiles,
     appSettings,
+    activeTimers,
   ];
 }
 
@@ -5907,6 +6542,24 @@ final class $$ProjectsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$ActiveTimersTable, List<ActiveTimer>>
+  _activeTimersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.activeTimers,
+    aliasName: 'projects__id__active_timers__project_id',
+  );
+
+  $$ActiveTimersTableProcessedTableManager get activeTimersRefs {
+    final manager = $$ActiveTimersTableTableManager(
+      $_db,
+      $_db.activeTimers,
+    ).filter((f) => f.projectId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_activeTimersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ProjectsTableFilterComposer
@@ -6022,6 +6675,31 @@ class $$ProjectsTableFilterComposer
           }) => $$TimeEntriesTableFilterComposer(
             $db: $db,
             $table: $db.timeEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> activeTimersRefs(
+    Expression<bool> Function($$ActiveTimersTableFilterComposer f) f,
+  ) {
+    final $$ActiveTimersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.activeTimers,
+      getReferencedColumn: (t) => t.projectId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActiveTimersTableFilterComposer(
+            $db: $db,
+            $table: $db.activeTimers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6210,6 +6888,31 @@ class $$ProjectsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> activeTimersRefs<T extends Object>(
+    Expression<T> Function($$ActiveTimersTableAnnotationComposer a) f,
+  ) {
+    final $$ActiveTimersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.activeTimers,
+      getReferencedColumn: (t) => t.projectId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActiveTimersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.activeTimers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ProjectsTableTableManager
@@ -6229,6 +6932,7 @@ class $$ProjectsTableTableManager
             bool clientId,
             bool tasksRefs,
             bool timeEntriesRefs,
+            bool activeTimersRefs,
           })
         > {
   $$ProjectsTableTableManager(_$AppDatabase db, $ProjectsTable table)
@@ -6299,12 +7003,18 @@ class $$ProjectsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({clientId = false, tasksRefs = false, timeEntriesRefs = false}) {
+              ({
+                clientId = false,
+                tasksRefs = false,
+                timeEntriesRefs = false,
+                activeTimersRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (tasksRefs) db.tasks,
                     if (timeEntriesRefs) db.timeEntries,
+                    if (activeTimersRefs) db.activeTimers,
                   ],
                   addJoins:
                       <
@@ -6382,6 +7092,27 @@ class $$ProjectsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (activeTimersRefs)
+                        await $_getPrefetchedData<
+                          Project,
+                          $ProjectsTable,
+                          ActiveTimer
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ProjectsTableReferences
+                              ._activeTimersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ProjectsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activeTimersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.projectId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6406,6 +7137,7 @@ typedef $$ProjectsTableProcessedTableManager =
         bool clientId,
         bool tasksRefs,
         bool timeEntriesRefs,
+        bool activeTimersRefs,
       })
     >;
 typedef $$TasksTableCreateCompanionBuilder =
@@ -6467,6 +7199,24 @@ final class $$TasksTableReferences
     ).filter((f) => f.taskId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_timeEntriesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ActiveTimersTable, List<ActiveTimer>>
+  _activeTimersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.activeTimers,
+    aliasName: 'tasks__id__active_timers__task_id',
+  );
+
+  $$ActiveTimersTableProcessedTableManager get activeTimersRefs {
+    final manager = $$ActiveTimersTableTableManager(
+      $_db,
+      $_db.activeTimers,
+    ).filter((f) => f.taskId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_activeTimersRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -6555,6 +7305,31 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
           }) => $$TimeEntriesTableFilterComposer(
             $db: $db,
             $table: $db.timeEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> activeTimersRefs(
+    Expression<bool> Function($$ActiveTimersTableFilterComposer f) f,
+  ) {
+    final $$ActiveTimersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.activeTimers,
+      getReferencedColumn: (t) => t.taskId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActiveTimersTableFilterComposer(
+            $db: $db,
+            $table: $db.activeTimers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6710,6 +7485,31 @@ class $$TasksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> activeTimersRefs<T extends Object>(
+    Expression<T> Function($$ActiveTimersTableAnnotationComposer a) f,
+  ) {
+    final $$ActiveTimersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.activeTimers,
+      getReferencedColumn: (t) => t.taskId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActiveTimersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.activeTimers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TasksTableTableManager
@@ -6725,7 +7525,11 @@ class $$TasksTableTableManager
           $$TasksTableUpdateCompanionBuilder,
           (Task, $$TasksTableReferences),
           Task,
-          PrefetchHooks Function({bool projectId, bool timeEntriesRefs})
+          PrefetchHooks Function({
+            bool projectId,
+            bool timeEntriesRefs,
+            bool activeTimersRefs,
+          })
         > {
   $$TasksTableTableManager(_$AppDatabase db, $TasksTable table)
     : super(
@@ -6789,11 +7593,16 @@ class $$TasksTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({projectId = false, timeEntriesRefs = false}) {
+              ({
+                projectId = false,
+                timeEntriesRefs = false,
+                activeTimersRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (timeEntriesRefs) db.timeEntries,
+                    if (activeTimersRefs) db.activeTimers,
                   ],
                   addJoins:
                       <
@@ -6846,6 +7655,27 @@ class $$TasksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (activeTimersRefs)
+                        await $_getPrefetchedData<
+                          Task,
+                          $TasksTable,
+                          ActiveTimer
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TasksTableReferences
+                              ._activeTimersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TasksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activeTimersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.taskId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6866,7 +7696,11 @@ typedef $$TasksTableProcessedTableManager =
       $$TasksTableUpdateCompanionBuilder,
       (Task, $$TasksTableReferences),
       Task,
-      PrefetchHooks Function({bool projectId, bool timeEntriesRefs})
+      PrefetchHooks Function({
+        bool projectId,
+        bool timeEntriesRefs,
+        bool activeTimersRefs,
+      })
     >;
 typedef $$TimeEntriesTableCreateCompanionBuilder =
     TimeEntriesCompanion Function({
@@ -8919,6 +9753,510 @@ typedef $$AppSettingsTableProcessedTableManager =
       AppSetting,
       PrefetchHooks Function()
     >;
+typedef $$ActiveTimersTableCreateCompanionBuilder =
+    ActiveTimersCompanion Function({
+      Value<String> id,
+      Value<String?> projectId,
+      Value<String?> taskId,
+      Value<String?> description,
+      Value<DateTime?> startedAt,
+      Value<int> accumulatedSeconds,
+      Value<DateTime?> runningSince,
+      Value<DateTime?> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$ActiveTimersTableUpdateCompanionBuilder =
+    ActiveTimersCompanion Function({
+      Value<String> id,
+      Value<String?> projectId,
+      Value<String?> taskId,
+      Value<String?> description,
+      Value<DateTime?> startedAt,
+      Value<int> accumulatedSeconds,
+      Value<DateTime?> runningSince,
+      Value<DateTime?> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<int> rowid,
+    });
+
+final class $$ActiveTimersTableReferences
+    extends BaseReferences<_$AppDatabase, $ActiveTimersTable, ActiveTimer> {
+  $$ActiveTimersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $ProjectsTable _projectIdTable(_$AppDatabase db) =>
+      db.projects.createAlias('active_timers__project_id__projects__id');
+
+  $$ProjectsTableProcessedTableManager? get projectId {
+    final $_column = $_itemColumn<String>('project_id');
+    if ($_column == null) return null;
+    final manager = $$ProjectsTableTableManager(
+      $_db,
+      $_db.projects,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_projectIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $TasksTable _taskIdTable(_$AppDatabase db) =>
+      db.tasks.createAlias('active_timers__task_id__tasks__id');
+
+  $$TasksTableProcessedTableManager? get taskId {
+    final $_column = $_itemColumn<String>('task_id');
+    if ($_column == null) return null;
+    final manager = $$TasksTableTableManager(
+      $_db,
+      $_db.tasks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_taskIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ActiveTimersTableFilterComposer
+    extends Composer<_$AppDatabase, $ActiveTimersTable> {
+  $$ActiveTimersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get accumulatedSeconds => $composableBuilder(
+    column: $table.accumulatedSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get runningSince => $composableBuilder(
+    column: $table.runningSince,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ProjectsTableFilterComposer get projectId {
+    final $$ProjectsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProjectsTableFilterComposer(
+            $db: $db,
+            $table: $db.projects,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TasksTableFilterComposer get taskId {
+    final $$TasksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.taskId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableFilterComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActiveTimersTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActiveTimersTable> {
+  $$ActiveTimersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get accumulatedSeconds => $composableBuilder(
+    column: $table.accumulatedSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get runningSince => $composableBuilder(
+    column: $table.runningSince,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ProjectsTableOrderingComposer get projectId {
+    final $$ProjectsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProjectsTableOrderingComposer(
+            $db: $db,
+            $table: $db.projects,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TasksTableOrderingComposer get taskId {
+    final $$TasksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.taskId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableOrderingComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActiveTimersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActiveTimersTable> {
+  $$ActiveTimersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get accumulatedSeconds => $composableBuilder(
+    column: $table.accumulatedSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get runningSince => $composableBuilder(
+    column: $table.runningSince,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$ProjectsTableAnnotationComposer get projectId {
+    final $$ProjectsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.projectId,
+      referencedTable: $db.projects,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProjectsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.projects,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TasksTableAnnotationComposer get taskId {
+    final $$TasksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.taskId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActiveTimersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ActiveTimersTable,
+          ActiveTimer,
+          $$ActiveTimersTableFilterComposer,
+          $$ActiveTimersTableOrderingComposer,
+          $$ActiveTimersTableAnnotationComposer,
+          $$ActiveTimersTableCreateCompanionBuilder,
+          $$ActiveTimersTableUpdateCompanionBuilder,
+          (ActiveTimer, $$ActiveTimersTableReferences),
+          ActiveTimer,
+          PrefetchHooks Function({bool projectId, bool taskId})
+        > {
+  $$ActiveTimersTableTableManager(_$AppDatabase db, $ActiveTimersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActiveTimersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ActiveTimersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ActiveTimersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> projectId = const Value.absent(),
+                Value<String?> taskId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<DateTime?> startedAt = const Value.absent(),
+                Value<int> accumulatedSeconds = const Value.absent(),
+                Value<DateTime?> runningSince = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActiveTimersCompanion(
+                id: id,
+                projectId: projectId,
+                taskId: taskId,
+                description: description,
+                startedAt: startedAt,
+                accumulatedSeconds: accumulatedSeconds,
+                runningSince: runningSince,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> projectId = const Value.absent(),
+                Value<String?> taskId = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<DateTime?> startedAt = const Value.absent(),
+                Value<int> accumulatedSeconds = const Value.absent(),
+                Value<DateTime?> runningSince = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActiveTimersCompanion.insert(
+                id: id,
+                projectId: projectId,
+                taskId: taskId,
+                description: description,
+                startedAt: startedAt,
+                accumulatedSeconds: accumulatedSeconds,
+                runningSince: runningSince,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ActiveTimersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({projectId = false, taskId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (projectId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.projectId,
+                                referencedTable: $$ActiveTimersTableReferences
+                                    ._projectIdTable(db),
+                                referencedColumn: $$ActiveTimersTableReferences
+                                    ._projectIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (taskId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.taskId,
+                                referencedTable: $$ActiveTimersTableReferences
+                                    ._taskIdTable(db),
+                                referencedColumn: $$ActiveTimersTableReferences
+                                    ._taskIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ActiveTimersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ActiveTimersTable,
+      ActiveTimer,
+      $$ActiveTimersTableFilterComposer,
+      $$ActiveTimersTableOrderingComposer,
+      $$ActiveTimersTableAnnotationComposer,
+      $$ActiveTimersTableCreateCompanionBuilder,
+      $$ActiveTimersTableUpdateCompanionBuilder,
+      (ActiveTimer, $$ActiveTimersTableReferences),
+      ActiveTimer,
+      PrefetchHooks Function({bool projectId, bool taskId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8937,4 +10275,6 @@ class $AppDatabaseManager {
       $$ProfilesTableTableManager(_db, _db.profiles);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$ActiveTimersTableTableManager get activeTimers =>
+      $$ActiveTimersTableTableManager(_db, _db.activeTimers);
 }
