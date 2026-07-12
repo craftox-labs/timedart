@@ -52,12 +52,12 @@ from the same codebase.
 ## Why timedart
 
 - **Structured, not scattered.** Organise work as **clients → projects → tasks**, and record each timed session as an **entry** under a task. Your history reads like your workload, not a flat log.
-- **A timer that stays out of the way.** Start, pause, resume, and finish with a single key — from anywhere in the app. The running session survives while you edit a client, add a project, or preview an invoice.
+- **A timer that stays out of the way.** Start, pause, resume, and finish with a single key — from anywhere in the app. The running session survives while you edit a client, add a project, or preview an invoice — and it's persisted, so it even resumes at the right elapsed time after an app restart or crash.
 - **Rates that just resolve.** Set a default rate on a client, override it per project or per task; every entry bills at the right rate automatically.
 - **Invoices in seconds.** Pick a project and a date range, preview the itemised entries and total, and export a clean PDF — no spreadsheet round-trip.
-- **Yours, on your disk.** Everything persists locally in SQLite. No account, no cloud, no sync — nothing leaves your machine.
+- **Yours, on your disk.** Everything persists locally in SQLite. No account, no cloud — nothing leaves your machine. Back up or move it yourself with one-click export / import.
 - **Keyboard-first.** The whole app is drivable without the mouse, vim-style. Press `?` any time for the full shortcut map.
-- **One app, every screen.** A roomy two-pane layout on desktop folds into a drawer on narrow windows — same features throughout.
+- **One app, every screen.** A roomy two-pane layout on desktop folds to a single-pane phone layout with a bottom navigation bar — same features throughout.
 
 ## Screenshots
 
@@ -86,12 +86,13 @@ from the same codebase.
 ## Feature tour
 
 - **First-run onboarding** — a brief branded intro on launch, then a skippable setup that explains how timedart works and captures your business identity (name, logo, email) and region — which auto-sets your currency and tax label — straight into your default invoice profile. Re-run it any time from **Settings → General**.
-- **Timer** — `hh:mm:ss` count-up bound to a task, with start / pause / resume / finish. Name a session or let it inherit the task title.
+- **Timer** — `hh:mm:ss` count-up bound to a task, with start / pause / resume / finish. Name a session or let it inherit the task title. The active timer is persisted, so it survives an app restart or crash and resumes where it left off.
 - **Clients, projects & tasks** — full create / edit / delete for each, in quick modal editors. Deletes are guarded so you can't accidentally erase billable history.
 - **Entries** — adjust the task, note, start time, and duration of any recorded segment after the fact.
 - **Invoicing** — per-project, date-ranged, itemised at the effective rate, exported to a branded PDF. Pick the profile and set an invoice number at export; the date range is chosen in a compact modal.
 - **Invoice branding** — design how invoices look and read: reusable **templates** (colours, logo, font) and **profiles** (business identity, region-aware bank / payment details, currency, optional tax) that each carry a template. Manage them under **Settings**: selecting one opens a read-only preview first, with an Edit action that reveals the form (protected by an unsaved-changes prompt if you navigate away mid-edit).
-- **Adaptive UI** — persistent side panel + content pane when there's room; a drawer when there isn't.
+- **Backup & restore** — export your entire database to a portable JSON file and import it on any install (**Settings → General**). Import automatically repairs orphaned rows from older data.
+- **Adaptive UI** — persistent side panel + content pane when there's room; on phones, a bottom navigation bar with the client/project (and settings) lists in a slide-up panel.
 - **Design** — a considered Material 3 theme in the timedart green, Mona Sans throughout, and a single design-token source so it stays consistent.
 
 ## Keyboard
@@ -169,7 +170,9 @@ branding; and end-to-end keyboard control. Next on the horizon:
 - Bulk actions to clear out old clients and projects in one deliberate step.
 - Archiving projects you're done with, to keep the working set tidy.
 - A richer, illustrated "how it works" step in onboarding.
+- **Optional cross-device sync** — self-hostable and opt-in; the app stays fully local by default.
 - A companion **CLI** — control the timer and log entries from the terminal, **agent-ready** for LLM workflows; bundled with the app and released standalone.
+- A dedicated mobile UX pass — touch-target sizing and phone-layout polish.
 - Ongoing design polish.
 
 <details>
@@ -184,7 +187,8 @@ lib/
 ├── main.dart              wires the database into the root gate + adaptive shell
 ├── constants/             design tokens, Material 3 theme, formatting helpers
 ├── data/database.dart     drift tables + queries (Clients / Projects / Tasks / TimeEntries
-│                          · invoice Templates / Profiles · AppSettings)
+│                          · invoice Templates / Profiles · AppSettings · ActiveTimer)
+│   data/backup.dart        export / import (portable JSON snapshot)
 ├── features/
 │   ├── onboarding/        first-run gate, startup intro, stepped setup wizard
 │   ├── shell/             adaptive master–detail shell, side panel, Settings panel, shortcut overlay
