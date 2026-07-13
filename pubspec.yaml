@@ -21,7 +21,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # for when migrations are proven across versions (#160) — the "your data is safe"
 # promise. Initial download releases ship as 0.9.x betas (#167). Bump the +build
 # number each beta so Android's versionCode increments (installs over the last).
-version: 0.9.0+5
+version: 0.9.0+6
 
 environment:
   sdk: ^3.12.2
