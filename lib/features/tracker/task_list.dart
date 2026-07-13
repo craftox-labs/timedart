@@ -113,6 +113,7 @@ class TaskList extends StatelessWidget {
     return ListTile(
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
+      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : null,
       selected: row.taskId == selectedTaskId, // armed/tracking → green pill
       // A hair of horizontal content inset so text/actions aren't flush to the
       // edge; the selected fill still spans the full tile width.
@@ -190,6 +191,7 @@ class TaskList extends StatelessWidget {
     return ListTile(
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
+      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : null,
       // A transparent leading spacer the width of the task chevron + the same
       // gap and padding, so the entry text lines up exactly under the task
       // title; the time column still aligns on the right.

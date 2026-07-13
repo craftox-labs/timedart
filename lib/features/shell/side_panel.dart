@@ -825,9 +825,16 @@ class PanelFooter extends StatelessWidget {
                     ),
                   ),
                   iconSize: AppTokens.iconSm,
-                  visualDensity: VisualDensity.compact,
+                  visualDensity: context.isNarrow
+                      ? VisualDensity.standard
+                      : VisualDensity.compact,
+                  constraints: context.isNarrow
+                      ? const BoxConstraints(
+                          minWidth: AppTokens.minTouchTarget,
+                          minHeight: AppTokens.minTouchTarget,
+                        )
+                      : const BoxConstraints(),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
                   tooltip: 'Tracker',
                   onPressed: onOpenTracker,
                 ),
@@ -839,10 +846,17 @@ class PanelFooter extends StatelessWidget {
                   color: settingsActive
                       ? scheme.primary
                       : scheme.onSurfaceVariant,
-                  iconSize: AppTokens.iconMd,
-                  visualDensity: VisualDensity.compact,
+                  iconSize: AppTokens.iconSm,
+                  visualDensity: context.isNarrow
+                      ? VisualDensity.standard
+                      : VisualDensity.compact,
+                  constraints: context.isNarrow
+                      ? const BoxConstraints(
+                          minWidth: AppTokens.minTouchTarget,
+                          minHeight: AppTokens.minTouchTarget,
+                        )
+                      : const BoxConstraints(),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
                   tooltip: 'Settings',
                   onPressed: onOpenSettings,
                 ),

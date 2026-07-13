@@ -15,6 +15,7 @@ import 'package:timedart/constants/layout.dart';
 /// no prefix (a prefix-less Name/Font/Theme). The explicit contentPadding keeps
 /// the field compact without that clipping.
 InputDecoration fieldDecoration(
+  BuildContext context,
   String? label, {
   String? hint,
   String? prefixText,
@@ -28,6 +29,10 @@ InputDecoration fieldDecoration(
   prefixIcon: prefixIcon,
   prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
   contentPadding: const EdgeInsets.all(AppTokens.spaceSm),
+  // 48px tap target on touch; desktop stays compact.
+  constraints: context.isNarrow
+      ? const BoxConstraints(minHeight: AppTokens.minTouchTarget)
+      : null,
 );
 
 /// A dense text field for the branding editor forms. By default the field name
@@ -88,7 +93,11 @@ class _EditorTextFieldState extends State<EditorTextField> {
       return TextField(
         controller: widget.controller,
         keyboardType: _keyboard,
-        decoration: fieldDecoration(widget.label, errorText: widget.errorText),
+        decoration: fieldDecoration(
+          context,
+          widget.label,
+          errorText: widget.errorText,
+        ),
         onChanged: widget.onChanged,
       );
     }
@@ -100,6 +109,7 @@ class _EditorTextFieldState extends State<EditorTextField> {
       focusNode: _focus,
       keyboardType: _keyboard,
       decoration: fieldDecoration(
+        context,
         focused ? widget.label : null,
         hint: !focused && empty ? widget.label : null,
         errorText: widget.errorText,
@@ -135,7 +145,7 @@ class EditorDropdown<T> extends StatelessWidget {
     // floating label. The decoration's isDense keeps the field height in line.
     isExpanded: true,
     icon: kDropdownChevron,
-    decoration: fieldDecoration(label),
+    decoration: fieldDecoration(context, label),
     items: items,
     onChanged: onChanged,
   );

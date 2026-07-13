@@ -84,6 +84,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // Narrow layout only: whether the project/settings list overlay is open. The
   // bottom bar's centre button toggles it; the bar stays live underneath.
   bool _panelOpen = false;
+  double _sheetDragDy = 0; // accumulated downward drag on the sheet handle
   StreamSubscription<List<Project>>? _projectsSub;
 
   // The currently-mounted Template/Profile editor's lifecycle (dirty + save),
@@ -866,18 +867,32 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                         ),
                         child: Column(
                           children: [
-                            // Grab handle for the drawer feel.
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppTokens.spaceSm,
-                              ),
-                              child: Container(
-                                width: 36,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: AppTokens.colorBorder,
-                                  borderRadius: BorderRadius.circular(
-                                    AppTokens.radiusSm,
+                            // Grab handle — drag it down to dismiss.
+                            GestureDetector(
+                              behavior: HitTestBehavior
+                                  .opaque, // catch drags on the whole strip, not just the 4px bar
+                              onVerticalDragUpdate: (d) =>
+                                  _sheetDragDy += d.delta.dy,
+                              onVerticalDragEnd: (d) {
+                                final flungDown =
+                                    (d.primaryVelocity ?? 0) > 300;
+                                if (flungDown || _sheetDragDy > 60) {
+                                  setState(() => _panelOpen = false);
+                                }
+                                _sheetDragDy = 0;
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppTokens.spaceSm,
+                                ),
+                                child: Container(
+                                  width: 36,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: AppTokens.colorBorder,
+                                    borderRadius: BorderRadius.circular(
+                                      AppTokens.radiusSm,
+                                    ),
                                   ),
                                 ),
                               ),

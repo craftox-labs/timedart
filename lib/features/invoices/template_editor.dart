@@ -253,7 +253,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
     // Header pinned; settings block over a full-width live preview, the two
     // scrolling together as one content pane.
     return EditorShell(
-      title: _editing ? (_isEdit ? 'Edit template' : 'New template') : 'Template',
+      title: _editing
+          ? (_isEdit ? 'Edit template' : 'New template')
+          : 'Template',
       name: _isEdit ? _name.text : null,
       isEdit: _isEdit,
       editing: _editing,
@@ -287,57 +289,51 @@ class _TemplateEditorState extends State<TemplateEditor> {
         // take one each over Background·Surface, and the Default toggle fills the
         // trailing three (right-aligned) over Primary·Text·Accent. (The logo
         // control used to sit here; it now lives on the profile editor.)
-        FieldRow(
-          stackBelow: _gridStackBelow,
-          [
-            Field(
-              EditorTextField(
-                controller: _name,
-                label: 'Name',
-                persistentLabel: true,
-                onChanged: (_) => setState(_session.recompute),
-              ),
+        FieldRow(stackBelow: _gridStackBelow, [
+          Field(
+            EditorTextField(
+              controller: _name,
+              label: 'Name',
+              persistentLabel: true,
+              onChanged: (_) => setState(_session.recompute),
             ),
-            Field(
-              EditorDropdown<String>(
-                label: 'Font',
-                value: _fontFamily,
-                items: [
-                  for (final f in _fontFamilies)
-                    DropdownMenuItem(value: f, child: Text(f)),
-                ],
+          ),
+          Field(
+            EditorDropdown<String>(
+              label: 'Font',
+              value: _fontFamily,
+              items: [
+                for (final f in _fontFamilies)
+                  DropdownMenuItem(value: f, child: Text(f)),
+              ],
+              onChanged: (v) => setState(() {
+                _fontFamily = v ?? _fontFamily;
+                _session.recompute();
+              }),
+            ),
+          ),
+          Field(
+            flex: 3,
+            Align(
+              alignment: Alignment.centerRight,
+              child: brandingDefaultToggle(
+                value: _isDefault,
                 onChanged: (v) => setState(() {
-                  _fontFamily = v ?? _fontFamily;
+                  _isDefault = v;
                   _session.recompute();
                 }),
               ),
             ),
-            Field(
-              flex: 3,
-              Align(
-                alignment: Alignment.centerRight,
-                child: brandingDefaultToggle(
-                  value: _isDefault,
-                  onChanged: (v) => setState(() {
-                    _isDefault = v;
-                    _session.recompute();
-                  }),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ]),
         const SizedBox(height: AppTokens.spaceSm),
-        FieldRow(
-          stackBelow: _gridStackBelow,
-          [
-            Field(_colorField('Background', _bg, (v) => _bg = v)),
-            Field(_colorField('Surface', _surface, (v) => _surface = v)),
-            Field(_colorField('Primary', _primary, (v) => _primary = v)),
-            Field(_colorField('Text', _text, (v) => _text = v)),
-            Field(_colorField('Accent', _accent, (v) => _accent = v)),
-          ],
-        ),
+        FieldRow(stackBelow: _gridStackBelow, [
+          Field(_colorField('Background', _bg, (v) => _bg = v)),
+          Field(_colorField('Surface', _surface, (v) => _surface = v)),
+          Field(_colorField('Primary', _primary, (v) => _primary = v)),
+          Field(_colorField('Text', _text, (v) => _text = v)),
+          Field(_colorField('Accent', _accent, (v) => _accent = v)),
+        ]),
       ],
     );
   }
@@ -346,6 +342,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
       _ColorField(
         value: value,
         decoration: fieldDecoration(
+          context,
           label,
           prefixText: '#',
           prefixIcon: Padding(
