@@ -12,6 +12,7 @@ import 'package:timedart/features/tracker/task_rows.dart';
 import 'package:timedart/features/tracker/task_list.dart';
 import 'package:timedart/features/tracker/task_editor.dart';
 import 'package:timedart/features/tracker/entry_form.dart';
+import 'package:timedart/widgets/tap_target.dart';
 
 /// Owns the running timer so it survives content-pane switches. Editing a
 /// client/project or invoicing unmounts the tracker view, but the session and its
@@ -769,13 +770,11 @@ class _TasksHeader extends StatelessWidget {
             children: [
               Text('Tasks', style: theme.textTheme.titleMedium),
               const Spacer(),
-              IconButton(
-                onPressed: onAddTask,
-                icon: const Icon(Icons.add, size: AppTokens.iconMd),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+              appIconButton(
+                icon: Icons.add,
+                iconSize: AppTokens.iconMd,
                 tooltip: 'Add task (a)',
+                onPressed: onAddTask,
               ),
               const SizedBox(width: AppTokens.spaceMd),
               TextButton.icon(

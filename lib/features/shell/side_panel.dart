@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:timedart/constants/layout.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
@@ -8,6 +9,7 @@ import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/panel_rows.dart';
 import 'package:timedart/widgets/focus_ring.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:timedart/widgets/tap_target.dart';
 
 class SidePanel extends StatefulWidget {
   const SidePanel({
@@ -525,6 +527,8 @@ class _SearchHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Field + clear-button reach a full touch target on narrow; compact on wide.
+    final touchMin = context.isNarrow ? AppTokens.minTouchTarget : 36.0;
     // Square left corners so the field sits flush to the panel border;
     // rounded on the right only.
     const fieldRadius = BorderRadius.horizontal(
@@ -570,10 +574,10 @@ class _SearchHeader extends StatelessWidget {
                     ),
                     child: Icon(Icons.search, size: AppTokens.iconSm),
                   ),
-                  prefixIconConstraints: const BoxConstraints(minHeight: 36),
+                  prefixIconConstraints: BoxConstraints(minHeight: touchMin),
                   // Same cap as the prefix so the field height doesn't jump when
                   // the clear button appears on input.
-                  suffixIconConstraints: const BoxConstraints(minHeight: 36),
+                  suffixIconConstraints: BoxConstraints(minHeight: touchMin),
                   enabledBorder: const OutlineInputBorder(
                     borderRadius: fieldRadius,
                     borderSide: BorderSide.none,
@@ -584,11 +588,9 @@ class _SearchHeader extends StatelessWidget {
                   ),
                   suffixIcon: onClear == null
                       ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close, size: AppTokens.iconSm),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                      : appIconButton(
+                          icon: Icons.close,
+                          iconSize: AppTokens.iconSm,
                           tooltip: 'Clear search',
                           onPressed: onClear,
                         ),
@@ -598,12 +600,9 @@ class _SearchHeader extends StatelessWidget {
           ),
           const SizedBox(width: AppTokens.spaceSm),
           // Tight, like the row edit buttons, so centres align in a column.
-          IconButton(
-            icon: const Icon(Icons.add),
+          appIconButton(
+            icon: Icons.add,
             iconSize: AppTokens.iconMd,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
             tooltip: 'Add client (A)',
             onPressed: onAddClient,
           ),
@@ -653,13 +652,13 @@ class _ClientHeaderTile extends StatelessWidget {
     return ListTile(
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
-      minTileHeight: 36,
+      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : 36,
       contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceMd),
       horizontalTitleGap: AppTokens.space2xs,
       onTap: onToggle,
       leading: Icon(
         expanded ? Icons.expand_more : Icons.chevron_right,
-        size: AppTokens.iconSm,
+        size: AppTokens.iconMd,
         color: expanded
             ? theme.colorScheme.primary
             : theme.colorScheme.onSurfaceVariant,
@@ -671,23 +670,16 @@ class _ClientHeaderTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            iconSize: AppTokens.iconMd,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          appIconButton(
+            icon: Icons.add,
             tooltip: 'Add project (a)',
             onPressed: onAddProject,
           ),
           const SizedBox(width: AppTokens.spaceSm),
           // Edit sits rightmost, aligning with the project rows' edit icon.
-          IconButton(
-            icon: const Icon(Icons.edit_note),
+          appIconButton(
+            icon: Icons.edit_note,
             iconSize: AppTokens.iconMd,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
             tooltip: 'Edit client (e)',
             onPressed: onEditClient,
           ),
@@ -715,6 +707,7 @@ class ProjectRowItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : null,
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
       selected: isSelected,
@@ -733,12 +726,9 @@ class ProjectRowItem extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).extension<AppTextStyles>()!.rowTitleSmall,
       ),
-      trailing: IconButton(
-        icon: const Icon(Icons.edit_note),
+      trailing: appIconButton(
+        icon: Icons.edit_note,
         iconSize: AppTokens.iconMd,
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
         tooltip: 'Edit project (e)',
         onPressed: onEdit,
       ),

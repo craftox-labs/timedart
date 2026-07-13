@@ -10,6 +10,7 @@ import 'package:timedart/features/invoices/invoice_document.dart';
 import 'package:timedart/features/invoices/invoice_preview.dart';
 import 'package:timedart/features/invoices/invoice_region.dart';
 import 'package:timedart/widgets/confirm_dialog.dart';
+import 'package:timedart/widgets/tap_target.dart';
 
 /// Content-pane editor for an invoice [InvoiceProfile] — business identity
 /// (including the logo), payment details, currency and optional tax — with a
@@ -745,9 +746,9 @@ class _LogoField extends StatelessWidget {
         const SizedBox(width: AppTokens.spaceXs),
         TextButton(onPressed: onPick, child: const Text('Logo…')),
         if (onRemove != null)
-          IconButton(
-            icon: const Icon(Icons.close, size: AppTokens.iconSm),
-            visualDensity: VisualDensity.compact,
+          appIconButton(
+            icon: Icons.close,
+            iconSize: AppTokens.iconSm,
             tooltip: 'Remove logo',
             onPressed: onRemove,
           ),

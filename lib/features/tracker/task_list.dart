@@ -5,6 +5,8 @@ import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/tracker/task_rows.dart';
 import 'package:timedart/widgets/focus_ring.dart';
+import 'package:timedart/widgets/tap_target.dart';
+import 'package:timedart/constants/layout.dart';
 
 // Renders the flattened task/entry rows: a task header (title, rolled-up time,
 // amount) that expands to its indented time entries. Purely presentational —
@@ -72,7 +74,8 @@ class TaskList extends StatelessWidget {
         // A divider above each task group (except the first) and breathing room
         // after a task's last entry — mirrors the side panel's grouping.
         final dividerBefore = i > 0 && row is TaskHeaderRow;
-        final lastEntry = row is TaskEntryRow &&
+        final lastEntry =
+            row is TaskEntryRow &&
             (i + 1 >= rows.length || rows[i + 1] is TaskHeaderRow);
         if (!dividerBefore && !lastEntry) return tile;
         return Column(
@@ -92,6 +95,9 @@ class TaskList extends StatelessWidget {
     );
   }
 
+  double _leadingWidth(BuildContext context) =>
+      context.tapColumn(AppTokens.iconMd);
+
   Widget _taskTile(BuildContext context, TaskHeaderRow row) {
     final theme = Theme.of(context);
     final effective = row.task.rate ?? rate;
@@ -110,15 +116,17 @@ class TaskList extends StatelessWidget {
       selected: row.taskId == selectedTaskId, // armed/tracking → green pill
       // A hair of horizontal content inset so text/actions aren't flush to the
       // edge; the selected fill still spans the full tile width.
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.space3xs),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space3xs,
+      ),
       horizontalTitleGap: AppTokens.space2xs,
       // Tapping the row arms the task for the timer; the chevron toggles expand.
       onTap: () => onSelectTask(row.taskId),
-      leading: GestureDetector(
+      leading: TapTarget(
         onTap: () => onToggle(row.taskId),
         child: Icon(
           row.expanded ? Icons.expand_more : Icons.chevron_right,
-          size: AppTokens.iconSm,
+          size: AppTokens.iconMd,
           color: row.expanded
               ? theme.colorScheme.primary
               : theme.colorScheme.onSurfaceVariant,
@@ -139,22 +147,15 @@ class TaskList extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.add),
+          appIconButton(
+            icon: Icons.add,
             iconSize: AppTokens.iconMd,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
             tooltip: 'Add entry (A)',
             onPressed: () => onAddEntryToTask(row.taskId),
           ),
           const SizedBox(width: AppTokens.spaceSm),
-          IconButton(
-            icon: const Icon(Icons.edit_note),
-            iconSize: AppTokens.iconMd,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          appIconButton(
+            icon: Icons.edit_note,
             tooltip: 'Edit task (e)',
             onPressed: () => onEditTask(row.task),
           ),
@@ -192,9 +193,11 @@ class TaskList extends StatelessWidget {
       // A transparent leading spacer the width of the task chevron + the same
       // gap and padding, so the entry text lines up exactly under the task
       // title; the time column still aligns on the right.
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.space3xs),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space3xs,
+      ),
       horizontalTitleGap: AppTokens.space2xs,
-      leading: const SizedBox(width: AppTokens.iconSm),
+      leading: SizedBox(width: _leadingWidth(context)),
       onTap: () => onEditEntry(e),
       title: Text(
         hasName ? desc : when,
@@ -206,7 +209,9 @@ class TaskList extends StatelessWidget {
           ? Text(
               when,
               style: theme.extension<AppTextStyles>()!.rowMeta.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.7,
+                ),
               ),
             )
           : null,

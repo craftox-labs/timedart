@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/widgets/dropdown_field.dart';
+import 'package:timedart/constants/layout.dart';
 
 /// Shared bits for the branding content-pane editors (theme/profile/template):
 /// a uniform dense field decoration and the title + Delete/Cancel/Save header.
@@ -242,17 +243,25 @@ class FieldGroup extends StatelessWidget {
 /// the editors (invoice-inclusion defaults, the "Default" flag). Small and
 /// tap-target-tight so it reads as a control beside a label without dominating
 /// the row. Single source of switch sizing so they stay uniform app-wide.
-Widget appSwitch({
-  required bool value,
-  required ValueChanged<bool> onChanged,
-}) => Transform.scale(
-  scale: 0.7,
-  child: Switch(
-    value: value,
-    onChanged: onChanged,
-    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-  ),
-);
+Widget appSwitch({required bool value, required ValueChanged<bool> onChanged}) {
+  return Builder(
+    builder: (context) {
+      final isWide = !context.isNarrow;
+      final switchWidget = Switch(
+        value: value,
+        onChanged: onChanged,
+        // Narrow → padded reserves Material's 48px tap box; wide → hug the glyph.
+        materialTapTargetSize: isWide
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
+      );
+      // Only cosmetically shrink on the desktop layout.
+      return isWide
+          ? Transform.scale(scale: 0.7, child: switchWidget)
+          : switchWidget;
+    },
+  );
+}
 
 /// A label with the shared [appSwitch] beside it — the inline toggle used
 /// throughout the branding editors.

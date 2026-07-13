@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/widgets/tap_target.dart';
 
 /// A panel title bar styled like the side-panel search field — a filled,
 /// flush-left / rounded-right bar sitting at the same top inset — but carrying a
@@ -35,11 +36,9 @@ class PanelTitleBar extends StatelessWidget {
           children: [
             // Aligned with the search field's prefix icon inset.
             const SizedBox(width: AppTokens.spaceMd),
-            IconButton(
-              icon: const Icon(Icons.arrow_back, size: AppTokens.iconSm),
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
+            appIconButton(
+              icon: Icons.arrow_back,
+              iconSize: AppTokens.iconSm,
               tooltip: 'Back (Esc)',
               onPressed: onBack,
             ),

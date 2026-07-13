@@ -60,4 +60,7 @@ abstract class AppTokens {
       16.0; // Standard compressed actions/secondary layout
   static const double iconMd = 20.0; // Default navigation/list tile metrics
   static const double iconLg = 24.0; // Main structural actions
+
+  // ── 7. Mobile ──
+  static const double minTouchTarget = 48.0;
 }

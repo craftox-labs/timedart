@@ -7,6 +7,8 @@ import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/side_panel.dart';
 import 'package:timedart/widgets/focus_ring.dart';
 import 'package:timedart/widgets/panel_title_bar.dart';
+import 'package:timedart/widgets/tap_target.dart';
+import 'package:timedart/constants/layout.dart';
 
 /// The side panel while in Settings mode: two flat collapsible sections —
 /// Templates (the visual style) and Profiles — listing the configured rows.
@@ -372,7 +374,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
       onKeyEvent: _onKey,
       child: Column(
         children: [
-          PanelTitleBar(title: 'Settings', onBack: widget.onBack),
+          // On mobile the bottom nav's Tracker/Settings tabs handle section
+          // switching, so the in-panel "← Settings" header is redundant.
+          if (!context.isNarrow)
+            PanelTitleBar(title: 'Settings', onBack: widget.onBack),
           Expanded(
             child: StreamBuilder<List<InvoiceTemplate>>(
               stream: _templates,
@@ -538,13 +543,13 @@ class _SectionHeaderTile extends StatelessWidget {
     return ListTile(
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
-      minTileHeight: 36,
+      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : 36,
       contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceMd),
       horizontalTitleGap: AppTokens.space2xs,
       onTap: onTap,
       leading: Icon(
         expanded ? Icons.expand_more : Icons.chevron_right,
-        size: AppTokens.iconSm,
+        size: AppTokens.iconMd,
         color: expanded
             ? t.colorScheme.primary
             : t.colorScheme.onSurfaceVariant,
@@ -557,12 +562,9 @@ class _SectionHeaderTile extends StatelessWidget {
       // space for here).
       trailing: onAdd == null
           ? null
-          : IconButton(
-              icon: const Icon(Icons.add),
+          : appIconButton(
+              icon: Icons.add,
               iconSize: AppTokens.iconMd,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
               tooltip: 'Add $singularLabel (a)',
               onPressed: onAdd,
             ),
@@ -591,6 +593,7 @@ class _EntityTile extends StatelessWidget {
       dense: true,
       visualDensity: const VisualDensity(vertical: -4),
       selected: selected,
+      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : null,
       contentPadding: const EdgeInsets.fromLTRB(
         AppTokens.spaceLg,
         AppTokens.space3xs,
@@ -620,12 +623,9 @@ class _EntityTile extends StatelessWidget {
       ),
       trailing: onEdit == null
           ? null
-          : IconButton(
-              icon: const Icon(Icons.edit_note),
+          : appIconButton(
+              icon: Icons.edit_note,
               iconSize: AppTokens.iconMd,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
               tooltip: 'Edit (e)',
               onPressed: onEdit,
             ),
