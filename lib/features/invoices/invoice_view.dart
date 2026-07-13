@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/tokens.dart';
@@ -53,7 +54,9 @@ class _InvoiceViewState extends State<InvoiceView> {
     // Re-run _load() whenever the underlying project/client data changes.
     // The stream's initial emit is harmless — _last keeps the preview
     // flicker-free while the reload resolves.
-    _sourceSub = widget.db.watchProjectWithClient(widget.project.id).listen((_) {
+    _sourceSub = widget.db.watchProjectWithClient(widget.project.id).listen((
+      _,
+    ) {
       if (!mounted) return;
       setState(_load);
     });
@@ -188,7 +191,10 @@ class _InvoiceViewState extends State<InvoiceView> {
 
   Future<void> _exportPdf() async {
     try {
-      final safe = widget.project.code.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+      final safe = widget.project.code.replaceAll(
+        RegExp(r'[^A-Za-z0-9_-]'),
+        '_',
+      );
 
       // Build the branded document with the on-the-fly profile + invoice
       // number chosen above (issue date is today for now).
@@ -225,9 +231,15 @@ class _InvoiceViewState extends State<InvoiceView> {
       final saved = await savePdf(bytes, 'invoice_$safe.pdf');
       if (saved == null) return; // cancelled (desktop only)
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Saved to $saved')));
+        final isMobile =
+            !kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.android ||
+                defaultTargetPlatform == TargetPlatform.iOS);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isMobile ? 'Invoice shared' : 'Saved to $saved'),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
