@@ -6,7 +6,7 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/side_panel.dart';
 import 'package:timedart/widgets/focus_ring.dart';
-import 'package:timedart/widgets/panel_title_bar.dart';
+import 'package:timedart/widgets/panel_search_field.dart';
 import 'package:timedart/widgets/tap_target.dart';
 import 'package:timedart/constants/layout.dart';
 
@@ -40,6 +40,7 @@ class SettingsPanel extends StatefulWidget {
     this.showFooter = true,
     this.autofocus = false,
     this.cursorFocusNode,
+    this.searchFocusNode,
   });
 
   final AppDatabase db;
@@ -49,6 +50,10 @@ class SettingsPanel extends StatefulWidget {
   // _onKey) can target this panel's row cursor, same as SidePanel. Falls back
   // to an internal node when not supplied (e.g. the narrow drawer).
   final FocusNode? cursorFocusNode;
+  // Search field focus, owned by the shell so a global `/` (from any pane) can
+  // jump into search while in Settings — mirrors SidePanel.searchFocusNode.
+  // Null → an internal node (the narrow drawer).
+  final FocusNode? searchFocusNode;
   // The entity currently open in the content pane, if any — drives the
   // highlighted row. The panel no longer owns its own selection: a row tap
   // opens that entity's editor directly (see onEditTemplate/onEditProfile).
@@ -158,6 +163,17 @@ class _SettingsPanelState extends State<SettingsPanel> {
   FocusNode get _cursorNode =>
       widget.cursorFocusNode ??
       (_internalCursor ??= FocusNode(debugLabel: 'settingsCursor'));
+
+  // Search — mirrors SidePanel. Filters the sections' items by name/label;
+  // an active query force-expands every matching section (see _buildList).
+  final _searchController = TextEditingController();
+  FocusNode? _internalSearch;
+  FocusNode get _searchFocus =>
+      widget.searchFocusNode ??
+      (_internalSearch ??= FocusNode(debugLabel: 'settingsSearch'));
+  String _query = '';
+  bool _searching = false;
+
   int _cursor = 0;
   List<_BRow> _rows = const [];
   final _chords = ChordDetector(); // Ctrl-w window-motion sequence state
@@ -166,6 +182,28 @@ class _SettingsPanelState extends State<SettingsPanel> {
   void initState() {
     super.initState();
     _cursorNode.addListener(_repaint);
+    // Select-all whenever the search field gains focus, so typing replaces a
+    // stale query (matches SidePanel).
+    _searchFocus.addListener(_onSearchFocusChanged);
+  }
+
+  void _onSearchFocusChanged() {
+    if (_searchFocus.hasFocus) {
+      _searchController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _searchController.text.length,
+      );
+    }
+  }
+
+  void _focusSearch() => _searchFocus.requestFocus();
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _cursor = 0;
+    });
   }
 
   void _repaint() {
@@ -178,6 +216,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   void dispose() {
     _cursorNode.removeListener(_repaint);
     _internalCursor?.dispose();
+    _searchFocus.removeListener(_onSearchFocusChanged);
+    _internalSearch?.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -293,6 +334,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
+    // While typing in the search field, let it consume everything.
+    if (_searchFocus.hasFocus) return KeyEventResult.ignored;
     final r = Keymap.resolve(
       event,
       _chords,
@@ -334,6 +377,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
         _addCurrent();
       case KeyIntent.editItem:
         _editCurrent();
+      case KeyIntent.search:
+        _focusSearch();
       case KeyIntent.back:
         widget.onBack();
       case KeyIntent.focusTracker:
@@ -376,10 +421,19 @@ class _SettingsPanelState extends State<SettingsPanel> {
       onKeyEvent: _onKey,
       child: Column(
         children: [
-          // On mobile the bottom nav's Tracker/Settings tabs handle section
-          // switching, so the in-panel "← Settings" header is redundant.
-          if (!context.isNarrow)
-            PanelTitleBar(title: 'Settings', onBack: widget.onBack),
+          // Search replaces the old "← Settings" title bar on both layouts. The
+          // page-header Tracker/Settings switch (wide) and the bottom nav
+          // (narrow) handle section navigation; Esc still fires onBack.
+          PanelSearchField(
+            controller: _searchController,
+            focusNode: _searchFocus,
+            onChanged: (v) => setState(() {
+              _query = v;
+              _cursor = 0;
+            }),
+            onClear: _query.isEmpty ? null : _clearSearch,
+            onEscape: () => _cursorNode.requestFocus(),
+          ),
           Expanded(
             child: StreamBuilder<List<InvoiceTemplate>>(
               stream: _templates,
@@ -414,28 +468,47 @@ class _SettingsPanelState extends State<SettingsPanel> {
     );
   }
 
+  // The searchable text of an item row (headers aren't matched directly).
+  String _rowLabel(_BRow r) => switch (r) {
+    _EntityRow(:final name) => name,
+    _ActionRow(:final label) => label,
+    _ => '',
+  };
+
   Widget _buildList({
     required List<InvoiceTemplate> templates,
     required List<InvoiceProfile> profiles,
   }) {
-    List<_BRow> items(_Section s) => switch (s) {
-      _Section.templates => [
-        for (final x in templates)
-          _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
-      ],
-      _Section.profiles => [
-        for (final x in profiles)
-          _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
-      ],
-      _Section.general => _actionRows(),
-    };
+    final q = _query.trim().toLowerCase();
+    _searching = q.isNotEmpty;
+    bool matches(String label) => label.toLowerCase().contains(q);
+
+    List<_BRow> items(_Section s) {
+      final all = switch (s) {
+        _Section.templates => [
+          for (final x in templates)
+            _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
+        ],
+        _Section.profiles => [
+          for (final x in profiles)
+            _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
+        ],
+        _Section.general => _actionRows(),
+      };
+      if (!_searching) return all;
+      return all.where((r) => matches(_rowLabel(r))).toList();
+    }
 
     final rows = <_BRow>[];
     for (final s in _Section.values) {
       final sectionItems = items(s);
-      // General only appears once it has at least one wired action.
-      if (s == _Section.general && sectionItems.isEmpty) continue;
-      final expanded = _expanded.contains(s);
+      // Hide a section with no items: General is hidden whenever empty, and any
+      // section is hidden while searching if nothing under it matches.
+      if (sectionItems.isEmpty && (s == _Section.general || _searching)) {
+        continue;
+      }
+      // An active query force-expands every surviving section so matches show.
+      final expanded = _searching || _expanded.contains(s);
       rows.add(
         _HeaderRow(s, expanded: expanded, hasItems: sectionItems.isNotEmpty),
       );
@@ -443,6 +516,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     _rows = rows;
     if (_cursor >= _rows.length) _cursor = _rows.isEmpty ? 0 : _rows.length - 1;
+
+    if (_searching && _rows.isEmpty) {
+      return Center(
+        child: Text(
+          'No settings match "${_query.trim()}".',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
 
     final cursorActive = _cursorNode.hasPrimaryFocus;
     return ListView.builder(

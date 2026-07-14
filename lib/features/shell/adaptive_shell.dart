@@ -122,8 +122,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   // The tracker pane's own row cursor (its entry list). Owned here so the shell
   // can move focus straight onto it — mirrors _panelCursor. See TimerView.
   final FocusNode _trackerCursor = FocusNode(debugLabel: 'trackerCursor');
-  // Panel search field, owned here so `/` from any pane jumps into search.
+  // Panel search fields, owned here so `/` from any pane jumps into search —
+  // one per pane (client/project tree vs Settings), picked by _inSettings.
   final FocusNode _panelSearch = FocusNode(debugLabel: 'panelSearch');
+  final FocusNode _settingsSearch = FocusNode(debugLabel: 'settingsSearch');
   // Lets a global Space toggle the timer from any pane while it's in view.
   // DB-backed (Phase 3) — constructed with the db and recovered in initState.
   late final TimerController _timer;
@@ -135,7 +137,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _focusPanel() =>
       (_inSettings ? _settingsCursor : _panelCursor).requestFocus();
   void _focusTracker() => _trackerCursor.requestFocus();
-  void _focusSearch() => _panelSearch.requestFocus();
+  void _focusSearch() =>
+      (_inSettings ? _settingsSearch : _panelSearch).requestFocus();
 
   // Is a text field currently focused? EditableText wraps its focusNode in a
   // Focus whose context sits under the EditableText widget, so the primary
@@ -151,7 +154,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _togglePane() =>
       (_panelCursor.hasFocus ||
           _settingsCursor.hasFocus ||
-          _panelSearch.hasFocus)
+          _panelSearch.hasFocus ||
+          _settingsSearch.hasFocus)
       ? _focusTracker()
       : _focusPanel();
 
@@ -441,6 +445,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     _trackerScope.dispose();
     _trackerCursor.dispose();
     _panelSearch.dispose();
+    _settingsSearch.dispose();
     _timer.dispose();
     super.dispose();
   }
@@ -584,6 +589,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           // actually reach this panel's row cursor instead of a focus node
           // nothing is listening on.
           cursorFocusNode: keyboardNav ? _settingsCursor : null,
+          searchFocusNode: keyboardNav ? _settingsSearch : null,
         );
       }
 
