@@ -67,7 +67,9 @@ class TaskList extends StatelessWidget {
           focused: i == cursor && cursorActive,
           edgesOnly: true,
           child: switch (row) {
-            TaskHeaderRow() => _taskTile(context, row),
+            // The first task peeks its swipe actions open once on first load
+            // (narrow only) to advertise the gesture.
+            TaskHeaderRow() => _taskTile(context, row, hintSwipe: i == 0),
             TaskEntryRow() => _entryTile(context, row),
           },
         );
@@ -99,7 +101,11 @@ class TaskList extends StatelessWidget {
   double _leadingWidth(BuildContext context) =>
       context.tapColumn(AppTokens.iconMd);
 
-  Widget _taskTile(BuildContext context, TaskHeaderRow row) {
+  Widget _taskTile(
+    BuildContext context,
+    TaskHeaderRow row, {
+    bool hintSwipe = false,
+  }) {
     final theme = Theme.of(context);
     final effective = row.task.rate ?? rate;
     final hours = row.totalSeconds / 3600;
@@ -258,11 +264,13 @@ class TaskList extends StatelessWidget {
     if (!narrow) return armedWrap(tile);
 
     // Narrow: swipe left to reveal Add entry / Edit task, freeing the row's
-    // width so the meta line stops wrapping. A basic first pass — auto-peek
-    // hint and affordance polish (#222) come after we confirm the space win.
+    // width so the meta line stops wrapping. The first task peeks its actions
+    // open once on first load (_HintSlidable) to advertise the gesture; the
+    // title-line chevron is the persistent hint.
     return armedWrap(
-      Slidable(
-        key: ValueKey(row.taskId),
+      _HintSlidable(
+        slidableKey: ValueKey(row.taskId),
+        hint: hintSwipe,
         endActionPane: ActionPane(
           motion: const DrawerMotion(),
           extentRatio: 0.5,
@@ -362,4 +370,78 @@ class TaskList extends StatelessWidget {
             ),
     );
   }
+}
+
+// --- Swipe-hint peek --------------------------------------------------------
+// How far to crack the end pane open (fraction of row width; the pane's full
+// extentRatio is 0.5, so ~0.22 reveals a sliver of the first action), and how
+// long to hold it open before it settles back.
+const double _swipeHintPeek = 0.22;
+const Duration _swipeHintOpen = Duration(milliseconds: 280);
+const Duration _swipeHintHold = Duration(milliseconds: 650);
+
+/// Wraps a [Slidable] and, when [hint] is set, peeks its end action pane open
+/// once (per app run) shortly after first layout, then closes it — a one-off
+/// discovery nudge for the swipe gesture. Honours reduced-motion.
+class _HintSlidable extends StatefulWidget {
+  final Key slidableKey;
+  final Widget child;
+  final ActionPane endActionPane;
+  final bool hint;
+
+  const _HintSlidable({
+    required this.slidableKey,
+    required this.child,
+    required this.endActionPane,
+    this.hint = false,
+  });
+
+  @override
+  State<_HintSlidable> createState() => _HintSlidableState();
+}
+
+class _HintSlidableState extends State<_HintSlidable>
+    with SingleTickerProviderStateMixin {
+  // Once per app run — a discovery nudge, not a nag. (Upgrade to once-ever by
+  // gating on an AppSettings flag if we want it to stop after the first launch.)
+  static bool _peeked = false;
+
+  late final SlidableController _controller = SlidableController(this);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.hint && !_peeked) {
+      _peeked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _peek());
+    }
+  }
+
+  Future<void> _peek() async {
+    if (!mounted) return;
+    // Respect the OS "reduce motion" setting — no auto-animation then.
+    if (MediaQuery.of(context).disableAnimations) return;
+    await _controller.openTo(
+      -_swipeHintPeek,
+      duration: _swipeHintOpen,
+      curve: Curves.easeOut,
+    );
+    await Future<void>.delayed(_swipeHintHold);
+    if (!mounted) return;
+    await _controller.close(curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Slidable(
+    key: widget.slidableKey,
+    controller: _controller,
+    endActionPane: widget.endActionPane,
+    child: widget.child,
+  );
 }
