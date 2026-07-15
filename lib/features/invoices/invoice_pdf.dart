@@ -26,20 +26,20 @@ Future<Uint8List> buildBrandedInvoicePdf({
   required InvoiceDocument doc,
   required InvoiceTemplate template,
 }) async {
-  // Mona Sans is a variable font whose wght axis defaults to 200 (ExtraLight),
-  // and the pdf package can't shift a variable axis — it renders one static
-  // instance per file. So the three preview weights (value w400, label w500,
-  // bold w600 in InvoiceLayout) are shipped as pre-instanced static ttfs and
-  // mapped here one-to-one. Flutter's preview, by contrast, reads the single
-  // variable font and interpolates the wght axis from the fontWeight directly.
+  // The pdf package can't shift a variable font's axis — it renders one static
+  // instance per file. So the three invoice weights (value w400, label w500,
+  // bold w600 in InvoiceLayout) are shipped as pre-instanced static Outfit ttfs
+  // and mapped here one-to-one. The on-screen preview, by contrast, inherits
+  // the app's ambient font (also Outfit) and interpolates the wght axis from
+  // fontWeight directly — so preview and PDF match.
   final font = pw.Font.ttf(
-    await rootBundle.load('assets/fonts/MonaSans-Regular.ttf'),
+    await rootBundle.load('assets/fonts/Outfit-Regular.ttf'),
   ); // w400 — values
   final medium = pw.Font.ttf(
-    await rootBundle.load('assets/fonts/MonaSans-Medium.ttf'),
+    await rootBundle.load('assets/fonts/Outfit-Medium.ttf'),
   ); // w500 — labels (fontWeightLabel)
   final bold = pw.Font.ttf(
-    await rootBundle.load('assets/fonts/MonaSans-SemiBold.ttf'),
+    await rootBundle.load('assets/fonts/Outfit-SemiBold.ttf'),
   ); // w600 — headings (fontWeightBold)
 
   final plan = InvoiceLayout.resolve(doc);

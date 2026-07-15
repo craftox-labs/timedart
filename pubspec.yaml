@@ -108,12 +108,9 @@ flutter:
   # variable axis, so it uses the pre-instanced static weights below (Regular
   # w400 / Medium w500 / SemiBold w600), loaded via rootBundle from assets/fonts.
   fonts:
-    - family: Mona
+    - family: Outfit
       fonts:
-        - asset: assets/fonts/MonaSans-VariableFont_wdth,wght.ttf
-    - family: Hyper
-      fonts:
-        - asset: assets/fonts/AtkinsonHyperlegibleNext-VariableFont_wght.ttf
+        - asset: assets/fonts/Outfit-VariableFont_wght.ttf
     # Raleway (variable) — display headings, matched to the marketing site's
     # italic headings. fontWeight maps onto the wght axis; the italic file is
     # selected by fontStyle: italic (so w500 + italic = Medium Italic).

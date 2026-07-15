@@ -28,7 +28,7 @@ abstract class AppTokens {
   static const double strokeThick = 1.5;
 
   // ── 4. Typography ──
-  static const String fontFamily = 'Hyper';
+  static const String fontFamily = 'Outfit';
   static const String fontFamilyHeading = 'Raleway'; // display headings, italic
   static const double fontHeightDefault = 1.4;
   static const double fontSizeXs = 13.0;

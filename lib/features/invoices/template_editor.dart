@@ -54,7 +54,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
   // validated against it (a value the picker can't show would trip
   // DropdownButton's one-matching-item assertion). Legacy rows written before
   // a font change fall back to the first entry and self-heal on next save.
-  static const _fontFamilies = ['Mona'];
+  static const _fontFamilies = ['Outfit'];
 
   late final TextEditingController _name;
   late int _bg, _surface, _primary, _text;

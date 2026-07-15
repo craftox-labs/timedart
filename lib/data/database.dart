@@ -1138,6 +1138,7 @@ class AppDatabase extends _$AppDatabase {
         colorPrimary: 0xFF69E228, // brand green
         colorText: 0xFFE8F5E0,
         colorAccent: 0xFF2E6C0F, // brand secondary
+        fontFamily: const Value('Outfit'),
         isDefault: const Value(true),
       ),
     );

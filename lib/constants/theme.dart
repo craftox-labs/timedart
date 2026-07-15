@@ -15,7 +15,7 @@ ThemeData buildAppTheme(Brightness brightness) {
   // outlines (outlined buttons, focused inputs) stay primary — see below.
   const borderColor = AppTokens.colorBorder;
 
-  // Buttons match the marketing site's .btn: 7px radius, 16×8 padding, Mona
+  // Buttons match the marketing site's .btn: 7px radius, 16×8 padding, Outfit
   // 600 @ 15.5. Inputs/dialogs keep radiusSm (8px) via their own shapes below.
   final buttonShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(AppTokens.radiusButton),
