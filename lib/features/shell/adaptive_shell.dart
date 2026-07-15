@@ -22,6 +22,7 @@ import 'package:timedart/features/invoices/template_editor.dart';
 import 'package:timedart/features/shell/settings_home.dart';
 import 'package:timedart/widgets/confirm_dialog.dart';
 import 'package:timedart/widgets/content_body.dart';
+import 'package:timedart/widgets/sheet_grab_handle.dart';
 import 'package:animations/animations.dart';
 
 // What the detail pane is currently showing. One value instead of a pile of
@@ -902,21 +903,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                                 }
                                 _sheetDragDy = 0;
                               },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: AppTokens.spaceSm,
-                                ),
-                                child: Container(
-                                  width: 36,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: AppTokens.colorBorder,
-                                    borderRadius: BorderRadius.circular(
-                                      AppTokens.radiusSm,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              child: const SheetGrabHandle(),
                             ),
                             Expanded(
                               child: panel(

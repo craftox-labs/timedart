@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/deletions.dart';
+import 'package:timedart/widgets/sheet_grab_handle.dart';
 
 /// The shared modal chrome for the entity CRUD editors (client / project / task
 /// / entry). The presenter and scaffold live here once; each form supplies only
@@ -36,9 +37,23 @@ Future<T?> showEntityEditor<T>(
     builder: (ctx) => Padding(
       // Lift the sheet clear of the on-screen keyboard.
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.spaceLg),
-        child: builder(ctx),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SheetGrabHandle(),
+          // The handle supplies the top gap; content keeps the sides + bottom.
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTokens.spaceLg,
+                0,
+                AppTokens.spaceLg,
+                AppTokens.spaceLg,
+              ),
+              child: builder(ctx),
+            ),
+          ),
+        ],
       ),
     ),
   );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:timedart/constants/layout.dart';
 import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/widgets/sheet_grab_handle.dart';
 
 /// Opens an HSV colour picker and resolves to the chosen opaque ARGB int, or
 /// null if dismissed. A saturation/brightness field plus a hue slider give a
@@ -127,18 +128,7 @@ class _ColorPickerBodyState extends State<_ColorPickerBody> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Grab handle (sheet only).
-            if (widget.sheet)
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: AppTokens.spaceMd),
-                  decoration: BoxDecoration(
-                    color: AppTokens.colorBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
+            if (widget.sheet) const SheetGrabHandle(),
             Row(
               children: [
                 Text(widget.label, style: theme.textTheme.titleMedium),
