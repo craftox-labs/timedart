@@ -164,13 +164,17 @@ class TaskList extends StatelessWidget {
             ],
           );
 
-    // Narrow swipe-hint chevron — non-interactive, tucked right after the task
-    // title so it rides the text column rather than sitting out in the time
-    // column at the row's right edge.
-    final chevronHint = Icon(
-      Icons.chevron_left,
-      size: AppTokens.iconSm,
-      color: theme.colorScheme.primary,
+    // Narrow swipe-hint chevron — non-interactive, on the title line. The glyph
+    // is centred in a square icon box, so a small horizontal nudge lands it in
+    // the same column as the time on the meta line below (tune this offset).
+    final chevronHint = Transform.translate(
+      offset: const Offset(AppTokens.space4xs, 0),
+      child: Icon(
+        Icons.chevron_left,
+        size: AppTokens.iconSm,
+        // The row text colour, not the accent — a quiet hint, not a highlight.
+        color: theme.colorScheme.onSurface,
+      ),
     );
 
     // Narrow time — meta size/colour, sitting in-line on the meta line (so the
@@ -212,7 +216,7 @@ class TaskList extends StatelessWidget {
       title: narrow
           ? Row(
               children: [
-                Flexible(
+                Expanded(
                   child: Text(
                     row.task.title,
                     maxLines: 1,
@@ -220,7 +224,6 @@ class TaskList extends StatelessWidget {
                     style: theme.extension<AppTextStyles>()!.rowTitle,
                   ),
                 ),
-                const SizedBox(width: AppTokens.space2xs),
                 chevronHint,
               ],
             )
