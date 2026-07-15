@@ -742,7 +742,7 @@ class ProjectHeader extends StatelessWidget {
             ),
             Text(
               project.title,
-              // Kept in Mona (not the Raleway titleLarge) — a running-timer
+              // Kept in Outfit (not the Raleway titleLarge) — a running-timer
               // label, not a screen/dialog title.
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontFamily: AppTokens.fontFamily,

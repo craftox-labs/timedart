@@ -330,7 +330,7 @@ Widget editorHeader({
     mainAxisSize: MainAxisSize.min,
     children: [
       // Label ("Template:"/"Profile:") — colon included — keeps the Raleway
-      // italic titleLarge; only the entity name drops back to Mona.
+      // italic titleLarge; only the entity name drops back to Outfit.
       Text(hasName ? '$title:' : title, style: theme.textTheme.titleLarge),
       if (hasName)
         Flexible(

@@ -50,9 +50,9 @@ abstract class InvoiceLayout {
   static const double fontHeadline = 20.0;
 
   // Font weights. The Flutter preview reads these directly from the single
-  // Mona variable font (Flutter interpolates the wght axis). The PDF renderer
+  // Outfit variable font (Flutter interpolates the wght axis). The PDF renderer
   // can't shift a variable axis, so it maps each to a pre-instanced static
-  // Mona ttf: fontWeightValue→Regular, fontWeightLabel→Medium, fontWeightBold→
+  // Outfit ttf: fontWeightValue→Regular, fontWeightLabel→Medium, fontWeightBold→
   // SemiBold. Keep the three weights distinct so the export mirrors the preview.
   static const FontWeight fontWeightLabel = FontWeight.w500;
   static const FontWeight fontWeightValue = FontWeight.w400;

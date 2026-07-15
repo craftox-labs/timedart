@@ -373,7 +373,7 @@ class _InvoiceViewState extends State<InvoiceView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // "Invoice" label keeps the Raleway italic titleLarge; the project
-        // code/title drops to Mona (matching the editor "Template : name" split).
+        // code/title drops to Outfit (matching the editor "Template : name" split).
         Text.rich(
           TextSpan(
             style: theme.textTheme.titleLarge,
