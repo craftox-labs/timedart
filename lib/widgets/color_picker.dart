@@ -16,27 +16,18 @@ Future<int?> showColorPicker(
   required int initial,
   required String label,
 }) {
-  final scheme = Theme.of(context).colorScheme;
   if (context.isNarrow) {
+    // Surface, shape and elevation come from the app's bottomSheetTheme.
     return showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: scheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTokens.radiusLg),
-        ),
-      ),
       builder: (_) => _ColorPickerBody(initial: initial, label: label),
     );
   }
   return showDialog<int>(
     context: context,
     builder: (_) => Dialog(
-      backgroundColor: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-      ),
+      // Background/shape come from the app's dialogTheme.
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
         child: _ColorPickerBody(initial: initial, label: label, sheet: false),

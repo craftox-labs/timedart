@@ -254,6 +254,26 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
 
+    // ── Bottom sheets ── flat on the base surface with a rounded, hairline-
+    // bordered top, matching the dialogs and the list-panel slide-up rather
+    // than M3's lighter elevated default. One source of truth so every modal
+    // sheet (colour picker, entity editors, …) reads the same.
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: scheme.surface,
+      modalBackgroundColor: scheme.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      modalElevation: 0,
+      // Clip content to the rounded/bordered top so nothing paints past it.
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLg),
+        ),
+        side: BorderSide(color: borderColor, width: AppTokens.strokeThin),
+      ),
+    ),
+
     // ── Floating action button ──
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: scheme.primary,
