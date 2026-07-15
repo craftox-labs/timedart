@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:timedart/constants/layout.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/deletions.dart';
 import 'package:timedart/widgets/sheet_grab_handle.dart';
@@ -101,21 +102,7 @@ class EntityForm extends StatelessWidget {
           const SizedBox(height: AppTokens.spaceXl),
           ...fields,
           const SizedBox(height: AppTokens.spaceXl),
-          Row(
-            children: [
-              if (showDelete)
-                IconButton(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                  color: Theme.of(context).colorScheme.primary,
-                  tooltip: 'Delete',
-                ),
-              const Spacer(),
-              OutlinedButton(onPressed: onCancel, child: const Text('Cancel')),
-              const SizedBox(width: AppTokens.spaceSm),
-              FilledButton(onPressed: onSubmit, child: Text(submitLabel)),
-            ],
-          ),
+          _actions(context),
         ],
       ),
     );
@@ -123,5 +110,48 @@ class EntityForm extends StatelessWidget {
     return showDelete
         ? DeleteHotkey(onDelete: onDelete!, child: body)
         : body;
+  }
+
+  // Delete + Cancel + Submit. Wide (dialog): right-aligned at natural width.
+  // Narrow (sheet): a full-width row — Delete pinned left, Cancel + Submit
+  // expanded as big touch targets, matching the content-pane editor headers.
+  Widget _actions(BuildContext context) {
+    final showDelete = isEdit && onDelete != null;
+    final delete = IconButton(
+      onPressed: onDelete,
+      icon: const Icon(Icons.delete_outline),
+      color: Theme.of(context).colorScheme.primary,
+      tooltip: 'Delete',
+    );
+    final cancel = OutlinedButton(
+      onPressed: onCancel,
+      child: const Text('Cancel'),
+    );
+    final submit = FilledButton(onPressed: onSubmit, child: Text(submitLabel));
+    if (context.isNarrow) {
+      return SizedBox(
+        height: AppTokens.minTouchTarget,
+        child: Row(
+          children: [
+            if (showDelete) ...[
+              delete,
+              const SizedBox(width: AppTokens.spaceSm),
+            ],
+            Expanded(child: cancel),
+            const SizedBox(width: AppTokens.spaceSm),
+            Expanded(child: submit),
+          ],
+        ),
+      );
+    }
+    return Row(
+      children: [
+        if (showDelete) delete,
+        const Spacer(),
+        cancel,
+        const SizedBox(width: AppTokens.spaceSm),
+        submit,
+      ],
+    );
   }
 }
