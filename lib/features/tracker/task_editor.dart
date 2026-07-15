@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/util/parse_rate.dart';
 import 'package:timedart/features/deletions.dart';
@@ -35,10 +36,45 @@ class _TaskFormState extends State<TaskForm> {
   String? _titleError;
   String? _rateError;
 
+  // The rate field shows the *effective* rate: the task's own rate if set, else
+  // the inherited default (project.rate ?? client.defaultRate) so the user sees
+  // what's actually charged. `_rateOverridden` tracks whether that value is the
+  // task's own — an untouched inherited value is saved back as null (keep
+  // inheriting), so editing a task doesn't silently pin its rate.
+  late bool _rateOverridden = widget.task?.rate != null;
+  bool _settingRateProgrammatically = false;
+
   bool get _isEdit => widget.task != null;
 
   @override
+  void initState() {
+    super.initState();
+    _rate.addListener(_onRateEdited);
+    _loadInheritedRate();
+  }
+
+  void _onRateEdited() {
+    if (_settingRateProgrammatically || _rateOverridden) return;
+    setState(() => _rateOverridden = true);
+  }
+
+  // Fill the blank rate with the inherited default so the user sees the live
+  // value; guarded so this programmatic write doesn't count as an override.
+  Future<void> _loadInheritedRate() async {
+    if (_rateOverridden) return;
+    final project = await widget.db.getProject(widget.projectId);
+    final client = await widget.db.getClient(project.clientId);
+    if (!mounted || _rateOverridden) return;
+    setState(() {
+      _settingRateProgrammatically = true;
+      _rate.text = rateText(project.rate ?? client.defaultRate);
+      _settingRateProgrammatically = false;
+    });
+  }
+
+  @override
   void dispose() {
+    _rate.removeListener(_onRateEdited);
     _title.dispose();
     _rate.dispose();
     super.dispose();
@@ -53,18 +89,21 @@ class _TaskFormState extends State<TaskForm> {
     });
     if (_titleError != null || _rateError != null) return;
 
+    // Only persist a rate the user actually took ownership of; an untouched
+    // inherited value stays null so the task keeps following the default.
+    final rate = _rateOverridden ? parsed.value : null;
     try {
       if (_isEdit) {
         await widget.db.updateTask(
           id: widget.task!.id,
           title: title,
-          rate: parsed.value,
+          rate: rate,
         );
       } else {
         await widget.db.addTask(
           projectId: widget.projectId,
           title: title,
-          rate: parsed.value,
+          rate: rate,
         );
       }
     } catch (e) {
@@ -109,10 +148,18 @@ class _TaskFormState extends State<TaskForm> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: 'Rate (\$/h)',
-            hintText: 'Overrides the project rate — leave blank to inherit',
             errorText: _rateError,
           ),
           onSubmitted: (_) => _submit(),
+        ),
+        // Hint as its own line — flush left with the field, with a gap above —
+        // rather than the decoration's indented, tight helperText.
+        const SizedBox(height: AppTokens.spaceSm),
+        Text(
+          _rateOverridden
+              ? 'Set for this task — clear to inherit the default'
+              : 'Inherited default — edit to set a task-specific rate',
+          style: Theme.of(context).extension<AppTextStyles>()!.rowMeta,
         ),
       ],
     );

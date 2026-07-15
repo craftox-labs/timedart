@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/widgets/dropdown_field.dart';
 import 'package:timedart/widgets/entity_editor.dart';
@@ -45,8 +46,42 @@ class _ProjectFormState extends State<ProjectForm> {
   );
   String? _rateError;
 
+  // The rate field shows the *effective* rate: the project's own rate if set,
+  // else the selected client's defaultRate (which it inherits) so the user sees
+  // what's actually charged. `_rateOverridden` tracks whether that value is the
+  // project's own — an untouched inherited value is saved back as null (keep
+  // inheriting), and switching client refreshes the shown default.
+  late bool _rateOverridden = widget.initial?.rate != null;
+  bool _settingRateProgrammatically = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _rate.addListener(_onRateEdited);
+    if (_clientId != null) _loadInheritedRate(_clientId!);
+  }
+
+  void _onRateEdited() {
+    if (_settingRateProgrammatically || _rateOverridden) return;
+    setState(() => _rateOverridden = true);
+  }
+
+  // Show the selected client's default in the blank rate field; guarded so this
+  // programmatic write isn't mistaken for the user overriding.
+  Future<void> _loadInheritedRate(String clientId) async {
+    if (_rateOverridden) return;
+    final client = await widget.db.getClient(clientId);
+    if (!mounted || _rateOverridden) return;
+    setState(() {
+      _settingRateProgrammatically = true;
+      _rate.text = rateText(client.defaultRate);
+      _settingRateProgrammatically = false;
+    });
+  }
+
   @override
   void dispose() {
+    _rate.removeListener(_onRateEdited);
     _code.dispose();
     _title.dispose();
     _rate.dispose();
@@ -67,7 +102,9 @@ class _ProjectFormState extends State<ProjectForm> {
       return;
     }
     setState(() => _rateError = null);
-    final rate = parsed.value;
+    // Only persist a rate the user took ownership of; an untouched inherited
+    // value stays null so the project keeps following the client's default.
+    final rate = _rateOverridden ? parsed.value : null;
 
     String? createdProjectId;
     try {
@@ -133,7 +170,10 @@ class _ProjectFormState extends State<ProjectForm> {
                     for (final c in clients)
                       DropdownMenuItem(value: c.id, child: Text(c.name)),
                   ],
-                  onChanged: (id) => setState(() => _clientId = id),
+                  onChanged: (id) {
+                    setState(() => _clientId = id);
+                    if (id != null) _loadInheritedRate(id);
+                  },
                 ),
               ),
             );
@@ -156,7 +196,19 @@ class _ProjectFormState extends State<ProjectForm> {
           controller: _rate,
           keyboardType: TextInputType.number,
           onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(labelText: 'Rate', errorText: _rateError),
+          decoration: InputDecoration(
+            labelText: 'Rate',
+            errorText: _rateError,
+          ),
+        ),
+        // Hint as its own line — flush left with the field, with a gap above —
+        // rather than the decoration's indented, tight helperText.
+        const SizedBox(height: AppTokens.spaceSm),
+        Text(
+          _rateOverridden
+              ? 'Set for this project — clear to inherit the default'
+              : 'Inherited from the client — edit to set a project rate',
+          style: Theme.of(context).extension<AppTextStyles>()!.rowMeta,
         ),
       ],
     );
