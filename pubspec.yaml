@@ -111,6 +111,9 @@ flutter:
     - family: Mona
       fonts:
         - asset: assets/fonts/MonaSans-VariableFont_wdth,wght.ttf
+    - family: Hyper
+      fonts:
+        - asset: assets/fonts/AtkinsonHyperlegibleNext-VariableFont_wght.ttf
     # Raleway (variable) — display headings, matched to the marketing site's
     # italic headings. fontWeight maps onto the wght axis; the italic file is
     # selected by fontStyle: italic (so w500 + italic = Medium Italic).

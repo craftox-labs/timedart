@@ -52,7 +52,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     textTheme: TextTheme(
       headlineLarge: const TextStyle(
         fontFamily: AppTokens.fontFamily,
-        fontWeight: FontWeight.w300,
+        fontWeight: FontWeight.w200,
         letterSpacing: 5,
       ),
       // Display heading — Raleway Medium Italic, matched to the marketing site.
@@ -69,8 +69,8 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontFamily: AppTokens.fontFamilyHeading,
         fontStyle: FontStyle.italic,
         color: AppTokens.colorBrandPrimary,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 1.25,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 1.2,
       ),
       titleMedium: const TextStyle(
         fontFamily: AppTokens.fontFamily,
