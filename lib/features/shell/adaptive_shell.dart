@@ -79,13 +79,28 @@ class AdaptiveShell extends StatefulWidget {
   State<AdaptiveShell> createState() => _AdaptiveShellState();
 }
 
-class _AdaptiveShellState extends State<AdaptiveShell> {
+class _AdaptiveShellState extends State<AdaptiveShell>
+    with SingleTickerProviderStateMixin {
   String? _selectedProjectId; // the project the timer records against
   _Detail _detail = const _Tracker();
   // Narrow layout only: whether the project/settings list overlay is open. The
-  // bottom bar's centre button toggles it; the bar stays live underneath.
+  // bottom bar's centre button toggles it; the bar stays live underneath. This
+  // is the *intent* flag (drives the bar's styling and pointer-gating); the
+  // sheet's actual position is [_sheetCtrl] so a drag can track the finger.
   bool _panelOpen = false;
-  double _sheetDragDy = 0; // accumulated downward drag on the sheet handle
+  // 0 = sheet fully closed (off-screen bottom), 1 = fully open. Programmatic
+  // open/close eases via animateTo; a handle drag writes .value directly for
+  // finger-follow, then _settleSheet flings to the nearer end on release.
+  late final AnimationController _sheetCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 250),
+  );
+  // Linear (uncurved) so a drag maps 1:1 to the finger; the ease is applied per
+  // programmatic call instead. Offset(0,1) = translated fully below its slot.
+  late final Animation<Offset> _sheetOffset = Tween(
+    begin: const Offset(0, 1),
+    end: Offset.zero,
+  ).animate(_sheetCtrl);
   StreamSubscription<List<Project>>? _projectsSub;
 
   // The currently-mounted Template/Profile editor's lifecycle (dirty + save),
@@ -399,6 +414,26 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _editProfile(InvoiceProfile p, {bool startEditing = false}) =>
       _navigateTo(_ProfileEditorDetail(p, startEditing: startEditing));
 
+  // ── Narrow list-panel sheet (open/close + drag settle) ──────────────
+  void _openPanel() {
+    setState(() => _panelOpen = true);
+    _sheetCtrl.animateTo(1, curve: Curves.easeOutCubic);
+  }
+
+  void _closePanel() {
+    setState(() => _panelOpen = false);
+    _sheetCtrl.animateBack(0, curve: Curves.easeOutCubic);
+  }
+
+  void _togglePanel() => _panelOpen ? _closePanel() : _openPanel();
+
+  // Release after a handle drag: a decisive flick wins by direction; otherwise
+  // snap to whichever end is nearer.
+  void _settleSheet(double velocity) {
+    final open = velocity.abs() > 400 ? velocity < 0 : _sheetCtrl.value >= 0.5;
+    open ? _openPanel() : _closePanel();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -447,6 +482,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     _trackerCursor.dispose();
     _panelSearch.dispose();
     _settingsSearch.dispose();
+    _sheetCtrl.dispose();
     _timer.dispose();
     super.dispose();
   }
@@ -810,8 +846,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                             ),
                           ),
                           child: InkWell(
-                            onTap: () =>
-                                setState(() => _panelOpen = !_panelOpen),
+                            onTap: _togglePanel,
                             child: Padding(
                               padding: const EdgeInsets.all(AppTokens.spaceSm),
                               child: Icon(
@@ -852,11 +887,10 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !_panelOpen,
-                  child: AnimatedOpacity(
-                    opacity: _panelOpen ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
+                  child: FadeTransition(
+                    opacity: _sheetCtrl, // fades in step with the sheet's drag
                     child: GestureDetector(
-                      onTap: () => setState(() => _panelOpen = false),
+                      onTap: _closePanel,
                       child: const ColoredBox(color: Colors.black54),
                     ),
                   ),
@@ -864,58 +898,67 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               ),
               // Project/settings list as a drawer-like sheet that slides up from
               // the bottom. A real Scaffold endDrawer would cover the bottom bar;
-              // this body overlay keeps the bar live and toggleable.
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: IgnorePointer(
-                  ignoring: !_panelOpen,
-                  child: AnimatedSlide(
-                    offset: _panelOpen ? Offset.zero : const Offset(0, 1),
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOutCubic,
-                    child: FractionallySizedBox(
-                      heightFactor: 0.85,
-                      child: Material(
-                        color: scheme.surface,
-                        clipBehavior: Clip.antiAlias,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(AppTokens.radiusLg),
-                          ),
-                          side: BorderSide(
-                            color: AppTokens.colorBorder,
-                            width: AppTokens.strokeThin,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            // Grab handle — drag it down to dismiss.
-                            GestureDetector(
-                              behavior: HitTestBehavior
-                                  .opaque, // catch drags on the whole strip, not just the 4px bar
-                              onVerticalDragUpdate: (d) =>
-                                  _sheetDragDy += d.delta.dy,
-                              onVerticalDragEnd: (d) {
-                                final flungDown =
-                                    (d.primaryVelocity ?? 0) > 300;
-                                if (flungDown || _sheetDragDy > 60) {
-                                  setState(() => _panelOpen = false);
-                                }
-                                _sheetDragDy = 0;
-                              },
-                              child: const SheetGrabHandle(),
-                            ),
-                            Expanded(
-                              child: panel(
-                                before: () =>
-                                    setState(() => _panelOpen = false),
-                                showFooter: false,
+              // this body overlay keeps the bar live and toggleable. The bottom
+              // Padding lifts the sheet clear of the on-screen keyboard when a
+              // field inside it (e.g. the search box) is focused.
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, bodyC) {
+                      // Sheet height in pixels — the divisor that maps a drag in
+                      // logical pixels to the controller's 0..1 range for 1:1
+                      // finger tracking.
+                      final sheetHeight = bodyC.maxHeight * 0.85;
+                      return Align(
+                        alignment: Alignment.bottomCenter,
+                        child: IgnorePointer(
+                          ignoring: !_panelOpen,
+                          child: SlideTransition(
+                            position: _sheetOffset,
+                            child: FractionallySizedBox(
+                              heightFactor: 0.85,
+                              child: Material(
+                                color: scheme.surface,
+                                clipBehavior: Clip.antiAlias,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(AppTokens.radiusLg),
+                                  ),
+                                  side: BorderSide(
+                                    color: AppTokens.colorBorder,
+                                    width: AppTokens.strokeThin,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    // Grab handle — drag it to follow the finger,
+                                    // release to fling/snap open or closed.
+                                    GestureDetector(
+                                      behavior: HitTestBehavior
+                                          .opaque, // catch drags on the whole strip, not just the 4px bar
+                                      onVerticalDragUpdate: (d) => _sheetCtrl
+                                          .value -= d.delta.dy / sheetHeight,
+                                      onVerticalDragEnd: (d) =>
+                                          _settleSheet(d.primaryVelocity ?? 0),
+                                      child: const SheetGrabHandle(),
+                                    ),
+                                    Expanded(
+                                      child: panel(
+                                        before: _closePanel,
+                                        showFooter: false,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
               ),
