@@ -250,6 +250,17 @@ class DeleteBlockedException implements Exception {
   String toString() => 'DeleteBlockedException($entity)';
 }
 
+/// How many live descendants a cascade delete would remove, so the UI can warn
+/// with real counts before deleting a parent and everything under it (#75).
+/// Fields not applicable to a given level stay 0 (a task has only entries).
+class DeleteImpact {
+  final int projects;
+  final int tasks;
+  final int entries;
+  const DeleteImpact({this.projects = 0, this.tasks = 0, this.entries = 0});
+  int get total => projects + tasks + entries;
+}
+
 @DriftDatabase(
   tables: [
     Clients,
@@ -1116,6 +1127,109 @@ class AppDatabase extends _$AppDatabase {
     final now = DateTime.now();
     await (update(clients)..where((c) => c.id.equals(id))).write(
       ClientsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+  });
+
+  // ── Cascade (bulk) delete (#75) ──────────────────────────────────────────
+  // The per-level guards above stay the default; these are the deliberate,
+  // count-warned escape hatch offered when a guarded delete is blocked. Each
+  // soft-deletes every LIVE descendant and the parent in one transaction, so
+  // it composes with the sync tombstone model. Entries reference their client
+  // directly (clientId); tasks reach the client only via their project.
+
+  // Tasks and entries carry no clientId — they reach the client only via their
+  // projectId. This matches such a projectId column against the ids of the
+  // client's projects, so it can filter both tables' rows for one client.
+  Expression<bool> _underClient(Expression<String> projectIdCol, String clientId) {
+    final projectIds = selectOnly(projects)
+      ..addColumns([projects.id])
+      ..where(projects.clientId.equals(clientId));
+    return projectIdCol.isInQuery(projectIds);
+  }
+
+  Future<int> _countLive<Tbl extends HasResultSet, Row>(
+    SimpleSelectStatement<Tbl, Row> q,
+  ) => q.get().then((rows) => rows.length);
+
+  /// Live descendant counts under a client (projects, tasks, entries).
+  Future<DeleteImpact> clientDeleteImpact(String id) async {
+    final projectCount = await _countLive(
+      select(projects)
+        ..where((p) => p.clientId.equals(id) & p.deletedAt.isNull()),
+    );
+    final taskCount = await _countLive(
+      select(tasks)
+        ..where((t) => _underClient(t.projectId, id) & t.deletedAt.isNull()),
+    );
+    final entryCount = await _countLive(
+      select(timeEntries)
+        ..where((e) => _underClient(e.projectId, id) & e.deletedAt.isNull()),
+    );
+    return DeleteImpact(
+      projects: projectCount,
+      tasks: taskCount,
+      entries: entryCount,
+    );
+  }
+
+  /// Live descendant counts under a project (tasks, entries).
+  Future<DeleteImpact> projectDeleteImpact(String id) async {
+    final taskCount = await _countLive(
+      select(tasks)
+        ..where((t) => t.projectId.equals(id) & t.deletedAt.isNull()),
+    );
+    final entryCount = await _countLive(
+      select(timeEntries)
+        ..where((e) => e.projectId.equals(id) & e.deletedAt.isNull()),
+    );
+    return DeleteImpact(tasks: taskCount, entries: entryCount);
+  }
+
+  /// Live entry count under a task.
+  Future<DeleteImpact> taskDeleteImpact(String id) async {
+    final entryCount = await _countLive(
+      select(timeEntries)
+        ..where((e) => e.taskId.equals(id) & e.deletedAt.isNull()),
+    );
+    return DeleteImpact(entries: entryCount);
+  }
+
+  Future<void> deleteClientCascade(String id) => transaction(() async {
+    final now = DateTime.now();
+    await (update(timeEntries)
+          ..where((e) => _underClient(e.projectId, id) & e.deletedAt.isNull()))
+        .write(TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await (update(tasks)
+          ..where((t) => _underClient(t.projectId, id) & t.deletedAt.isNull()))
+        .write(TasksCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await (update(projects)
+          ..where((p) => p.clientId.equals(id) & p.deletedAt.isNull()))
+        .write(ProjectsCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await (update(clients)..where((c) => c.id.equals(id))).write(
+      ClientsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+  });
+
+  Future<void> deleteProjectCascade(String id) => transaction(() async {
+    final now = DateTime.now();
+    await (update(timeEntries)
+          ..where((e) => e.projectId.equals(id) & e.deletedAt.isNull()))
+        .write(TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await (update(tasks)
+          ..where((t) => t.projectId.equals(id) & t.deletedAt.isNull()))
+        .write(TasksCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await (update(projects)..where((p) => p.id.equals(id))).write(
+      ProjectsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+  });
+
+  Future<void> deleteTaskCascade(String id) => transaction(() async {
+    final now = DateTime.now();
+    await (update(timeEntries)
+          ..where((e) => e.taskId.equals(id) & e.deletedAt.isNull()))
+        .write(TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)));
+    await (update(tasks)..where((t) => t.id.equals(id))).write(
+      TasksCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
   });
 

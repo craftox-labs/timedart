@@ -37,8 +37,25 @@ class DeleteHotkey extends StatelessWidget {
 
 // Confirm-then-delete for each entity, shared by the edit modals' Delete button
 // and the app-wide `d` key. Each shows the warning, attempts the delete, and on
-// a blocked delete (FK restrict) surfaces an info dialog — a SnackBar would be
-// hidden behind an open modal. Returns true only if the row was deleted.
+// a blocked delete (the row still has live children) offers a deliberate,
+// count-warned cascade that removes the parent and everything under it (#75) —
+// the guard stays the default, this is the explicit escape hatch. Returns true
+// only if something was deleted.
+
+String _plural(int n, String noun) => '$n $noun${n == 1 ? '' : 's'}';
+
+/// "3 projects, 8 tasks and 41 time entries" — non-zero parts only, Oxford-less
+/// "and" before the last. "time entry" has an irregular plural.
+String _impactPhrase(DeleteImpact i) {
+  final parts = <String>[
+    if (i.projects > 0) _plural(i.projects, 'project'),
+    if (i.tasks > 0) _plural(i.tasks, 'task'),
+    if (i.entries > 0) '${i.entries} time ${i.entries == 1 ? 'entry' : 'entries'}',
+  ];
+  if (parts.isEmpty) return 'no other items';
+  if (parts.length == 1) return parts.first;
+  return '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
+}
 
 Future<bool> confirmDeleteClient(
   BuildContext context,
@@ -48,21 +65,35 @@ Future<bool> confirmDeleteClient(
   final ok = await confirmDelete(
     context,
     title: 'Delete client?',
-    message: '"${client.name}" will be removed.',
+    message: '"${client.name}" will be removed. This can\'t be undone.',
   );
   if (!ok) return false;
   try {
     await db.deleteClient(client.id);
   } on DeleteBlockedException {
-    if (context.mounted) {
-      await showInfoDialog(
-        context,
-        title: "Can't delete client",
-        message: 'This client still has projects. Delete or reassign its projects '
-            'first.',
-      );
+    final impact = await db.clientDeleteImpact(client.id);
+    if (!context.mounted) return false;
+    final cascade = await confirmAction(
+      context,
+      title: 'Delete client and everything under it?',
+      message: '"${client.name}" still has ${_impactPhrase(impact)}. '
+          'Deleting the client removes all of it, and this can\'t be undone.',
+      confirmLabel: 'Delete everything',
+    );
+    if (!cascade) return false;
+    try {
+      await db.deleteClientCascade(client.id);
+    } catch (_) {
+      if (context.mounted) {
+        await showInfoDialog(
+          context,
+          title: "Can't delete client",
+          message: 'Something went wrong deleting this client.',
+        );
+      }
+      return false;
     }
-    return false;
+    return true;
   } catch (_) {
     if (context.mounted) {
       await showInfoDialog(
@@ -84,20 +115,35 @@ Future<bool> confirmDeleteProject(
   final ok = await confirmDelete(
     context,
     title: 'Delete project?',
-    message: '"${project.title}" will be removed.',
+    message: '"${project.title}" will be removed. This can\'t be undone.',
   );
   if (!ok) return false;
   try {
     await db.deleteProject(project.id);
   } on DeleteBlockedException {
-    if (context.mounted) {
-      await showInfoDialog(
-        context,
-        title: "Can't delete project",
-        message: 'This project has tasks or time entries. Delete them first.',
-      );
+    final impact = await db.projectDeleteImpact(project.id);
+    if (!context.mounted) return false;
+    final cascade = await confirmAction(
+      context,
+      title: 'Delete project and everything under it?',
+      message: '"${project.title}" still has ${_impactPhrase(impact)}. '
+          'Deleting the project removes all of it, and this can\'t be undone.',
+      confirmLabel: 'Delete everything',
+    );
+    if (!cascade) return false;
+    try {
+      await db.deleteProjectCascade(project.id);
+    } catch (_) {
+      if (context.mounted) {
+        await showInfoDialog(
+          context,
+          title: "Can't delete project",
+          message: 'Something went wrong deleting this project.',
+        );
+      }
+      return false;
     }
-    return false;
+    return true;
   } catch (_) {
     if (context.mounted) {
       await showInfoDialog(
@@ -119,20 +165,35 @@ Future<bool> confirmDeleteTask(
   final ok = await confirmDelete(
     context,
     title: 'Delete task?',
-    message: '"${task.title}" will be removed.',
+    message: '"${task.title}" will be removed. This can\'t be undone.',
   );
   if (!ok) return false;
   try {
     await db.deleteTask(task.id);
   } on DeleteBlockedException {
-    if (context.mounted) {
-      await showInfoDialog(
-        context,
-        title: "Can't delete task",
-        message: 'This task has time entries. Delete its entries first.',
-      );
+    final impact = await db.taskDeleteImpact(task.id);
+    if (!context.mounted) return false;
+    final cascade = await confirmAction(
+      context,
+      title: 'Delete task and its time entries?',
+      message: '"${task.title}" still has ${_impactPhrase(impact)}. '
+          'Deleting the task removes them, and this can\'t be undone.',
+      confirmLabel: 'Delete everything',
+    );
+    if (!cascade) return false;
+    try {
+      await db.deleteTaskCascade(task.id);
+    } catch (_) {
+      if (context.mounted) {
+        await showInfoDialog(
+          context,
+          title: "Can't delete task",
+          message: 'Something went wrong deleting this task.',
+        );
+      }
+      return false;
     }
-    return false;
+    return true;
   } catch (_) {
     if (context.mounted) {
       await showInfoDialog(
@@ -156,8 +217,8 @@ Future<bool> confirmDeleteEntry(
     context,
     title: 'Delete entry?',
     message: label == null || label.isEmpty
-        ? 'This time entry will be removed.'
-        : '"$label" will be removed.',
+        ? 'This time entry will be removed. This can\'t be undone.'
+        : '"$label" will be removed. This can\'t be undone.',
   );
   if (!ok) return false;
   try {

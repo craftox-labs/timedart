@@ -179,6 +179,115 @@ void main() {
     expect((await db.profileById(profile.id)).deletedAt, isNotNull);
   });
 
+  // ── Cascade (bulk) delete (#75) ───────────────────────────────────────────
+  // Seeds a client → 2 projects → a task each → an entry each, returning ids.
+  Future<({String clientId, String p1, String p2, String t1})> seedTree() async {
+    final clientId = await seedClient();
+    final p1 = await db.addProject(clientId: clientId, code: 'P1', title: 'One');
+    final p2 = await db.addProject(clientId: clientId, code: 'P2', title: 'Two');
+    final t1 = await db.addTask(projectId: p1, title: 'Design');
+    final t2 = await db.addTask(projectId: p2, title: 'Build');
+    await db.addEntry(
+      projectId: p1,
+      taskId: t1,
+      startedAt: DateTime(2026),
+      endedAt: DateTime(2026),
+      seconds: 60,
+    );
+    await db.addEntry(
+      projectId: p2,
+      taskId: t2,
+      startedAt: DateTime(2026),
+      endedAt: DateTime(2026),
+      seconds: 60,
+    );
+    return (clientId: clientId, p1: p1, p2: p2, t1: t1);
+  }
+
+  Future<int> liveEntries(String projectId) async =>
+      (await db.watchEntriesForProject(projectId).first).length;
+
+  test('clientDeleteImpact counts live descendants', () async {
+    final t = await seedTree();
+    final impact = await db.clientDeleteImpact(t.clientId);
+    expect(impact.projects, 2);
+    expect(impact.tasks, 2);
+    expect(impact.entries, 2);
+    expect(impact.total, 6);
+  });
+
+  test('deleteClientCascade soft-deletes the whole tree', () async {
+    final t = await seedTree();
+    await db.deleteClientCascade(t.clientId);
+
+    expect(await db.watchClients().first, isEmpty);
+    expect(await db.watchProjects().first, isEmpty);
+    expect(await db.watchTasksForProject(t.p1).first, isEmpty);
+    expect(await db.watchTasksForProject(t.p2).first, isEmpty);
+    expect(await liveEntries(t.p1), 0);
+    expect(await liveEntries(t.p2), 0);
+
+    // Tombstones survive with deletedAt set (sync-safe).
+    expect((await rawClient(t.clientId))!.deletedAt, isNotNull);
+    expect((await rawProject(t.p1))!.deletedAt, isNotNull);
+  });
+
+  test('cascade under one client leaves another client untouched', () async {
+    final t = await seedTree();
+    final other = await db.addClient(name: 'Other', defaultRate: 50);
+    final otherProject = await db.addProject(
+      clientId: other,
+      code: 'OP',
+      title: 'Keep',
+    );
+    await db.addEntry(
+      projectId: otherProject,
+      taskId: await db.addTask(projectId: otherProject, title: 'Keep task'),
+      startedAt: DateTime(2026),
+      endedAt: DateTime(2026),
+      seconds: 60,
+    );
+
+    await db.deleteClientCascade(t.clientId);
+
+    expect(await db.watchClients().first, hasLength(1)); // only Other remains
+    expect(await db.watchProjects().first, hasLength(1));
+    expect(await liveEntries(otherProject), 1);
+  });
+
+  test('projectDeleteImpact + deleteProjectCascade cover one project', () async {
+    final t = await seedTree();
+    final impact = await db.projectDeleteImpact(t.p1);
+    expect(impact.projects, 0);
+    expect(impact.tasks, 1);
+    expect(impact.entries, 1);
+
+    await db.deleteProjectCascade(t.p1);
+    expect(await db.watchTasksForProject(t.p1).first, isEmpty);
+    expect(await liveEntries(t.p1), 0);
+    // Sibling project p2 is untouched.
+    expect(await db.watchTasksForProject(t.p2).first, hasLength(1));
+    expect(await liveEntries(t.p2), 1);
+  });
+
+  test('taskDeleteImpact + deleteTaskCascade cover one task', () async {
+    final t = await seedTree();
+    final impact = await db.taskDeleteImpact(t.t1);
+    expect(impact.entries, 1);
+
+    await db.deleteTaskCascade(t.t1);
+    expect(await db.watchTasksForProject(t.p1).first, isEmpty);
+    expect(await liveEntries(t.p1), 0);
+  });
+
+  test('impact counts ignore already soft-deleted children', () async {
+    final t = await seedTree();
+    final entry = (await db.watchEntriesForProject(t.p1).first).single;
+    await db.deleteEntry(entry.id); // one entry already gone
+    final impact = await db.clientDeleteImpact(t.clientId);
+    expect(impact.entries, 1); // only the live one counts
+  });
+
   test('the exception names the blocked entity', () async {
     final clientId = await seedClient();
     await db.addProject(clientId: clientId, code: 'P1', title: 'Site');
