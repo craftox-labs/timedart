@@ -14,10 +14,10 @@ invoices. Your data lives on your device — no account required.
 
 timedart uses a simple hierarchy:
 
-- **Client** — a person or organisation you bill. Owns projects and a default hourly rate.
-- **Project** — a body of work for one client, with an optional rate override and a reference code.
-- **Task** — a named unit of work inside a project.
-- **Time entry** — a single tracked interval against a task: a start, a duration, and an optional note.
+- **Client:** a person or organisation you bill. Owns projects and a default hourly rate.
+- **Project:** a body of work for one client, with an optional rate override and a reference code.
+- **Task:** a named unit of work inside a project.
+- **Time entry:** a single tracked interval against a task — a start, a duration, and an optional note.
 
 A rate set lower down wins: a task uses its own rate if it has one, otherwise its
 project's, otherwise the client's default.
@@ -42,7 +42,7 @@ details, logo, payment fields, and styling — comes from your **profile** and i
 
 ## Where to go next
 
-- **Tracking** — clients, projects, tasks, rates, and the timer in depth.
-- **Invoicing** — profiles, templates, regions, and exporting PDFs.
-- **Data** — exporting, importing, backing up, archiving, and deleting.
-- **Keyboard shortcuts** — work faster on desktop.
+- **Tracking:** clients, projects, tasks, rates, and the timer in depth.
+- **Invoicing:** profiles, templates, regions, and exporting PDFs.
+- **Data:** exporting, importing, backing up, archiving, and deleting.
+- **Keyboard shortcuts:** work faster on desktop.

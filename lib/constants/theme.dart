@@ -60,7 +60,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       // default. Extend to other headings as we decide where else it fits.
       headlineSmall: const TextStyle(
         fontFamily: AppTokens.fontFamilyHeading,
-        fontWeight: FontWeight.w500,
+        fontWeight: AppTokens.fontWeightHeading,
         fontStyle: FontStyle.italic,
       ),
       // Screen/dialog titles — Raleway Medium Italic, matching the onboarding
@@ -69,7 +69,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontFamily: AppTokens.fontFamilyHeading,
         fontStyle: FontStyle.italic,
         color: AppTokens.colorBrandPrimary,
-        fontWeight: FontWeight.w400,
+        fontWeight: AppTokens.fontWeightHeading,
         letterSpacing: 1.2,
       ),
       titleMedium: const TextStyle(
@@ -248,7 +248,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       titleTextStyle: TextStyle(
         fontFamily: AppTokens.fontFamilyHeading,
         fontStyle: FontStyle.italic,
-        fontWeight: FontWeight.w500,
+        fontWeight: AppTokens.fontWeightHeading,
         fontSize: 24, // M3 headlineSmall size
         color: scheme.primary,
       ),

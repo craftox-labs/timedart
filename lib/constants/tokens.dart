@@ -30,11 +30,25 @@ abstract class AppTokens {
   // ── 4. Typography ──
   static const String fontFamily = 'Outfit';
   static const String fontFamilyHeading = 'Raleway'; // display headings, italic
+  // Weight for the Raleway italic headings app-wide (screen/dialog titles,
+  // onboarding, docs headings). Raleway is a variable font, so tune freely.
+  static const FontWeight fontWeightHeading = FontWeight.w600;
   static const double fontHeightDefault = 1.4;
   static const double fontSizeXs = 13.0;
   static const double fontSizeSm = 14.0;
   static const double fontSizeMd = 18.0;
   static const double fontSizeButton = 15.5; // site --text-base-plus
+
+  // Docs reader — a longer-form reading surface, so it runs a size up and a
+  // weight down from the dense app UI, with roomier leading. Scoped to the
+  // in-app documentation screen only (features/docs); the rest of the app keeps
+  // the tokens above. Tune docs typography here.
+  static const double fontSizeDocsBody = 16.0;
+  static const double fontSizeDocsH1 = 30.0;
+  static const double fontSizeDocsH2 = 23.0;
+  static const double fontSizeDocsH3 = 19.0;
+  static const FontWeight fontWeightDocsBody = FontWeight.w300;
+  static const double fontHeightDocsBody = 1.6;
 
   // ── 5. Color Palette ──
   // Seed drives the M3 surface tones; keep it as the brand primary so the

@@ -7,6 +7,7 @@ import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/docs/docs_assets.dart';
 import 'package:timedart/features/docs/docs_catalog.dart';
+import 'package:timedart/widgets/tap_target.dart';
 
 // The in-app documentation screen (#252): an offline, themed reader over the
 // bundled [DocsCatalog]. The loader shell ([DocsScreen]) fetches the catalogue
@@ -18,6 +19,59 @@ import 'package:timedart/features/docs/docs_catalog.dart';
 Future<void> openDocs(BuildContext context) => Navigator.of(
   context,
 ).push(MaterialPageRoute(builder: (_) => const DocsScreen()));
+
+/// Back affordance for the docs app bars. Uses [appIconButton] so it meets the
+/// 48 touch target on narrow (the app convention) rather than the ~44 a default
+/// BackButton resolves to under the comfortable density; [leadingWidth] is set
+/// to match so the title still hugs it.
+Widget _docsBackButton() => Builder(
+  builder: (ctx) => appIconButton(
+    icon: Icons.arrow_back,
+    tooltip: 'Back',
+    onPressed: () => Navigator.of(ctx).maybePop(),
+  ),
+);
+
+/// The section menu's fixed width in the wide layout.
+const double _kDocsMenuWidth = 260.0;
+
+/// Left inset of the reading column for a content pane of [paneWidth]: keeps a
+/// notional [AppTokens.maxContentWidth] column's left edge, plus the base
+/// gutter. Shared by the page body and the app bar so the back button/title
+/// line up above the body text.
+double _docsContentLeftInset(double paneWidth) =>
+    ((paneWidth - AppTokens.maxContentWidth) / 2).clamp(0.0, double.infinity) +
+    AppTokens.space2xl;
+
+/// Optical inset of a glyph within an [appIconButton]'s narrow touch box — the
+/// icon is centred in a [AppTokens.minTouchTarget] box, so its edge sits this
+/// far inside the box. Shifting a button out by this much lands the *glyph* on
+/// the content edge while the (larger) tap box overhangs into the margin.
+double _glyphInset(double iconSize) =>
+    (AppTokens.minTouchTarget - iconSize) / 2;
+
+/// The docs app bar. The back button's glyph aligns with the body's left edge
+/// ([leftInset]); its tap box overhangs left into the margin.
+AppBar _docsAppBar({
+  required Widget title,
+  required double leftInset,
+  List<Widget>? actions,
+}) {
+  final leadPad = (leftInset - _glyphInset(AppTokens.iconMd)).clamp(
+    0.0,
+    double.infinity,
+  );
+  return AppBar(
+    titleSpacing: 0,
+    leadingWidth: leadPad + AppTokens.minTouchTarget,
+    leading: Padding(
+      padding: EdgeInsets.only(left: leadPad),
+      child: _docsBackButton(),
+    ),
+    title: title,
+    actions: actions,
+  );
+}
 
 /// Loader shell: reads the bundled catalogue, then hands off to [DocsView].
 class DocsScreen extends StatefulWidget {
@@ -61,9 +115,10 @@ class _DocsScreenState extends State<DocsScreen> {
   }
 }
 
-/// The documentation reader over a built [catalog]: a section/page sidebar and
-/// the selected page, with prev/next navigation across the reading order. Wide
-/// shows both side by side; narrow shows the index, then the page with a back.
+/// The documentation reader over a built [catalog]: a section/page menu and the
+/// selected page, with prev/next navigation across the reading order. Wide shows
+/// the page and the menu side by side (menu right); narrow shows the page with
+/// the menu in a drawer.
 class DocsView extends StatefulWidget {
   const DocsView({super.key, required this.catalog, this.initialSlug});
 
@@ -79,24 +134,14 @@ class DocsView extends StatefulWidget {
 class _DocsViewState extends State<DocsView> {
   String? _slug;
 
-  // On narrow layouts the index and the page are separate screens; this tracks
-  // which the user is on. Ignored on wide (both are always visible).
-  bool _showingPage = false;
-
   @override
   void initState() {
     super.initState();
     final pages = widget.catalog.pages;
     _slug = widget.initialSlug ?? (pages.isEmpty ? null : pages.first.slug);
-    _showingPage = widget.initialSlug != null;
   }
 
-  void _select(String slug, {required bool fromIndex}) {
-    setState(() {
-      _slug = slug;
-      if (fromIndex) _showingPage = true;
-    });
-  }
+  void _select(String slug) => setState(() => _slug = slug);
 
   @override
   Widget build(BuildContext context) {
@@ -118,56 +163,92 @@ class _DocsViewState extends State<DocsView> {
     final narrow = context.isNarrow;
 
     if (narrow) {
-      // Index and page as two steps: the back arrow returns to the index rather
-      // than closing the screen while a page is open.
-      if (_showingPage) {
-        return Scaffold(
-          appBar: AppBar(
-            leading: BackButton(
-              onPressed: () => setState(() => _showingPage = false),
-            ),
+      // The page fills the screen; the section list opens as a right-side
+      // drawer from a menu button (menu is on the right on wide too), so
+      // there's no nested index → page → back hop. Selecting closes it.
+      return LayoutBuilder(
+        builder: (context, c) => Scaffold(
+          appBar: _docsAppBar(
             title: Text(page.title),
+            leftInset: _docsContentLeftInset(c.maxWidth),
+            actions: [
+              Padding(
+                // Land the glyph on the content's right edge (space2xl), tap
+                // box overhanging right. appIconButton floors the hit box at
+                // minTouchTarget (48) on narrow — the app's touch convention.
+                padding: EdgeInsets.only(
+                  right: AppTokens.space2xl - _glyphInset(AppTokens.iconLg),
+                ),
+                child: Builder(
+                  builder: (ctx) => appIconButton(
+                    icon: Icons.menu,
+                    iconSize: AppTokens.iconLg,
+                    tooltip: 'Contents',
+                    onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          endDrawer: Drawer(
+            child: SafeArea(
+              child: Builder(
+                builder: (ctx) => _Sidebar(
+                  catalog: widget.catalog,
+                  selected: page.slug,
+                  onSelect: (slug) {
+                    _select(slug);
+                    Scaffold.of(ctx).closeEndDrawer();
+                  },
+                ),
+              ),
+            ),
           ),
           body: _DocPageBody(
             catalog: widget.catalog,
             page: page,
             onSelect: _select,
           ),
-        );
-      }
-      return Scaffold(
-        appBar: AppBar(title: const Text('Documentation')),
-        body: _Sidebar(
-          catalog: widget.catalog,
-          selected: page.slug,
-          onSelect: (slug) => _select(slug, fromIndex: true),
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Documentation')),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 260,
-            child: _Sidebar(
-              catalog: widget.catalog,
-              selected: page.slug,
-              onSelect: (slug) => _select(slug, fromIndex: false),
-            ),
+    return LayoutBuilder(
+      builder: (context, c) {
+        // The app bar spans the full width; the content pane is what's left of
+        // it after the menu + divider, so inset the back button by that pane's
+        // content inset to line it up above the body text.
+        final paneWidth = c.maxWidth - _kDocsMenuWidth - AppTokens.strokeThin;
+        return Scaffold(
+          appBar: _docsAppBar(
+            title: const Text('Documentation'),
+            leftInset: _docsContentLeftInset(paneWidth),
           ),
-          const VerticalDivider(width: AppTokens.strokeThin),
-          Expanded(
-            child: _DocPageBody(
-              catalog: widget.catalog,
-              page: page,
-              onSelect: _select,
-            ),
+          // Content left, section menu right — mirrors the app shell's
+          // tracker (left) | panel (right) arrangement.
+          body: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _DocPageBody(
+                  catalog: widget.catalog,
+                  page: page,
+                  onSelect: _select,
+                ),
+              ),
+              const VerticalDivider(width: AppTokens.strokeThin),
+              SizedBox(
+                width: _kDocsMenuWidth,
+                child: _Sidebar(
+                  catalog: widget.catalog,
+                  selected: page.slug,
+                  onSelect: _select,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -192,20 +273,23 @@ class _Sidebar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
       children: [
         for (final group in catalog.groups) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTokens.spaceLg,
-              AppTokens.spaceSm,
-              AppTokens.spaceLg,
-              AppTokens.space3xs,
-            ),
-            child: Text(
-              group.title,
-              style: styles.sectionHeader.copyWith(
-                color: theme.colorScheme.primary,
+          // A single-page group's header just echoes the page name, so only
+          // show a header once a section actually groups more than one page.
+          if (group.pages.length > 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTokens.spaceLg,
+                AppTokens.spaceSm,
+                AppTokens.spaceLg,
+                AppTokens.space3xs,
+              ),
+              child: Text(
+                group.title,
+                style: styles.sectionHeader.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ),
-          ),
           for (final page in group.pages)
             _PageRow(
               title: page.title,
@@ -235,6 +319,12 @@ class _PageRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
+        // Floor the row at the touch target on narrow (the app's convention);
+        // desktop stays compact and padding drives the height.
+        constraints: BoxConstraints(
+          minHeight: context.isNarrow ? AppTokens.minTouchTarget : 0,
+        ),
+        alignment: Alignment.centerLeft,
         color: selected ? theme.colorScheme.surfaceContainerHighest : null,
         padding: const EdgeInsets.symmetric(
           horizontal: AppTokens.spaceLg,
@@ -266,50 +356,60 @@ class _DocPageBody extends StatelessWidget {
 
   final DocsCatalog catalog;
   final DocPage page;
-  // fromIndex is always false here — selecting from within a page (a body link
-  // or prev/next) stays in the page view.
-  final void Function(String slug, {required bool fromIndex}) onSelect;
+  // Selecting from within a page (a body link or prev/next) just switches which
+  // page is shown.
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final adjacent = catalog.prevNext(page.slug);
-    return SingleChildScrollView(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppTokens.maxContentWidth,
-          ),
+    return LayoutBuilder(
+      builder: (context, c) {
+        // Keep the reading column's LEFT edge where a centred, capped column
+        // would start, but let content run right to the menu divider with only
+        // a small trailing pad — removes the dead band on the right while
+        // leaving the left inset unchanged (mirrors the shell's stretch pages).
+        final left = _docsContentLeftInset(c.maxWidth);
+        return SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space2xl,
-              vertical: AppTokens.spaceXl,
+            padding: EdgeInsets.only(
+              left: left,
+              right: AppTokens.space2xl,
+              top: AppTokens.spaceXl,
+              bottom: AppTokens.spaceXl,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (page.summary != null && page.summary!.isNotEmpty) ...[
-                  Text(page.summary!, style: theme.textTheme.bodySmall),
+                  Text(
+                    page.summary!.toUpperCase(),
+                    style: theme.extension<AppTextStyles>()!.eyebrow,
+                  ),
                   const SizedBox(height: AppTokens.spaceLg),
                 ],
                 MarkdownBody(
                   data: page.body,
                   styleSheet: _styleSheet(theme),
                   imageBuilder: _imageBuilder,
-                  builders: {'blockquote': _AdmonitionBuilder()},
+                  builders: {
+                    'blockquote': _AdmonitionBuilder(),
+                    'code': _KeycapBuilder(),
+                  },
                   onTapLink: (text, href, title) => _onTapLink(context, href),
                 ),
                 const SizedBox(height: AppTokens.space2xl),
                 _PrevNext(
                   previous: adjacent.previous,
                   next: adjacent.next,
-                  onSelect: (slug) => onSelect(slug, fromIndex: false),
+                  onSelect: onSelect,
                 ),
               ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -324,7 +424,7 @@ class _DocPageBody extends StatelessWidget {
     final slug = href
         .replaceFirst(RegExp(r'^/?(docs/)?'), '')
         .replaceAll('/', '');
-    if (catalog.getPage(slug) != null) onSelect(slug, fromIndex: false);
+    if (catalog.getPage(slug) != null) onSelect(slug);
   }
 }
 
@@ -445,6 +545,47 @@ Widget _imageBuilder(Uri uri, String? title, String? alt) {
   );
 }
 
+/// Renders inline `code` spans as keycaps. The docs use inline code for
+/// keyboard keys (per the docs contract), so they read like the app's shortcut
+/// keycaps — a flat, bordered, rounded chip in the app font (mirrors the
+/// shortcuts dialog's `_cap`) rather than a cramped monospace highlight. A
+/// fenced code block (multi-line) falls through to the default block rendering.
+class _KeycapBuilder extends MarkdownElementBuilder {
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final text = element.textContent;
+    if (text.contains('\n')) return null; // a code block, not an inline key
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space2xs,
+        vertical: AppTokens.space4xs,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTokens.radiusButton),
+        border: Border.all(
+          color: AppTokens.colorBorder,
+          width: AppTokens.strokeThin,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: AppTokens.fontFamily,
+          fontSize: AppTokens.fontSizeXs,
+          fontWeight: FontWeight.w500,
+          color: scheme.onSurface,
+        ),
+      ),
+    );
+  }
+}
+
 /// Markdown theming from the app's design tokens. Built from the ambient theme,
 /// then nudged so headings, code, links, and spacing read like the rest of the
 /// app rather than flutter_markdown's Material defaults.
@@ -452,8 +593,9 @@ MarkdownStyleSheet _styleSheet(ThemeData theme) {
   final scheme = theme.colorScheme;
   final base = TextStyle(
     fontFamily: AppTokens.fontFamily,
-    fontSize: AppTokens.fontSizeSm,
-    height: AppTokens.fontHeightDefault,
+    fontSize: AppTokens.fontSizeDocsBody,
+    fontWeight: AppTokens.fontWeightDocsBody,
+    height: AppTokens.fontHeightDocsBody,
     color: scheme.onSurface,
   );
   final heading = TextStyle(
@@ -464,9 +606,22 @@ MarkdownStyleSheet _styleSheet(ThemeData theme) {
   return MarkdownStyleSheet.fromTheme(theme).copyWith(
     p: base,
     listBullet: base,
-    h1: heading.copyWith(fontSize: 28, fontWeight: FontWeight.w500),
-    h2: heading.copyWith(fontSize: 22, fontWeight: FontWeight.w500),
-    h3: heading.copyWith(fontSize: 18, fontWeight: FontWeight.w500),
+    h1: heading.copyWith(
+      fontSize: AppTokens.fontSizeDocsH1,
+      fontWeight: AppTokens.fontWeightHeading,
+    ),
+    h2: heading.copyWith(
+      fontSize: AppTokens.fontSizeDocsH2,
+      fontWeight: AppTokens.fontWeightHeading,
+    ),
+    h3: heading.copyWith(
+      fontSize: AppTokens.fontSizeDocsH3,
+      fontWeight: AppTokens.fontWeightHeading,
+    ),
+    // Space before section headings so they breathe from the preceding block.
+    // h1 is the page title (right under the eyebrow), so it stays tight.
+    h2Padding: const EdgeInsets.only(top: AppTokens.spaceLg),
+    h3Padding: const EdgeInsets.only(top: AppTokens.spaceMd),
     a: base.copyWith(
       color: AppTokens.colorAccentText,
       decoration: TextDecoration.underline,
@@ -484,7 +639,10 @@ MarkdownStyleSheet _styleSheet(ThemeData theme) {
     ),
     tableBorder: TableBorder.all(color: AppTokens.colorBorder),
     tableHead: base.copyWith(fontWeight: FontWeight.w600),
+    // Flat: our custom builder draws the whole callout/quote. Clear the
+    // fromTheme default (a shadowed grey box) so it doesn't wrap ours.
     blockquotePadding: EdgeInsets.zero,
+    blockquoteDecoration: const BoxDecoration(),
   );
 }
 
@@ -532,7 +690,9 @@ class _AdmonitionBuilder extends MarkdownElementBuilder {
   ) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final text = element.textContent.trim();
+    // Collapse source line wraps (a hard `\n` in the markdown) to spaces so the
+    // callout flows and wraps to its width, like single-line callouts.
+    final text = element.textContent.trim().replaceAll(RegExp(r'\s*\n\s*'), ' ');
     final match = _lead.firstMatch(text);
     final kind = match == null ? null : _Admonition.fromLead(match.group(1)!);
 
@@ -555,7 +715,8 @@ class _AdmonitionBuilder extends MarkdownElementBuilder {
           text,
           style: TextStyle(
             fontFamily: AppTokens.fontFamily,
-            fontSize: AppTokens.fontSizeSm,
+            fontSize: AppTokens.fontSizeDocsBody,
+            fontWeight: AppTokens.fontWeightDocsBody,
             fontStyle: FontStyle.italic,
             color: scheme.onSurfaceVariant,
           ),
@@ -565,18 +726,25 @@ class _AdmonitionBuilder extends MarkdownElementBuilder {
 
     final color = kind.color(scheme);
     final body = text.substring(match!.end);
+    // Flat, like the primary button: a tinted fill + a faint full border on the
+    // button radius — no shadow, no left rule.
     return Container(
       margin: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
       padding: const EdgeInsets.all(AppTokens.spaceMd),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        border: Border(left: BorderSide(color: color, width: 3)),
+        borderRadius: BorderRadius.circular(AppTokens.radiusButton),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(kind.icon, size: AppTokens.iconSm, color: color),
+          // Sized up and centred on the first text line (its line box) so it
+          // reads as a deliberate marker, not a stray glyph floating high.
+          SizedBox(
+            height: AppTokens.fontSizeDocsBody * AppTokens.fontHeightDocsBody,
+            child: Icon(kind.icon, size: AppTokens.iconLg, color: color),
+          ),
           const SizedBox(width: AppTokens.spaceSm),
           Expanded(
             child: Text.rich(
@@ -590,8 +758,9 @@ class _AdmonitionBuilder extends MarkdownElementBuilder {
                 ],
                 style: TextStyle(
                   fontFamily: AppTokens.fontFamily,
-                  fontSize: AppTokens.fontSizeSm,
-                  height: AppTokens.fontHeightDefault,
+                  fontSize: AppTokens.fontSizeDocsBody,
+                  fontWeight: AppTokens.fontWeightDocsBody,
+                  height: AppTokens.fontHeightDocsBody,
                   color: scheme.onSurface,
                 ),
               ),

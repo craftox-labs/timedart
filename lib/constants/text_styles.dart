@@ -21,6 +21,7 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     required this.rowTitleSmall,
     required this.entryTitle,
     required this.rowMeta,
+    required this.eyebrow,
   });
 
   /// Panel/settings title bar heading (e.g. "Settings").
@@ -41,6 +42,10 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
 
   /// Secondary/meta text at high density (subtitles, entry rows) — muted.
   final TextStyle rowMeta;
+
+  /// A kicker/eyebrow above a heading (docs page lede) — uppercase, wide
+  /// tracking, accent colour. Mirrors the marketing site's `.eyebrow`.
+  final TextStyle eyebrow;
 
   factory AppTextStyles.of(ColorScheme scheme) => AppTextStyles(
     panelHeading: TextStyle(
@@ -82,6 +87,13 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
       fontWeight: FontWeight.w300,
       color: scheme.onSurfaceVariant,
     ),
+    eyebrow: TextStyle(
+      fontFamily: AppTokens.fontFamily,
+      fontSize: AppTokens.fontSizeXs,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 1.6,
+      color: AppTokens.colorAccentText,
+    ),
   );
 
   @override
@@ -92,6 +104,7 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     TextStyle? rowTitleSmall,
     TextStyle? entryTitle,
     TextStyle? rowMeta,
+    TextStyle? eyebrow,
   }) => AppTextStyles(
     panelHeading: panelHeading ?? this.panelHeading,
     rowTitle: rowTitle ?? this.rowTitle,
@@ -99,6 +112,7 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     rowTitleSmall: rowTitleSmall ?? this.rowTitleSmall,
     entryTitle: entryTitle ?? this.entryTitle,
     rowMeta: rowMeta ?? this.rowMeta,
+    eyebrow: eyebrow ?? this.eyebrow,
   );
 
   // The app has one static theme (no animated light/dark transition), so

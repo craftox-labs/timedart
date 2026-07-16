@@ -13,8 +13,8 @@ An invoice is assembled from a project's time entries over a date range you choo
 
 Set these up once in Settings:
 
-- **Profile** — your billing identity: business name, logo, contact details, bank/payment details, and which region and template it uses. This owns everything that appears on the invoice.
-- **Template** — the visual look of the invoice (font and similar styling), chosen by a profile.
+- **Profile:** your billing identity: business name, logo, contact details, bank/payment details, and which region and template it uses. This owns everything that appears on the invoice.
+- **Template:** the visual look of the invoice (font and similar styling), chosen by a profile.
 
 ## Regions
 

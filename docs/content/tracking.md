@@ -11,9 +11,9 @@ summary: Clients, projects, tasks, rates, and the timer in depth.
 
 timedart organises billable work into three levels, each owned by the one above:
 
-- **Client** — a person or organisation you bill. Owns projects and a default hourly rate.
-- **Project** — a body of work for one client. Carries an optional rate override and a reference code.
-- **Task** — a named unit of work inside a project. This is what you actually start a timer against.
+- **Client:** a person or organisation you bill. Owns projects and a default hourly rate.
+- **Project:** a body of work for one client. Carries an optional rate override and a reference code.
+- **Task:** a named unit of work inside a project. This is what you actually start a timer against.
 
 A **time entry** is the atom underneath all of this: a single tracked interval against a task — a start, a duration, and an optional note.
 
