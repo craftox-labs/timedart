@@ -788,6 +788,17 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
     requiredDuringInsert: false,
     defaultValue: const Constant('active'),
   );
+  static const VerificationMeta _archivedAtMeta = const VerificationMeta(
+    'archivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> archivedAt = GeneratedColumn<DateTime>(
+    'archived_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -831,6 +842,7 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
     title,
     rate,
     status,
+    archivedAt,
     createdAt,
     updatedAt,
     deletedAt,
@@ -886,6 +898,12 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
       );
     }
+    if (data.containsKey('archived_at')) {
+      context.handle(
+        _archivedAtMeta,
+        archivedAt.isAcceptableOrUnknown(data['archived_at']!, _archivedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -937,6 +955,10 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      archivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}archived_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -965,6 +987,7 @@ class Project extends DataClass implements Insertable<Project> {
   final String title;
   final double? rate;
   final String status;
+  final DateTime? archivedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? deletedAt;
@@ -975,6 +998,7 @@ class Project extends DataClass implements Insertable<Project> {
     required this.title,
     this.rate,
     required this.status,
+    this.archivedAt,
     required this.createdAt,
     this.updatedAt,
     this.deletedAt,
@@ -990,6 +1014,9 @@ class Project extends DataClass implements Insertable<Project> {
       map['rate'] = Variable<double>(rate);
     }
     map['status'] = Variable<String>(status);
+    if (!nullToAbsent || archivedAt != null) {
+      map['archived_at'] = Variable<DateTime>(archivedAt);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -1008,6 +1035,9 @@ class Project extends DataClass implements Insertable<Project> {
       title: Value(title),
       rate: rate == null && nullToAbsent ? const Value.absent() : Value(rate),
       status: Value(status),
+      archivedAt: archivedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(archivedAt),
       createdAt: Value(createdAt),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
@@ -1030,6 +1060,7 @@ class Project extends DataClass implements Insertable<Project> {
       title: serializer.fromJson<String>(json['title']),
       rate: serializer.fromJson<double?>(json['rate']),
       status: serializer.fromJson<String>(json['status']),
+      archivedAt: serializer.fromJson<DateTime?>(json['archivedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -1045,6 +1076,7 @@ class Project extends DataClass implements Insertable<Project> {
       'title': serializer.toJson<String>(title),
       'rate': serializer.toJson<double?>(rate),
       'status': serializer.toJson<String>(status),
+      'archivedAt': serializer.toJson<DateTime?>(archivedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -1058,6 +1090,7 @@ class Project extends DataClass implements Insertable<Project> {
     String? title,
     Value<double?> rate = const Value.absent(),
     String? status,
+    Value<DateTime?> archivedAt = const Value.absent(),
     DateTime? createdAt,
     Value<DateTime?> updatedAt = const Value.absent(),
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -1068,6 +1101,7 @@ class Project extends DataClass implements Insertable<Project> {
     title: title ?? this.title,
     rate: rate.present ? rate.value : this.rate,
     status: status ?? this.status,
+    archivedAt: archivedAt.present ? archivedAt.value : this.archivedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -1080,6 +1114,9 @@ class Project extends DataClass implements Insertable<Project> {
       title: data.title.present ? data.title.value : this.title,
       rate: data.rate.present ? data.rate.value : this.rate,
       status: data.status.present ? data.status.value : this.status,
+      archivedAt: data.archivedAt.present
+          ? data.archivedAt.value
+          : this.archivedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -1095,6 +1132,7 @@ class Project extends DataClass implements Insertable<Project> {
           ..write('title: $title, ')
           ..write('rate: $rate, ')
           ..write('status: $status, ')
+          ..write('archivedAt: $archivedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -1110,6 +1148,7 @@ class Project extends DataClass implements Insertable<Project> {
     title,
     rate,
     status,
+    archivedAt,
     createdAt,
     updatedAt,
     deletedAt,
@@ -1124,6 +1163,7 @@ class Project extends DataClass implements Insertable<Project> {
           other.title == this.title &&
           other.rate == this.rate &&
           other.status == this.status &&
+          other.archivedAt == this.archivedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -1136,6 +1176,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
   final Value<String> title;
   final Value<double?> rate;
   final Value<String> status;
+  final Value<DateTime?> archivedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime?> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -1147,6 +1188,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     this.title = const Value.absent(),
     this.rate = const Value.absent(),
     this.status = const Value.absent(),
+    this.archivedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -1159,6 +1201,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     required String title,
     this.rate = const Value.absent(),
     this.status = const Value.absent(),
+    this.archivedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -1173,6 +1216,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     Expression<String>? title,
     Expression<double>? rate,
     Expression<String>? status,
+    Expression<DateTime>? archivedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -1185,6 +1229,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
       if (title != null) 'title': title,
       if (rate != null) 'rate': rate,
       if (status != null) 'status': status,
+      if (archivedAt != null) 'archived_at': archivedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -1199,6 +1244,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     Value<String>? title,
     Value<double?>? rate,
     Value<String>? status,
+    Value<DateTime?>? archivedAt,
     Value<DateTime>? createdAt,
     Value<DateTime?>? updatedAt,
     Value<DateTime?>? deletedAt,
@@ -1211,6 +1257,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
       title: title ?? this.title,
       rate: rate ?? this.rate,
       status: status ?? this.status,
+      archivedAt: archivedAt ?? this.archivedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -1239,6 +1286,9 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (archivedAt.present) {
+      map['archived_at'] = Variable<DateTime>(archivedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1263,6 +1313,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
           ..write('title: $title, ')
           ..write('rate: $rate, ')
           ..write('status: $status, ')
+          ..write('archivedAt: $archivedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -6466,6 +6517,7 @@ typedef $$ProjectsTableCreateCompanionBuilder =
       required String title,
       Value<double?> rate,
       Value<String> status,
+      Value<DateTime?> archivedAt,
       Value<DateTime> createdAt,
       Value<DateTime?> updatedAt,
       Value<DateTime?> deletedAt,
@@ -6479,6 +6531,7 @@ typedef $$ProjectsTableUpdateCompanionBuilder =
       Value<String> title,
       Value<double?> rate,
       Value<String> status,
+      Value<DateTime?> archivedAt,
       Value<DateTime> createdAt,
       Value<DateTime?> updatedAt,
       Value<DateTime?> deletedAt,
@@ -6593,6 +6646,11 @@ class $$ProjectsTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6744,6 +6802,11 @@ class $$ProjectsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -6806,6 +6869,11 @@ class $$ProjectsTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -6954,6 +7022,7 @@ class $$ProjectsTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<DateTime?> archivedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -6965,6 +7034,7 @@ class $$ProjectsTableTableManager
                 title: title,
                 rate: rate,
                 status: status,
+                archivedAt: archivedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -6978,6 +7048,7 @@ class $$ProjectsTableTableManager
                 required String title,
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<DateTime?> archivedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -6989,6 +7060,7 @@ class $$ProjectsTableTableManager
                 title: title,
                 rate: rate,
                 status: status,
+                archivedAt: archivedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,

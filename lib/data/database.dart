@@ -48,6 +48,10 @@ class Projects extends Table {
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides client default
   TextColumn get status => text().withDefault(const Constant('active'))();
+  // User-facing "archive": hide a finished project from the active UI while
+  // keeping it (and its history) for invoicing. Reversible; NULL = active.
+  // Distinct from [deletedAt] (the sync tombstone). Mirrors [Clients.archivedAt].
+  DateTimeColumn get archivedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
@@ -278,7 +282,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -721,6 +725,11 @@ class AppDatabase extends _$AppDatabase {
                 mapped('clients', 'client_id'),
               ),
             },
+            // archivedAt (#246) postdates v13, so it's absent from the old table
+            // being rebuilt — declare it new so the rebuild defaults it to NULL
+            // (the later from<16 add-if-missing then no-ops). clients.archivedAt
+            // predates v13, so its rekey needs no such declaration.
+            newColumns: [projects.archivedAt],
           ),
         );
         await rekey(
@@ -797,6 +806,30 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(activeTimers, activeTimers.description);
           }
         }
+      }
+      // v15 → v16: user-facing archive (#246). Add a nullable `archivedAt` to
+      // projects (clients already carry the column). Nullable, no default →
+      // existing rows are NULL (= active), no backfill. Add-if-missing (PRAGMA
+      // check) so a rebuild path that already has the column doesn't throw —
+      // and defensively ensure clients' column too.
+      if (from < 16) {
+        Future<bool> tableExists(String name) async => (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(name)],
+        ).get()).isNotEmpty;
+
+        Future<void> addArchivedAt(TableInfo t, GeneratedColumn c) async {
+          if (!await tableExists(t.actualTableName)) return; // defensive
+          final cols = await customSelect(
+            'PRAGMA table_info(${t.actualTableName})',
+          ).get();
+          if (!cols.any((r) => r.read<String>('name') == c.name)) {
+            await m.addColumn(t, c);
+          }
+        }
+
+        await addArchivedAt(clients, clients.archivedAt);
+        await addArchivedAt(projects, projects.archivedAt);
       }
     },
     beforeOpen: (details) async {
@@ -971,11 +1004,21 @@ class AppDatabase extends _$AppDatabase {
     );
   });
 
-  Stream<List<Project>> watchProjects() =>
-      (select(projects)
-            ..where((p) => p.deletedAt.isNull())
-            ..orderBy([(p) => OrderingTerm.asc(p.title)]))
-          .watch();
+  // Joins clients so an archived (or deleted) client hides its projects too —
+  // "archiving a client hides its projects" (#246). [includeArchived] false
+  // (default) excludes archived projects and projects of archived clients; true
+  // reveals both for the "Show archived" view.
+  Stream<List<Project>> watchProjects({bool includeArchived = false}) {
+    final q = select(projects).join([
+      innerJoin(clients, clients.id.equalsExp(projects.clientId)),
+    ])
+      ..where(projects.deletedAt.isNull() & clients.deletedAt.isNull())
+      ..orderBy([OrderingTerm.asc(projects.title)]);
+    if (!includeArchived) {
+      q.where(projects.archivedAt.isNull() & clients.archivedAt.isNull());
+    }
+    return q.map((row) => row.readTable(projects)).watch();
+  }
 
   Stream<(Project, Client)?> watchProjectWithClient(String id) {
     final q = select(projects).join([
@@ -1055,11 +1098,15 @@ class AppDatabase extends _$AppDatabase {
     );
   });
 
-  Stream<List<Client>> watchClients() =>
-      (select(clients)
-            ..where((c) => c.deletedAt.isNull())
-            ..orderBy([(c) => OrderingTerm.asc(c.name)]))
-          .watch();
+  // [includeArchived] false (the default) hides archived clients — the active
+  // list / pickers; true reveals them for the side panel's "Show archived".
+  Stream<List<Client>> watchClients({bool includeArchived = false}) {
+    final q = select(clients)
+      ..where((c) => c.deletedAt.isNull())
+      ..orderBy([(c) => OrderingTerm.asc(c.name)]);
+    if (!includeArchived) q.where((c) => c.archivedAt.isNull());
+    return q.watch();
+  }
 
   Stream<Project?> watchProject(String id) =>
       (select(projects)..where(
@@ -1147,23 +1194,33 @@ class AppDatabase extends _$AppDatabase {
     return projectIdCol.isInQuery(projectIds);
   }
 
-  Future<int> _countLive<Tbl extends HasResultSet, Row>(
-    SimpleSelectStatement<Tbl, Row> q,
-  ) => q.get().then((rows) => rows.length);
+  // Count matching rows with a SQL COUNT aggregate rather than fetching them —
+  // an impact preview shouldn't load a client's whole entry history into memory.
+  Future<int> _countLive<T extends HasResultSet, R>(
+    ResultSetImplementation<T, R> table,
+    Expression<bool> filter,
+  ) {
+    final c = countAll();
+    return (selectOnly(table)
+          ..addColumns([c])
+          ..where(filter))
+        .map((row) => row.read(c)!)
+        .getSingle();
+  }
 
   /// Live descendant counts under a client (projects, tasks, entries).
   Future<DeleteImpact> clientDeleteImpact(String id) async {
     final projectCount = await _countLive(
-      select(projects)
-        ..where((p) => p.clientId.equals(id) & p.deletedAt.isNull()),
+      projects,
+      projects.clientId.equals(id) & projects.deletedAt.isNull(),
     );
     final taskCount = await _countLive(
-      select(tasks)
-        ..where((t) => _underClient(t.projectId, id) & t.deletedAt.isNull()),
+      tasks,
+      _underClient(tasks.projectId, id) & tasks.deletedAt.isNull(),
     );
     final entryCount = await _countLive(
-      select(timeEntries)
-        ..where((e) => _underClient(e.projectId, id) & e.deletedAt.isNull()),
+      timeEntries,
+      _underClient(timeEntries.projectId, id) & timeEntries.deletedAt.isNull(),
     );
     return DeleteImpact(
       projects: projectCount,
@@ -1175,12 +1232,12 @@ class AppDatabase extends _$AppDatabase {
   /// Live descendant counts under a project (tasks, entries).
   Future<DeleteImpact> projectDeleteImpact(String id) async {
     final taskCount = await _countLive(
-      select(tasks)
-        ..where((t) => t.projectId.equals(id) & t.deletedAt.isNull()),
+      tasks,
+      tasks.projectId.equals(id) & tasks.deletedAt.isNull(),
     );
     final entryCount = await _countLive(
-      select(timeEntries)
-        ..where((e) => e.projectId.equals(id) & e.deletedAt.isNull()),
+      timeEntries,
+      timeEntries.projectId.equals(id) & timeEntries.deletedAt.isNull(),
     );
     return DeleteImpact(tasks: taskCount, entries: entryCount);
   }
@@ -1188,8 +1245,8 @@ class AppDatabase extends _$AppDatabase {
   /// Live entry count under a task.
   Future<DeleteImpact> taskDeleteImpact(String id) async {
     final entryCount = await _countLive(
-      select(timeEntries)
-        ..where((e) => e.taskId.equals(id) & e.deletedAt.isNull()),
+      timeEntries,
+      timeEntries.taskId.equals(id) & timeEntries.deletedAt.isNull(),
     );
     return DeleteImpact(entries: entryCount);
   }
@@ -1232,6 +1289,26 @@ class AppDatabase extends _$AppDatabase {
       TasksCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
   });
+
+  // ── Archive (reversible hide-from-UI) (#246) ─────────────────────────────
+  // Sets/clears archivedAt (+ bumps updatedAt for sync). Orthogonal to delete:
+  // archived rows stay live and fully resolvable for invoices/history; the
+  // active lists and pickers just filter them out (see watchClients/Projects).
+
+  Future<void> archiveClient(String id) => _setClientArchived(id, DateTime.now());
+  Future<void> unarchiveClient(String id) => _setClientArchived(id, null);
+  Future<void> _setClientArchived(String id, DateTime? at) =>
+      (update(clients)..where((c) => c.id.equals(id))).write(
+        ClientsCompanion(archivedAt: Value(at), updatedAt: Value(DateTime.now())),
+      );
+
+  Future<void> archiveProject(String id) =>
+      _setProjectArchived(id, DateTime.now());
+  Future<void> unarchiveProject(String id) => _setProjectArchived(id, null);
+  Future<void> _setProjectArchived(String id, DateTime? at) =>
+      (update(projects)..where((p) => p.id.equals(id))).write(
+        ProjectsCompanion(archivedAt: Value(at), updatedAt: Value(DateTime.now())),
+      );
 
   // ── Invoice branding: seed + DAOs (PRD #79) ──────────────────────────────
 

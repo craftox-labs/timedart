@@ -15,24 +15,24 @@
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Linux%20·%20macOS%20·%20Windows%20·%20Android-4a5142.svg">
   <img alt="Local-first" src="https://img.shields.io/badge/data-local--first-69e228.svg">
   <a href="https://github.com/craftox-labs/timedart/releases"><img alt="Download" src="https://img.shields.io/badge/download-beta-69e228.svg"></a>
-  <a href="https://timedart.netlify.app"><img alt="Website" src="https://img.shields.io/badge/website-timedart.netlify.app-69e228.svg"></a>
-  <a href="https://timedart-demo.netlify.app"><img alt="Live demo" src="https://img.shields.io/badge/try-live%20demo-1f480a.svg"></a>
+  <a href="https://timedart.app"><img alt="Website" src="https://img.shields.io/badge/website-timedart.app-69e228.svg"></a>
+  <a href="https://demo.timedart.app"><img alt="Live demo" src="https://img.shields.io/badge/try-live%20demo-1f480a.svg"></a>
 </p>
 
 <p align="center">
-  <strong>▶ <a href="https://timedart.netlify.app">Visit timedart.netlify.app</a></strong> — the website: what it is, a walkthrough, and screenshots.
+  <strong>▶ <a href="https://timedart.app">Visit timedart.app</a></strong> — the website: what it is, a walkthrough, and screenshots.
 </p>
 
 <p align="center">
-  <sub>Or <a href="https://timedart-demo.netlify.app">try the live web demo</a> — runs in your browser, no install; data never leaves your machine.</sub>
+  <sub>Or <a href="https://demo.timedart.app">try the live web demo</a> — runs in your browser, no install; data never leaves your machine.</sub>
 </p>
 
 <p align="center">
-  <a href="https://timedart.netlify.app">Website</a> ·
+  <a href="https://timedart.app">Website</a> ·
   <a href="#why-timedart">Why</a> ·
   <a href="#feature-tour">Features</a> ·
   <a href="#keyboard">Keyboard</a> ·
-  <a href="https://timedart-demo.netlify.app">Demo</a> ·
+  <a href="https://demo.timedart.app">Demo</a> ·
   <a href="#download">Download</a> ·
   <a href="#roadmap">Roadmap</a>
 </p>
@@ -87,13 +87,13 @@ from the same codebase.
 
 - **First-run onboarding** — a brief branded intro on launch, then a skippable setup that explains how timedart works and captures your business identity (name, logo, email) and region — which auto-sets your currency and tax label — straight into your default invoice profile. Re-run it any time from **Settings → General**.
 - **Timer** — `hh:mm:ss` count-up bound to a task, with start / pause / resume / finish. Name a session or let it inherit the task title. The active timer is persisted, so it survives an app restart or crash and resumes where it left off.
-- **Clients, projects & tasks** — full create / edit / delete for each, in quick modal editors. Deletes are guarded so you can't accidentally erase billable history.
+- **Clients, projects & tasks** — full create / edit / delete for each, in quick modal editors. Deletes are guarded against erasing billable history, with a deliberate, count-warned cascade for when you do want a whole branch gone. **Archive** finished clients or projects to tuck them out of the active lists while keeping their history for invoicing — reversible any time via **Show archived**.
 - **Entries** — adjust the task, note, start time, and duration of any recorded segment after the fact.
-- **Invoicing** — per-project, date-ranged, itemised at the effective rate, exported to a branded PDF. Pick the profile and set an invoice number at export; the date range is chosen in a compact modal.
+- **Invoicing** — per-project, date-ranged, itemised at the effective rate, exported to a branded PDF sized to your region (A4, or US Letter for a US profile). Pick the profile and set an invoice number at export; the date range is chosen in a compact modal.
 - **Invoice branding** — design how invoices look and read: reusable **templates** (colours, logo, font) and **profiles** (business identity, region-aware bank / payment details, currency, optional tax) that each carry a template. Manage them under **Settings**: selecting one opens a read-only preview first, with an Edit action that reveals the form (protected by an unsaved-changes prompt if you navigate away mid-edit).
 - **Backup & restore** — export your entire database to a portable JSON file and import it on any install (**Settings → General**). Import automatically repairs orphaned rows from older data.
 - **Adaptive UI** — persistent side panel + content pane when there's room; on phones, a bottom navigation bar with the client/project (and settings) lists in a slide-up panel.
-- **Design** — a considered Material 3 theme in the timedart green, Mona Sans throughout, and a single design-token source so it stays consistent.
+- **Design** — a considered Material 3 theme in the timedart green, the Outfit typeface throughout (Raleway for headings), and a single design-token source so it stays consistent.
 
 ## Keyboard
 
@@ -165,14 +165,11 @@ Core is complete and in daily-driver shape: first-run onboarding; persistent tra
 projects, and tasks; full editing everywhere; per-project PDF invoices with customisable, region-aware
 branding; and end-to-end keyboard control. Next on the horizon:
 
-- PDF polish — print-safe margins, and A4 / Letter as a page-size setting.
+- PDF polish — print-safe margins.
 - Stored, immutable invoice snapshots.
-- Bulk actions to clear out old clients and projects in one deliberate step.
-- Archiving projects you're done with, to keep the working set tidy.
 - A richer, illustrated "how it works" step in onboarding.
 - **Optional cross-device sync** — self-hostable and opt-in; the app stays fully local by default.
 - A companion **CLI** — control the timer and log entries from the terminal, **agent-ready** for LLM workflows; bundled with the app and released standalone.
-- A dedicated mobile UX pass — touch-target sizing and phone-layout polish.
 - Ongoing design polish.
 
 <details>

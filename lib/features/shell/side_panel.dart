@@ -73,8 +73,11 @@ class SidePanel extends StatefulWidget {
 }
 
 class _SidePanelState extends State<SidePanel> {
-  late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
-  late final Stream<List<Project>> _projectsStream = widget.db.watchProjects();
+  // Reassigned when "Show archived" flips (StreamBuilder re-subscribes on the
+  // new instance), so archived clients/projects come and go from the list.
+  late Stream<List<Client>> _clientsStream = widget.db.watchClients();
+  late Stream<List<Project>> _projectsStream = widget.db.watchProjects();
+  bool _showArchived = false;
   final _searchController = TextEditingController();
   FocusNode? _internalSearch;
   FocusNode get _searchFocus =>
@@ -147,6 +150,12 @@ class _SidePanelState extends State<SidePanel> {
       _cursor = 0;
     });
   }
+
+  void _toggleShowArchived() => setState(() {
+    _showArchived = !_showArchived;
+    _clientsStream = widget.db.watchClients(includeArchived: _showArchived);
+    _projectsStream = widget.db.watchProjects(includeArchived: _showArchived);
+  });
 
   String? _selectedClientId(List<Project> projects) {
     for (final j in projects) {
@@ -400,6 +409,10 @@ class _SidePanelState extends State<SidePanel> {
               },
             ),
           ),
+          _ShowArchivedToggle(
+            showing: _showArchived,
+            onTap: _toggleShowArchived,
+          ),
           // A quiet footer at the base: an App Settings gear (drawer layout).
           // In the wide layout it's suppressed — those actions sit in the header.
           if (widget.showFooter &&
@@ -462,6 +475,13 @@ class _SidePanelState extends State<SidePanel> {
         final row = _rows[i];
         final focused = i == _cursor && cursorActive;
         final key = i == _cursor ? _cursorKey : null;
+        // Archived rows (only visible while "Show archived" is on) read dimmed —
+        // a project is archived-context if it or its client is archived.
+        final archived = switch (row) {
+          ClientRow() => row.client.archivedAt != null,
+          ProjectRow() =>
+            row.project.archivedAt != null || row.client.archivedAt != null,
+        };
         final tile = FocusRing(
           focused: focused,
           edgesOnly: true, // top/bottom rules only, matching the entry list
@@ -484,6 +504,10 @@ class _SidePanelState extends State<SidePanel> {
           },
         );
 
+        final display = archived
+            ? Opacity(opacity: 0.5, child: tile)
+            : tile;
+
         // A divider above each client group (except the first), and breathing
         // space after a client's last project — the visual grouping ExpansionTile
         // used to provide.
@@ -491,7 +515,7 @@ class _SidePanelState extends State<SidePanel> {
         final lastProjectOfClient =
             row is ProjectRow &&
             (i + 1 >= _rows.length || _rows[i + 1] is ClientRow);
-        if (!dividerBefore && !lastProjectOfClient) return tile;
+        if (!dividerBefore && !lastProjectOfClient) return display;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -501,11 +525,51 @@ class _SidePanelState extends State<SidePanel> {
                 thickness: AppTokens.strokeThin,
                 color: AppTokens.colorBorder,
               ),
-            tile,
+            display,
             if (lastProjectOfClient) const SizedBox(height: AppTokens.spaceSm),
           ],
         );
       },
+    );
+  }
+}
+
+// A deliberately low-key control at the base of the list: reveals/hides archived
+// clients & projects (#246). Off by default; a plain muted text row, not a
+// prominent switch, so it stays out of the way until wanted.
+class _ShowArchivedToggle extends StatelessWidget {
+  const _ShowArchivedToggle({required this.showing, required this.onTap});
+  final bool showing;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: AppTokens.spaceMd,
+          vertical: context.isNarrow ? AppTokens.spaceSm : AppTokens.spaceXs,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              showing ? Icons.visibility_off_outlined : Icons.archive_outlined,
+              size: AppTokens.iconSm,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: AppTokens.spaceXs),
+            Text(
+              showing ? 'Hide archived' : 'Show archived',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

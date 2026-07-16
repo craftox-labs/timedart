@@ -288,6 +288,66 @@ void main() {
     expect(impact.entries, 1); // only the live one counts
   });
 
+  // ── Archive (#246) ────────────────────────────────────────────────────────
+  test('archiveClient hides it from the active list, reversibly', () async {
+    final clientId = await seedClient();
+    await db.archiveClient(clientId);
+    expect(await db.watchClients().first, isEmpty); // active list
+    expect(
+      await db.watchClients(includeArchived: true).first,
+      hasLength(1),
+    ); // still there
+    // Reversible.
+    await db.unarchiveClient(clientId);
+    expect(await db.watchClients().first, hasLength(1));
+    // Row was never tombstoned — just archivedAt toggled.
+    expect((await rawClient(clientId))!.deletedAt, isNull);
+  });
+
+  test('archiving a client hides its projects from the active list', () async {
+    final clientId = await seedClient();
+    await db.addProject(clientId: clientId, code: 'P1', title: 'Site');
+    expect(await db.watchProjects().first, hasLength(1));
+
+    await db.archiveClient(clientId);
+    expect(await db.watchProjects().first, isEmpty); // client-archive cascades to view
+    expect(await db.watchProjects(includeArchived: true).first, hasLength(1));
+  });
+
+  test('archiveProject hides just that project, reversibly', () async {
+    final clientId = await seedClient();
+    final p1 = await db.addProject(clientId: clientId, code: 'P1', title: 'One');
+    await db.addProject(clientId: clientId, code: 'P2', title: 'Two');
+
+    await db.archiveProject(p1);
+    expect(await db.watchProjects().first, hasLength(1)); // P2 remains active
+    expect(await db.watchProjects(includeArchived: true).first, hasLength(2));
+
+    await db.unarchiveProject(p1);
+    expect(await db.watchProjects().first, hasLength(2));
+  });
+
+  test('an archived project still resolves for history/invoicing', () async {
+    final clientId = await seedClient();
+    final p1 = await db.addProject(clientId: clientId, code: 'P1', title: 'One');
+    await db.archiveProject(p1);
+    // Hidden from the active list…
+    expect(await db.watchProjects().first, isEmpty);
+    // …but still resolvable by id (the invoice/history path).
+    final resolved = await db.watchProjectWithClient(p1).first;
+    expect(resolved, isNotNull);
+  });
+
+  test('archive is independent of delete (archived can still cascade-delete)', () async {
+    final clientId = await seedClient();
+    await db.addProject(clientId: clientId, code: 'P1', title: 'One');
+    await db.archiveClient(clientId);
+    // Cascade delete still works on an archived client.
+    await db.deleteClientCascade(clientId);
+    expect(await db.watchClients(includeArchived: true).first, isEmpty);
+    expect((await rawClient(clientId))!.deletedAt, isNotNull);
+  });
+
   test('the exception names the blocked entity', () async {
     final clientId = await seedClient();
     await db.addProject(clientId: clientId, code: 'P1', title: 'Site');

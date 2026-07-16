@@ -119,6 +119,20 @@ class _ClientFormState extends State<ClientForm> {
     if (deleted && mounted) Navigator.pop(context);
   }
 
+  // Archive takes a light confirm that points to the "Show archived" toggle;
+  // unarchive is immediate. Either way, close after — the row leaves/returns to
+  // the active list.
+  Future<void> _toggleArchive() async {
+    final client = widget.initial!;
+    if (client.archivedAt != null) {
+      await widget.db.unarchiveClient(client.id);
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    final archived = await confirmArchiveClient(context, widget.db, client);
+    if (archived && mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return EntityForm(
@@ -128,6 +142,8 @@ class _ClientFormState extends State<ClientForm> {
       onSubmit: _submit,
       onCancel: () => Navigator.pop(context),
       onDelete: _isEdit ? _confirmDelete : null,
+      onArchive: _isEdit ? _toggleArchive : null,
+      isArchived: widget.initial?.archivedAt != null,
       fields: [
         TextField(
           controller: _name,

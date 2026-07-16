@@ -9,6 +9,14 @@ import 'package:timedart/widgets/focus_ring.dart';
 import 'package:timedart/widgets/tap_target.dart';
 import 'package:timedart/constants/layout.dart';
 
+// Width of the right-hand trailing column shared by a task row's rolled-up time
+// and the Tasks-header Invoice action. Both are right-aligned inside this fixed
+// width after an identical gap, so the header's add-task button lands in the
+// same column as the rows' edit-task button (and the time/Invoice right edges
+// line up). Kept just wide enough for the wider content (the "Invoice" button)
+// so the narrower time doesn't sit with a big dead gap to its left.
+const double kTrackerTrailingWidth = 80;
+
 // Renders the flattened task/entry rows: a task header (title, rolled-up time,
 // amount) that expands to its indented time entries. Purely presentational —
 // the cursor index, expansion, and callbacks are owned by TimerView. Styling
@@ -157,10 +165,14 @@ class TaskList extends StatelessWidget {
                 tooltip: 'Edit task (e)',
                 onPressed: () => onEditTask(row.task),
               ),
-              // Wider gap before the time so its column aligns with the "Tasks"
-              // header (add button → Invoice uses spaceMd).
-              const SizedBox(width: AppTokens.spaceXl),
-              duration,
+              // Gap + fixed-width right-aligned time column, mirrored by the
+              // Tasks header's add-task + Invoice — so edit-task here aligns
+              // vertically with add-task above (and the time/Invoice right edges).
+              const SizedBox(width: AppTokens.spaceSm),
+              SizedBox(
+                width: kTrackerTrailingWidth,
+                child: Align(alignment: Alignment.centerRight, child: duration),
+              ),
             ],
           );
 

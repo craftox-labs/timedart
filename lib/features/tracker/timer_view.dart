@@ -779,7 +779,12 @@ class _TasksHeader extends StatelessWidget {
       builder: (context, snap) {
         final project = snap.data?.$1;
         return Padding(
-          padding: const EdgeInsets.only(bottom: AppTokens.spaceSm),
+          // Right inset matches the task rows' contentPadding so this header's
+          // trailing column right-aligns with theirs.
+          padding: const EdgeInsets.only(
+            bottom: AppTokens.spaceSm,
+            right: AppTokens.space3xs,
+          ),
           child: Row(
             children: [
               Text('Tasks', style: theme.textTheme.titleMedium),
@@ -790,19 +795,32 @@ class _TasksHeader extends StatelessWidget {
                 tooltip: 'Add task (a)',
                 onPressed: onAddTask,
               ),
-              const SizedBox(width: AppTokens.spaceMd),
-              TextButton.icon(
-                // Disabled until the project has loaded.
-                onPressed: project == null ? null : () => onInvoice(project),
-                icon: const Icon(Icons.receipt_long, size: AppTokens.iconSm),
-                label: const Text('Invoice'),
-                // Strip padding so the label sits flush to the right edge; on
-                // narrow floor the height at 48 to match the add-task button's
-                // touch target (width still hugs the label).
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size(0, narrow ? AppTokens.minTouchTarget : 0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              // Gap + fixed-width column mirroring a task row's edit-task + time,
+              // so add-task here lands above the rows' edit-task button.
+              const SizedBox(width: AppTokens.spaceSm),
+              SizedBox(
+                width: kTrackerTrailingWidth,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    // Disabled until the project has loaded.
+                    onPressed: project == null
+                        ? null
+                        : () => onInvoice(project),
+                    icon: const Icon(Icons.receipt_long, size: AppTokens.iconSm),
+                    label: const Text('Invoice'),
+                    // Strip padding so the label sits flush to the right edge; on
+                    // narrow floor the height at 48 to match the add-task button's
+                    // touch target (width still hugs the label).
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size(
+                        0,
+                        narrow ? AppTokens.minTouchTarget : 0,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
                 ),
               ),
             ],

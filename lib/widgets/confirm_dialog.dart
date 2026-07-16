@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+/// Shared content wrapper for the confirmation modals: caps width at 420 (so a
+/// long message wraps into a readable column instead of stretching the modal,
+/// matching the entity-editor dialog) and forces the body to [onSurface] — the
+/// dialog theme greens the title but leaves the body inheriting that tint.
+Widget _dialogContent(BuildContext ctx, Widget child) => ConstrainedBox(
+  constraints: const BoxConstraints(maxWidth: 420),
+  child: DefaultTextStyle.merge(
+    style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface),
+    child: child,
+  ),
+);
+
 /// A yes/no delete confirmation. Returns true only if the user confirms.
 /// Shared by the project and client forms so the dialog reads identically.
 Future<bool> confirmDelete(
@@ -11,7 +23,7 @@ Future<bool> confirmDelete(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: Text(message),
+      content: _dialogContent(ctx, Text(message)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
@@ -41,7 +53,7 @@ Future<bool> confirmAction(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: Text(message),
+      content: _dialogContent(ctx, Text(message)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
@@ -69,8 +81,11 @@ Future<UnsavedChangesAction?> confirmUnsavedChanges(BuildContext context) =>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Unsaved changes'),
-        content: const Text(
-          'You have unsaved changes. Save before leaving, or discard them?',
+        content: _dialogContent(
+          ctx,
+          const Text(
+            'You have unsaved changes. Save before leaving, or discard them?',
+          ),
         ),
         actions: [
           TextButton(
@@ -100,7 +115,7 @@ Future<void> showInfoDialog(
   context: context,
   builder: (ctx) => AlertDialog(
     title: Text(title),
-    content: Text(message),
+    content: _dialogContent(ctx, Text(message)),
     actions: [
       FilledButton(
         autofocus: true, // Enter dismisses

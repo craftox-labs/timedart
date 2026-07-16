@@ -36,7 +36,11 @@ class ProjectForm extends StatefulWidget {
 }
 
 class _ProjectFormState extends State<ProjectForm> {
-  late final Stream<List<Client>> _clientsStream = widget.db.watchClients();
+  // Include archived clients so editing a project under an archived client
+  // still shows (and can reassign) its client rather than a blank picker (#246).
+  late final Stream<List<Client>> _clientsStream = widget.db.watchClients(
+    includeArchived: true,
+  );
   late final _code = TextEditingController(text: widget.initial?.code ?? '');
   late final _title = TextEditingController(text: widget.initial?.title ?? '');
   late String? _clientId =
@@ -141,6 +145,19 @@ class _ProjectFormState extends State<ProjectForm> {
     if (deleted && mounted) Navigator.pop(context);
   }
 
+  // Archive takes a light confirm that points to the "Show archived" toggle;
+  // unarchive is immediate. Close after either way.
+  Future<void> _toggleArchive() async {
+    final project = widget.initial!;
+    if (project.archivedAt != null) {
+      await widget.db.unarchiveProject(project.id);
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    final archived = await confirmArchiveProject(context, widget.db, project);
+    if (archived && mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return EntityForm(
@@ -150,6 +167,8 @@ class _ProjectFormState extends State<ProjectForm> {
       onSubmit: _submit,
       onCancel: () => Navigator.pop(context),
       onDelete: _isEdit ? _confirmDelete : null,
+      onArchive: _isEdit ? _toggleArchive : null,
+      isArchived: widget.initial?.archivedAt != null,
       fields: [
         StreamBuilder<List<Client>>(
           stream: _clientsStream,

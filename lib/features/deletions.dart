@@ -57,153 +57,145 @@ String _impactPhrase(DeleteImpact i) {
   return '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
 }
 
-Future<bool> confirmDeleteClient(
-  BuildContext context,
-  AppDatabase db,
-  Client client,
-) async {
-  final ok = await confirmDelete(
-    context,
-    title: 'Delete client?',
-    message: '"${client.name}" will be removed. This can\'t be undone.',
-  );
-  if (!ok) return false;
-  try {
-    await db.deleteClient(client.id);
-  } on DeleteBlockedException {
-    final impact = await db.clientDeleteImpact(client.id);
-    if (!context.mounted) return false;
-    final cascade = await confirmAction(
-      context,
-      title: 'Delete client and everything under it?',
-      message: '"${client.name}" still has ${_impactPhrase(impact)}. '
-          'Deleting the client removes all of it, and this can\'t be undone.',
-      confirmLabel: 'Delete everything',
-    );
-    if (!cascade) return false;
-    try {
-      await db.deleteClientCascade(client.id);
-    } catch (_) {
-      if (context.mounted) {
-        await showInfoDialog(
-          context,
-          title: "Can't delete client",
-          message: 'Something went wrong deleting this client.',
-        );
-      }
-      return false;
-    }
-    return true;
-  } catch (_) {
+// Shared confirm-then-delete flow for the three parent entities: a plain
+// confirm; if the guarded delete is blocked by live children, offer the
+// count-warned cascade. [noun] names the entity ("client"), [name] is quoted in
+// the copy, and [cascadeTitle]/[cascadeClause] fill the cascade dialog. The
+// three callbacks are the guarded delete, its impact count, and its cascade.
+// Returns true iff something was deleted.
+Future<bool> _confirmDeleteCascading(
+  BuildContext context, {
+  required String noun,
+  required String name,
+  required String cascadeTitle,
+  required String cascadeClause,
+  required Future<void> Function() delete,
+  required Future<DeleteImpact> Function() impact,
+  required Future<void> Function() cascade,
+}) async {
+  Future<bool> failed() async {
     if (context.mounted) {
       await showInfoDialog(
         context,
-        title: "Can't delete client",
-        message: 'Something went wrong deleting this client.',
+        title: "Can't delete $noun",
+        message: 'Something went wrong deleting this $noun.',
       );
     }
     return false;
   }
+
+  final ok = await confirmDelete(
+    context,
+    title: 'Delete $noun?',
+    message: '"$name" will be removed. This can\'t be undone.',
+  );
+  if (!ok) return false;
+  try {
+    await delete();
+  } on DeleteBlockedException {
+    final counts = await impact();
+    if (!context.mounted) return false;
+    final go = await confirmAction(
+      context,
+      title: cascadeTitle,
+      message: '"$name" still has ${_impactPhrase(counts)}. '
+          '$cascadeClause, and this can\'t be undone.',
+      confirmLabel: 'Delete everything',
+    );
+    if (!go) return false;
+    try {
+      await cascade();
+    } catch (_) {
+      return failed();
+    }
+    return true;
+  } catch (_) {
+    return failed();
+  }
   return true;
 }
+
+Future<bool> confirmDeleteClient(
+  BuildContext context,
+  AppDatabase db,
+  Client client,
+) => _confirmDeleteCascading(
+  context,
+  noun: 'client',
+  name: client.name,
+  cascadeTitle: 'Delete client and everything under it?',
+  cascadeClause: 'Deleting the client removes all of it',
+  delete: () => db.deleteClient(client.id),
+  impact: () => db.clientDeleteImpact(client.id),
+  cascade: () => db.deleteClientCascade(client.id),
+);
 
 Future<bool> confirmDeleteProject(
   BuildContext context,
   AppDatabase db,
   Project project,
-) async {
-  final ok = await confirmDelete(
-    context,
-    title: 'Delete project?',
-    message: '"${project.title}" will be removed. This can\'t be undone.',
-  );
-  if (!ok) return false;
-  try {
-    await db.deleteProject(project.id);
-  } on DeleteBlockedException {
-    final impact = await db.projectDeleteImpact(project.id);
-    if (!context.mounted) return false;
-    final cascade = await confirmAction(
-      context,
-      title: 'Delete project and everything under it?',
-      message: '"${project.title}" still has ${_impactPhrase(impact)}. '
-          'Deleting the project removes all of it, and this can\'t be undone.',
-      confirmLabel: 'Delete everything',
-    );
-    if (!cascade) return false;
-    try {
-      await db.deleteProjectCascade(project.id);
-    } catch (_) {
-      if (context.mounted) {
-        await showInfoDialog(
-          context,
-          title: "Can't delete project",
-          message: 'Something went wrong deleting this project.',
-        );
-      }
-      return false;
-    }
-    return true;
-  } catch (_) {
-    if (context.mounted) {
-      await showInfoDialog(
-        context,
-        title: "Can't delete project",
-        message: 'Something went wrong deleting this project.',
-      );
-    }
-    return false;
-  }
-  return true;
-}
+) => _confirmDeleteCascading(
+  context,
+  noun: 'project',
+  name: project.title,
+  cascadeTitle: 'Delete project and everything under it?',
+  cascadeClause: 'Deleting the project removes all of it',
+  delete: () => db.deleteProject(project.id),
+  impact: () => db.projectDeleteImpact(project.id),
+  cascade: () => db.deleteProjectCascade(project.id),
+);
 
 Future<bool> confirmDeleteTask(
   BuildContext context,
   AppDatabase db,
   Task task,
+) => _confirmDeleteCascading(
+  context,
+  noun: 'task',
+  name: task.title,
+  cascadeTitle: 'Delete task and its time entries?',
+  cascadeClause: 'Deleting the task removes them',
+  delete: () => db.deleteTask(task.id),
+  impact: () => db.taskDeleteImpact(task.id),
+  cascade: () => db.deleteTaskCascade(task.id),
+);
+
+// Archiving is reversible, so it takes a light confirm (not the destructive
+// delete flow) that also teaches where the item goes — the side panel's "Show
+// archived" toggle. Unarchive is immediate (no dialog); the caller handles it.
+// Returns true only if the row was archived.
+Future<bool> confirmArchiveClient(
+  BuildContext context,
+  AppDatabase db,
+  Client client,
 ) async {
-  final ok = await confirmDelete(
+  final ok = await confirmAction(
     context,
-    title: 'Delete task?',
-    message: '"${task.title}" will be removed. This can\'t be undone.',
+    title: 'Archive client?',
+    message: '"${client.name}" and its projects will be hidden from the active '
+        'list. Show or restore them anytime with "Show archived" at the bottom '
+        'of the list.',
+    confirmLabel: 'Archive',
   );
   if (!ok) return false;
-  try {
-    await db.deleteTask(task.id);
-  } on DeleteBlockedException {
-    final impact = await db.taskDeleteImpact(task.id);
-    if (!context.mounted) return false;
-    final cascade = await confirmAction(
-      context,
-      title: 'Delete task and its time entries?',
-      message: '"${task.title}" still has ${_impactPhrase(impact)}. '
-          'Deleting the task removes them, and this can\'t be undone.',
-      confirmLabel: 'Delete everything',
-    );
-    if (!cascade) return false;
-    try {
-      await db.deleteTaskCascade(task.id);
-    } catch (_) {
-      if (context.mounted) {
-        await showInfoDialog(
-          context,
-          title: "Can't delete task",
-          message: 'Something went wrong deleting this task.',
-        );
-      }
-      return false;
-    }
-    return true;
-  } catch (_) {
-    if (context.mounted) {
-      await showInfoDialog(
-        context,
-        title: "Can't delete task",
-        message: 'Something went wrong deleting this task.',
-      );
-    }
-    return false;
-  }
+  await db.archiveClient(client.id);
+  return true;
+}
+
+Future<bool> confirmArchiveProject(
+  BuildContext context,
+  AppDatabase db,
+  Project project,
+) async {
+  final ok = await confirmAction(
+    context,
+    title: 'Archive project?',
+    message: '"${project.title}" will be hidden from the active list. Show or '
+        'restore it anytime with "Show archived" at the bottom of the list.',
+    confirmLabel: 'Archive',
+  );
+  if (!ok) return false;
+  await db.archiveProject(project.id);
   return true;
 }
 

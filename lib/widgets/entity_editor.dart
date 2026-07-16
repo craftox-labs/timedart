@@ -78,6 +78,8 @@ class EntityForm extends StatelessWidget {
     required this.onCancel,
     required this.fields,
     this.onDelete,
+    this.onArchive,
+    this.isArchived = false,
   });
 
   final String title; // "New client" / "Edit client"
@@ -89,6 +91,10 @@ class EntityForm extends StatelessWidget {
   final List<Widget> fields;
   // Delete + the `d` hotkey appear only when editing and this is wired.
   final VoidCallback? onDelete;
+  // Archive/unarchive, shown beside Delete in edit mode when wired (#246).
+  // [isArchived] flips the action between Archive and Unarchive.
+  final VoidCallback? onArchive;
+  final bool isArchived;
 
   @override
   Widget build(BuildContext context) {
@@ -117,11 +123,18 @@ class EntityForm extends StatelessWidget {
   // expanded as big touch targets, matching the content-pane editor headers.
   Widget _actions(BuildContext context) {
     final showDelete = isEdit && onDelete != null;
+    final showArchive = isEdit && onArchive != null;
     final delete = IconButton(
       onPressed: onDelete,
       icon: const Icon(Icons.delete_outline),
       color: Theme.of(context).colorScheme.primary,
       tooltip: 'Delete',
+    );
+    final archive = IconButton(
+      onPressed: onArchive,
+      icon: Icon(isArchived ? Icons.unarchive_outlined : Icons.archive_outlined),
+      color: Theme.of(context).colorScheme.primary,
+      tooltip: isArchived ? 'Unarchive' : 'Archive',
     );
     final cancel = OutlinedButton(
       onPressed: onCancel,
@@ -133,10 +146,9 @@ class EntityForm extends StatelessWidget {
         height: AppTokens.minTouchTarget,
         child: Row(
           children: [
-            if (showDelete) ...[
-              delete,
-              const SizedBox(width: AppTokens.spaceSm),
-            ],
+            if (showArchive) archive,
+            if (showDelete) delete,
+            const SizedBox(width: AppTokens.spaceSm),
             Expanded(child: cancel),
             const SizedBox(width: AppTokens.spaceSm),
             Expanded(child: submit),
@@ -146,6 +158,7 @@ class EntityForm extends StatelessWidget {
     }
     return Row(
       children: [
+        if (showArchive) archive,
         if (showDelete) delete,
         const Spacer(),
         cancel,
