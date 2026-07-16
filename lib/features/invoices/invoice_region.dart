@@ -134,6 +134,27 @@ enum InvoiceRegion {
   /// offered only for those regions.
   bool get supportsReverseCharge =>
       this == InvoiceRegion.uk || this == InvoiceRegion.eu;
+
+  /// The print page size for this region's invoices. Not a user setting — it
+  /// follows the sender's region so output lands on the local standard
+  /// stationery: the US (Letter) everywhere, A4 for the rest of the world.
+  InvoicePageSize get pageSize =>
+      this == InvoiceRegion.us ? InvoicePageSize.letter : InvoicePageSize.a4;
+}
+
+/// A standard print page size. [ratio] (height ÷ width) proportions the
+/// on-screen preview sheet; [widthPt] is the page width in PDF points (72pt =
+/// 1in), used to keep the preview sheet the same proportion as — and the same
+/// content-box width as — the exported PDF (invoice_pdf.dart maps the size to a
+/// [PdfPageFormat]). A4 is the world default; Letter is US. Chosen by region,
+/// not the user — see [InvoiceRegion.pageSize].
+enum InvoicePageSize {
+  a4(ratio: 297 / 210, widthPt: 595),
+  letter(ratio: 279 / 216, widthPt: 612);
+
+  const InvoicePageSize({required this.ratio, required this.widthPt});
+  final double ratio; // height / width
+  final double widthPt; // page width in PDF points
 }
 
 /// One bank identifier, with its invoice-block label and editor-field label.

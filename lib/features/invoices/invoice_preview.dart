@@ -6,6 +6,7 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
 import 'package:timedart/features/invoices/invoice_layout.dart';
 import 'package:timedart/features/invoices/invoice_layout_plan.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
 
 /// A bordered frame that hugs an invoice preview tightly — the border traces
 /// the sheet's true edges so it reads as the actual page boundary rather than
@@ -25,40 +26,45 @@ Widget brandingPreviewFrame({required Widget child}) => Center(
   ),
 );
 
-/// Standard print page proportions (height ÷ width). A4 is the default; Letter
-/// is offered for US output. A page-size picker is a later setting (#99).
-enum InvoicePageSize {
-  a4(297 / 210),
-  letter(279 / 216);
-
-  const InvoicePageSize(this.ratio);
-  final double ratio; // height / width
-}
-
-/// The invoice preview laid out as a page — a sheet at the chosen print
-/// proportions. Fills [brandingPreviewFrame] edge to edge. Scrolls vertically
-/// inside its parent when the invoice runs longer than one page height.
-/// Pass [scrollable] = false when embedding inside an outer scroll view.
+/// The invoice preview laid out as a page — a sheet at the print proportions of
+/// the document's region ([InvoiceRegion.pageSize]: A4 everywhere, Letter for
+/// the US). Fills [brandingPreviewFrame] edge to edge. Scrolls vertically inside
+/// its parent when the invoice runs longer than one page height. Pass
+/// [scrollable] = false when embedding inside an outer scroll view. [size]
+/// overrides the region-derived page size (tests only).
 Widget invoicePreviewPage({
   required InvoiceDocument doc,
   required InvoiceTemplate template,
-  InvoicePageSize size = InvoicePageSize.a4,
+  InvoicePageSize? size,
   bool scrollable = true,
 }) {
+  final pageSize = size ?? doc.region.pageSize;
   return LayoutBuilder(
     builder: (context, c) {
       const designWidth = InvoiceLayout.designWidth;
+      // The design canvas is A4-width; a wider page (Letter) makes the sheet
+      // proportionally wider and centres the fixed-width content, so the extra
+      // width reads as side margin — matching how the PDF widens its margins.
+      // Column math stays keyed to one content width, so nothing reflows.
+      final pageWidth =
+          designWidth * pageSize.widthPt / InvoiceLayout.pdfPageWidth;
       final sheet = Container(
-        width: designWidth,
-        constraints: BoxConstraints(minHeight: designWidth * size.ratio),
+        width: pageWidth,
+        constraints: BoxConstraints(minHeight: pageWidth * pageSize.ratio),
         color: Color(template.colorBackground),
-        child: InvoicePreview(doc: doc, template: template),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: designWidth,
+            child: InvoicePreview(doc: doc, template: template),
+          ),
+        ),
       );
       // Scale the fixed-width design sheet to fill the available width at any
       // screen size — up as well as down. FittedBox only rescales when given a
       // tight width, so pin the page to the pane width (falling back to the
       // native width if the pane is horizontally unbounded).
-      final targetWidth = c.maxWidth.isFinite ? c.maxWidth : designWidth;
+      final targetWidth = c.maxWidth.isFinite ? c.maxWidth : pageWidth;
       final page = SizedBox(
         width: targetWidth,
         child: FittedBox(
@@ -82,7 +88,7 @@ Widget invoicePreviewPage({
         if (scrollable) return zoomable;
         return SizedBox(
           width: targetWidth,
-          height: targetWidth * size.ratio,
+          height: targetWidth * pageSize.ratio,
           child: zoomable,
         );
       }

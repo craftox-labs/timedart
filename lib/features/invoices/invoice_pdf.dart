@@ -7,6 +7,7 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
 import 'package:timedart/features/invoices/invoice_layout.dart';
 import 'package:timedart/features/invoices/invoice_layout_plan.dart';
+import 'package:timedart/features/invoices/invoice_region.dart';
 
 // Renders an [InvoiceDocument] into a branded PDF using an [InvoiceTemplate].
 // All sizing constants live in [InvoiceLayout] — multiply each by [InvoiceLayout.pdfScale]
@@ -202,12 +203,27 @@ Future<Uint8List> buildBrandedInvoicePdf({
     ],
   );
 
+  // Page size follows the sender's region (A4 everywhere, US Letter for the
+  // US) — not a user setting. The content box keeps one width across sizes so
+  // all the column math in InvoiceLayout stays valid; a wider Letter sheet just
+  // gets wider side margins (the on-screen preview widens identically). Vertical
+  // margin is unchanged.
+  final pageFormat = doc.region.pageSize == InvoicePageSize.letter
+      ? PdfPageFormat.letter
+      : PdfPageFormat.a4;
+  final hMargin = doc.region.pageSize == InvoicePageSize.letter
+      ? (pageFormat.width - _p(InvoiceLayout.contentWidth)) / 2
+      : _p(InvoiceLayout.pageMargin);
+
   final doc0 = pw.Document();
   doc0.addPage(
     pw.MultiPage(
       pageTheme: pw.PageTheme(
-        pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.all(_p(InvoiceLayout.pageMargin)),
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.symmetric(
+          horizontal: hMargin,
+          vertical: _p(InvoiceLayout.pageMargin),
+        ),
         theme: pw.ThemeData.withFont(base: font, bold: bold),
         buildBackground: (context) =>
             pw.FullPage(ignoreMargins: true, child: pw.Container(color: bg)),

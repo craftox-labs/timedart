@@ -64,6 +64,16 @@ void main() {
     });
   });
 
+  group('page size', () {
+    test('US is Letter; every other region is A4', () {
+      expect(InvoiceRegion.us.pageSize, InvoicePageSize.letter);
+      for (final r in InvoiceRegion.values) {
+        if (r == InvoiceRegion.us) continue;
+        expect(r.pageSize, InvoicePageSize.a4, reason: r.name);
+      }
+    });
+  });
+
   group('fromName', () {
     test('round-trips every region name', () {
       for (final r in InvoiceRegion.values) {
