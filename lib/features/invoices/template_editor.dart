@@ -45,7 +45,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
     bg: 0xFF11140E,
     surface: 0xFF23241F,
     primary: 0xFF69E228,
-    text: 0xFFE8F5E0,
+    text: AppTokens.colorOffWhiteArgb, // logo off-white
     accent: 0xFF2E6C0F,
   );
 
@@ -434,9 +434,14 @@ class _TemplateEditorState extends State<TemplateEditor> {
         }
         final profile = snap.data;
         if (profile == null) {
-          return const SizedBox(
+          return SizedBox(
             height: 240,
-            child: Center(child: Text('Add a profile to preview.')),
+            child: Center(
+              child: Text(
+                'Add a profile to preview.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
           );
         }
         final doc = sampleInvoiceDocument(

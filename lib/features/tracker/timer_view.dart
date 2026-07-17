@@ -571,7 +571,7 @@ class _TimerViewState extends State<TimerView> {
     final theme = Theme.of(context);
     if (widget.projectId == null) {
       return Text(
-        'Select a project to start tracking',
+        'Select a project to start tracking.',
         style: theme.textTheme.bodySmall,
       );
     }
@@ -581,6 +581,8 @@ class _TimerViewState extends State<TimerView> {
         'Pick or add a task below to start tracking.',
         style: theme.textTheme.bodyLarge?.copyWith(
           color: theme.colorScheme.primary,
+          fontSize: AppTokens.fontSizeMd,
+          fontWeight: FontWeight.w300,
         ),
       );
     }
@@ -591,16 +593,17 @@ class _TimerViewState extends State<TimerView> {
           // Bold label + colon, then the task name at normal weight.
           TextSpan(
             text: '$label: ',
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           TextSpan(
             text: task.title,
-            style: const TextStyle(fontWeight: FontWeight.w400),
+            style: const TextStyle(fontWeight: FontWeight.w300),
           ),
         ],
       ),
       style: theme.textTheme.bodyMedium?.copyWith(
         color: theme.colorScheme.primary,
+        fontSize: AppTokens.fontSizeMd,
       ),
     );
   }
@@ -807,7 +810,10 @@ class _TasksHeader extends StatelessWidget {
                     onPressed: project == null
                         ? null
                         : () => onInvoice(project),
-                    icon: const Icon(Icons.receipt_long, size: AppTokens.iconSm),
+                    icon: const Icon(
+                      Icons.receipt_long,
+                      size: AppTokens.iconSm,
+                    ),
                     label: const Text('Invoice'),
                     // Strip padding so the label sits flush to the right edge; on
                     // narrow floor the height at 48 to match the add-task button's

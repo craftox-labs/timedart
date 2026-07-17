@@ -341,6 +341,7 @@ Widget editorHeader({
             style: theme.textTheme.titleLarge?.copyWith(
               fontFamily: AppTokens.fontFamily,
               fontStyle: FontStyle.normal,
+              fontWeight: FontWeight.w400,
               color: theme.colorScheme.onSurface,
             ),
           ),

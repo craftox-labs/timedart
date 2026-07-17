@@ -7,6 +7,7 @@ import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/docs/docs_assets.dart';
 import 'package:timedart/features/docs/docs_catalog.dart';
+import 'package:timedart/widgets/panel.dart';
 import 'package:timedart/widgets/tap_target.dart';
 
 // The in-app documentation screen (#252): an offline, themed reader over the
@@ -152,7 +153,7 @@ class _DocsViewState extends State<DocsView> {
         body: Center(
           child: Text(
             'No documentation is available yet.',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
       );
@@ -316,30 +317,18 @@ class _PageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
+    final rowTitle = theme.extension<AppTextStyles>()!.rowTitleSmall;
+    return panelRowTile(
+      context: context,
+      selected: selected,
       onTap: onTap,
-      child: Container(
-        // Floor the row at the touch target on narrow (the app's convention);
-        // desktop stays compact and padding drives the height.
-        constraints: BoxConstraints(
-          minHeight: context.isNarrow ? AppTokens.minTouchTarget : 0,
-        ),
-        alignment: Alignment.centerLeft,
-        color: selected ? theme.colorScheme.surfaceContainerHighest : null,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.spaceLg,
-          vertical: AppTokens.spaceXs,
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontFamily: AppTokens.fontFamily,
-            fontSize: AppTokens.fontSizeSm,
-            color: selected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface,
-          ),
-        ),
+      // Selected page keeps its primary-colour cue; the shared tile supplies the
+      // surfaceContainerHighest background for the selection.
+      title: Text(
+        title,
+        style: selected
+            ? rowTitle.copyWith(color: theme.colorScheme.primary)
+            : rowTitle,
       ),
     );
   }

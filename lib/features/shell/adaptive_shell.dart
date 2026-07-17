@@ -772,18 +772,29 @@ class _AdaptiveShellState extends State<AdaptiveShell>
             // above the logo bar — no extra margin, to reclaim vertical space.
             child: SafeArea(
               bottom: false,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 36),
-                color: scheme.surfaceContainerHighest,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.spaceMd,
-                  vertical: AppTokens.spaceXs,
+              // The app is single-theme dark, and the header uses a custom
+              // container (not an AppBar), so nothing else sets the overlay
+              // style. Pin light status-bar icons for contrast against the dark
+              // header, and transparent bars for the edge-to-edge look. Static
+              // because there's no light theme to switch between.
+              child: AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle.light.copyWith(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.transparent,
                 ),
-                // Logo centred now the hamburger is gone (nav is the bottom bar).
-                child: Center(
-                  child: SvgPicture.asset(
-                    'assets/logo/timedart_logo_horizontal.svg',
-                    height: 18,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 36),
+                  color: scheme.surfaceContainerHighest,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.spaceMd,
+                    vertical: AppTokens.spaceXs,
+                  ),
+                  // Logo centred now the hamburger is gone (nav is the bottom bar).
+                  child: Center(
+                    child: SvgPicture.asset(
+                      'assets/logo/timedart_logo_horizontal.svg',
+                      height: 18,
+                    ),
                   ),
                 ),
               ),

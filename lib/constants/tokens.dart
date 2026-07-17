@@ -36,6 +36,7 @@ abstract class AppTokens {
   static const double fontHeightDefault = 1.4;
   static const double fontSizeXs = 13.0;
   static const double fontSizeSm = 14.0;
+  static const double fontSizeSmPlus = 16.0;
   static const double fontSizeMd = 18.0;
   static const double fontSizeButton = 15.5; // site --text-base-plus
 
@@ -57,7 +58,20 @@ abstract class AppTokens {
   static const Color colorBrandPrimary = Color(0xFF69E228);
   static const Color colorBrandOnPrimary = Colors.black;
   static const Color colorBrandSecondary = Color(0xFF2E6C0F);
-  static const Color colorBrandOnSecondary = Colors.white;
+  // Off-white from the logo (rgb 226,227,216) — the light foreground everywhere
+  // instead of pure white. Drives scheme.onSurface; the logo SVGs already use it.
+  // The ARGB int is the single source: `colorOffWhite` builds from it, and the
+  // invoice template's int-typed default text colour references it directly
+  // (const-safe, where `Color.toARGB32()` can't be used). The Flutter-free data
+  // layer (lib/data) can't import this, so its seed default keeps a literal.
+  static const int colorOffWhiteArgb = 0xFFE2E3D8;
+  static const Color colorOffWhite = Color(colorOffWhiteArgb);
+  // Muted foreground for meta / subtitles / inactive icons — the midpoint
+  // between colorOffWhite and colorBorder. Dimmer than the M3 default variant
+  // but still readable (the border itself is too dark for text). Drives
+  // scheme.onSurfaceVariant.
+  static const Color colorOffWhiteDim = Color(0xFF969A8D);
+  static const Color colorBrandOnSecondary = colorOffWhite;
   // Accent scale for the tinted "primary" button — matched to the marketing
   // site's dark-theme button tokens (tokens.css). Dim fill + bright text at
   // rest; on hover the fill becomes accentText and text becomes onAccent.

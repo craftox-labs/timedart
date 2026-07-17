@@ -5,12 +5,12 @@ import 'package:timedart/constants/layout.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
+import 'package:timedart/widgets/panel.dart';
 import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/panel_rows.dart';
 import 'package:timedart/widgets/focus_ring.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:timedart/widgets/tap_target.dart';
-import 'package:timedart/widgets/panel_search_field.dart';
 
 class SidePanel extends StatefulWidget {
   const SidePanel({
@@ -413,6 +413,9 @@ class _SidePanelState extends State<SidePanel> {
             showing: _showArchived,
             onTap: _toggleShowArchived,
           ),
+          // Lift the toggle off the bottom edge on mobile so it's clearer and
+          // easier to reach; desktop keeps it snug above the footer/badge.
+          if (context.isNarrow) const SizedBox(height: AppTokens.spaceMd),
           // A quiet footer at the base: an App Settings gear (drawer layout).
           // In the wide layout it's suppressed — those actions sit in the header.
           if (widget.showFooter &&
@@ -460,16 +463,16 @@ class _SidePanelState extends State<SidePanel> {
     }
 
     if (clients.isEmpty) {
-      return const _EmptyNote('No clients yet — add one above.');
+      return const PanelEmptyNote('No clients yet — add one above.');
     }
     if (_rows.isEmpty) {
-      return _EmptyNote('No matches for "${_query.trim()}".');
+      return PanelEmptyNote('No matches for "${_query.trim()}".');
     }
 
     final cursorActive = _cursorNode.hasPrimaryFocus;
     return ListView.builder(
       controller: _scroll,
-      padding: const EdgeInsets.symmetric(vertical: AppTokens.space4xs),
+      padding: panelListPadding,
       itemCount: _rows.length,
       itemBuilder: (context, i) {
         final row = _rows[i];
@@ -504,9 +507,7 @@ class _SidePanelState extends State<SidePanel> {
           },
         );
 
-        final display = archived
-            ? Opacity(opacity: 0.5, child: tile)
-            : tile;
+        final display = archived ? Opacity(opacity: 0.5, child: tile) : tile;
 
         // A divider above each client group (except the first), and breathing
         // space after a client's last project — the visual grouping ExpansionTile
@@ -515,19 +516,10 @@ class _SidePanelState extends State<SidePanel> {
         final lastProjectOfClient =
             row is ProjectRow &&
             (i + 1 >= _rows.length || _rows[i + 1] is ClientRow);
-        if (!dividerBefore && !lastProjectOfClient) return display;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (dividerBefore)
-              const Divider(
-                height: AppTokens.strokeThin,
-                thickness: AppTokens.strokeThin,
-                color: AppTokens.colorBorder,
-              ),
-            display,
-            if (lastProjectOfClient) const SizedBox(height: AppTokens.spaceSm),
-          ],
+        return panelGroupItem(
+          dividerBefore: dividerBefore,
+          spacerAfter: lastProjectOfClient,
+          child: display,
         );
       },
     );
@@ -565,28 +557,12 @@ class _ShowArchivedToggle extends StatelessWidget {
               showing ? 'Hide archived' : 'Show archived',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
+                fontSize: AppTokens.fontSizeSm,
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-// --- Small centred note for empty / no-match states ---
-class _EmptyNote extends StatelessWidget {
-  final String message;
-  const _EmptyNote(this.message);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTokens.spaceMd,
-        vertical: AppTokens.spaceXs,
-      ),
-      child: Text(message, style: Theme.of(context).textTheme.bodySmall),
     );
   }
 }
@@ -611,12 +587,8 @@ class _ClientHeaderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListTile(
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -4),
-      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : 36,
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceMd),
-      horizontalTitleGap: AppTokens.space2xs,
+    return panelGroupHeaderTile(
+      context: context,
       onTap: onToggle,
       leading: Icon(
         expanded ? Icons.expand_more : Icons.chevron_right,
@@ -668,20 +640,9 @@ class ProjectRowItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : null,
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -4),
+    return panelRowTile(
+      context: context,
       selected: isSelected,
-      // Left indent under the client; right inset matches the client header
-      // (spaceMd) so the action icons line up in a column. Tight vertical
-      // padding keeps project rows close together.
-      contentPadding: const EdgeInsets.fromLTRB(
-        AppTokens.spaceLg,
-        AppTokens.space3xs,
-        AppTokens.spaceMd,
-        AppTokens.space3xs,
-      ),
       title: Text(
         '${project.code} - ${project.title}',
         maxLines: 1,
@@ -695,137 +656,6 @@ class ProjectRowItem extends StatelessWidget {
         onPressed: onEdit,
       ),
       onTap: onTap,
-    );
-  }
-}
-
-// Base-of-panel footer: a `?` keycap + "Shortcuts" hint (opens the help modal),
-// and an App Settings gear. Either half is shown only when its callback is set.
-// Public so the settings panel shows the same footer.
-class PanelFooter extends StatelessWidget {
-  const PanelFooter({
-    super.key,
-    this.onShowHelp,
-    this.onOpenSettings,
-    this.onOpenTracker,
-    this.settingsActive = false,
-  });
-  final VoidCallback? onShowHelp;
-  final VoidCallback? onOpenSettings;
-  // Go to the tracker. When set, the timedart symbol shows beside the gear —
-  // the two read as a Tracker/Settings switch, mirroring the wide header.
-  final VoidCallback? onOpenTracker;
-  // Which section is active — tints the tracker/gear pair (primary vs muted).
-  final bool settingsActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.spaceMd,
-            vertical: AppTokens.spaceMd,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (onShowHelp != null)
-                InkWell(
-                  onTap: onShowHelp,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppTokens.spaceXs,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTokens.space2xs,
-                            vertical: AppTokens.space4xs,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(
-                              AppTokens.radiusSm,
-                            ),
-                            border: Border.all(color: AppTokens.colorBorder),
-                          ),
-                          child: Text(
-                            '?',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppTokens.spaceXs),
-                        Text(
-                          'Shortcuts',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (onShowHelp != null &&
-                  (onOpenSettings != null || onOpenTracker != null))
-                const SizedBox(width: AppTokens.spaceLg),
-              if (onOpenTracker != null)
-                IconButton(
-                  icon: SvgPicture.asset(
-                    'assets/logo/timedart_symbol.svg',
-                    height: AppTokens.iconSm,
-                    colorFilter: ColorFilter.mode(
-                      settingsActive ? scheme.onSurfaceVariant : scheme.primary,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  iconSize: AppTokens.iconSm,
-                  visualDensity: context.isNarrow
-                      ? VisualDensity.standard
-                      : VisualDensity.compact,
-                  constraints: context.isNarrow
-                      ? const BoxConstraints(
-                          minWidth: AppTokens.minTouchTarget,
-                          minHeight: AppTokens.minTouchTarget,
-                        )
-                      : const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Tracker',
-                  onPressed: onOpenTracker,
-                ),
-              if (onOpenTracker != null && onOpenSettings != null)
-                const SizedBox(width: AppTokens.spaceMd),
-              if (onOpenSettings != null)
-                IconButton(
-                  icon: const Icon(Icons.settings),
-                  color: settingsActive
-                      ? scheme.primary
-                      : scheme.onSurfaceVariant,
-                  iconSize: AppTokens.iconSm,
-                  visualDensity: context.isNarrow
-                      ? VisualDensity.standard
-                      : VisualDensity.compact,
-                  constraints: context.isNarrow
-                      ? const BoxConstraints(
-                          minWidth: AppTokens.minTouchTarget,
-                          minHeight: AppTokens.minTouchTarget,
-                        )
-                      : const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Settings',
-                  onPressed: onOpenSettings,
-                ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

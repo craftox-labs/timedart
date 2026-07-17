@@ -8,12 +8,13 @@ import 'package:timedart/data/database.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Full-screen (immersive) on mobile — hides the status + navigation bars;
-  // swipe from an edge to reveal them temporarily. No-op on desktop/web.
+  // Edge-to-edge on mobile — content draws behind the status + navigation
+  // bars, but they stay visible (the standard most apps follow). No-op on
+  // desktop/web.
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS)) {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
   final db = AppDatabase();
   runApp(MyApp(db: db));
@@ -29,7 +30,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         final width = MediaQuery.sizeOf(context).width;
         final scale = width < AppTokens.breakpointMd
-            ? 0.85
+            ? 0.9
             : 1.0; // mobile shrink
         return MediaQuery.withClampedTextScaling(
           minScaleFactor: scale,

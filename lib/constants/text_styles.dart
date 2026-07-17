@@ -56,7 +56,7 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     ),
     rowTitle: TextStyle(
       fontFamily: AppTokens.fontFamily,
-      fontSize: AppTokens.fontSizeSm,
+      fontSize: AppTokens.fontSizeSmPlus,
       fontWeight: FontWeight.w400,
       letterSpacing: 1,
       color: scheme.onSurface,
@@ -64,26 +64,30 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
     sectionHeader: TextStyle(
       fontFamily: AppTokens.fontFamily,
       // Matches the tracker side panel's client heading (rowTitle) size.
-      fontSize: AppTokens.fontSizeSm,
+      fontSize: AppTokens.fontSizeSmPlus,
       fontWeight: FontWeight.w400,
+      letterSpacing: 1,
       color: scheme.onSurface,
     ),
     rowTitleSmall: TextStyle(
       fontFamily: AppTokens.fontFamily,
-      fontSize: AppTokens.fontSizeXs,
+      fontSize: AppTokens.fontSizeSm,
       fontWeight: FontWeight.w300,
-      letterSpacing: 1,
+      letterSpacing: 0.5,
       color: scheme.onSurface,
     ),
     entryTitle: TextStyle(
       fontFamily: AppTokens.fontFamily,
-      fontSize: AppTokens.fontSizeSm,
-      fontWeight: FontWeight.w400,
-      color: scheme.onSurfaceVariant,
+      fontSize: AppTokens.fontSizeSmPlus,
+      fontWeight: FontWeight.w300,
+      letterSpacing: 0.5,
+      // Entry description reads as primary content — full off-white, not the
+      // dimmed variant used for the meta line below it.
+      color: scheme.onSurface,
     ),
     rowMeta: TextStyle(
       fontFamily: AppTokens.fontFamily,
-      fontSize: AppTokens.fontSizeXs,
+      fontSize: AppTokens.fontSizeSm,
       fontWeight: FontWeight.w300,
       color: scheme.onSurfaceVariant,
     ),

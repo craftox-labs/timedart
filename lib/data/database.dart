@@ -1351,7 +1351,7 @@ class AppDatabase extends _$AppDatabase {
         colorBackground: 0xFF11140E, // brand dark surface
         colorSurface: 0xFF23241F, // neutral dark card (was green-tinted)
         colorPrimary: 0xFF69E228, // brand green
-        colorText: 0xFFE8F5E0,
+        colorText: 0xFFE2E3D8, // logo off-white (AppTokens.colorOffWhite)
         colorAccent: 0xFF2E6C0F, // brand secondary
         fontFamily: const Value('Outfit'),
         isDefault: const Value(true),

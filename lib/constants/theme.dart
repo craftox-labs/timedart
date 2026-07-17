@@ -8,6 +8,12 @@ ThemeData buildAppTheme(Brightness brightness) {
     brightness: brightness,
     primary: AppTokens.colorBrandPrimary,
     onPrimary: AppTokens.colorBrandOnPrimary,
+    // Light foreground is the logo's off-white, not the seed's near-white. This
+    // is the site-wide "white": every scheme.onSurface reference inherits it.
+    onSurface: AppTokens.colorOffWhite,
+    // Muted foreground (meta, subtitles, inactive icons) — dimmer than the M3
+    // default variant. Every scheme.onSurfaceVariant reference inherits it.
+    onSurfaceVariant: AppTokens.colorOffWhiteDim,
   );
 
   // One source of truth for structural borders (dividers, app-bar hairline,

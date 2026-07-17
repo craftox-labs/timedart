@@ -6,9 +6,8 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/side_panel.dart';
 import 'package:timedart/widgets/focus_ring.dart';
-import 'package:timedart/widgets/panel_search_field.dart';
+import 'package:timedart/widgets/panel.dart';
 import 'package:timedart/widgets/tap_target.dart';
-import 'package:timedart/constants/layout.dart';
 
 /// The side panel while in Settings mode: two flat collapsible sections —
 /// Templates (the visual style) and Profiles — listing the configured rows.
@@ -518,17 +517,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
     if (_cursor >= _rows.length) _cursor = _rows.isEmpty ? 0 : _rows.length - 1;
 
     if (_searching && _rows.isEmpty) {
-      return Center(
-        child: Text(
-          'No settings match "${_query.trim()}".',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      );
+      return PanelEmptyNote('No settings match "${_query.trim()}".');
     }
 
     final cursorActive = _cursorNode.hasPrimaryFocus;
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: AppTokens.space4xs),
+      padding: panelListPadding,
       itemCount: _rows.length,
       itemBuilder: (context, i) {
         final row = _rows[i];
@@ -586,19 +580,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
         final lastOfSection =
             (row is _EntityRow || row is _ActionRow) &&
             (i + 1 >= _rows.length || _rows[i + 1] is _HeaderRow);
-        if (!dividerBefore && !lastOfSection) return tile;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (dividerBefore)
-              const Divider(
-                height: AppTokens.strokeThin,
-                thickness: AppTokens.strokeThin,
-                color: AppTokens.colorBorder,
-              ),
-            tile,
-            if (lastOfSection) const SizedBox(height: AppTokens.spaceSm),
-          ],
+        return panelGroupItem(
+          dividerBefore: dividerBefore,
+          spacerAfter: lastOfSection,
+          child: tile,
         );
       },
     );
@@ -624,12 +609,8 @@ class _SectionHeaderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    return ListTile(
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -4),
-      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : 36,
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppTokens.spaceMd),
-      horizontalTitleGap: AppTokens.space2xs,
+    return panelGroupHeaderTile(
+      context: context,
       onTap: onTap,
       leading: Icon(
         expanded ? Icons.expand_more : Icons.chevron_right,
@@ -673,17 +654,9 @@ class _EntityTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    return ListTile(
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -4),
+    return panelRowTile(
+      context: context,
       selected: selected,
-      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : null,
-      contentPadding: const EdgeInsets.fromLTRB(
-        AppTokens.spaceLg,
-        AppTokens.space3xs,
-        AppTokens.spaceMd,
-        AppTokens.space3xs,
-      ),
       title: Row(
         children: [
           Flexible(
@@ -733,17 +706,8 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    return ListTile(
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -4),
-      // Match the entity rows' touch height on narrow (was missing here).
-      minTileHeight: context.isNarrow ? AppTokens.minTouchTarget : null,
-      contentPadding: const EdgeInsets.fromLTRB(
-        AppTokens.spaceLg,
-        AppTokens.space3xs,
-        AppTokens.spaceMd,
-        AppTokens.space3xs,
-      ),
+    return panelRowTile(
+      context: context,
       horizontalTitleGap: AppTokens.spaceXs,
       leading: Icon(
         icon,

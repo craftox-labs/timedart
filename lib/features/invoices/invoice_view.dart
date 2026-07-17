@@ -309,6 +309,9 @@ class _InvoiceViewState extends State<InvoiceView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              // Date left, Change dates pushed to the right edge so the row
+              // spans the content width (mirrors the desktop layout's Spacer).
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(child: dateText),
                 const SizedBox(width: AppTokens.spaceSm),
@@ -384,13 +387,20 @@ class _InvoiceViewState extends State<InvoiceView> {
                 style: TextStyle(
                   fontFamily: AppTokens.fontFamily,
                   fontStyle: FontStyle.normal,
+                  fontWeight: FontWeight.w400,
                   color: theme.colorScheme.onSurface,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: AppTokens.spaceXs),
+        // Desktop packs the date + branding inputs onto one row right under the
+        // title; those input boxes (with floating labels) jut up close to it, so
+        // give them more headroom. Narrow wraps the inputs to a second line under
+        // short date text, so the small gap already reads fine there.
+        SizedBox(
+          height: context.isNarrow ? AppTokens.spaceXs : AppTokens.spaceLg,
+        ),
         _controls(),
         const SizedBox(height: AppTokens.spaceSm),
         Expanded(
@@ -405,8 +415,11 @@ class _InvoiceViewState extends State<InvoiceView> {
               final loaded = snap.data ?? _last;
               if (loaded == null) {
                 return snap.connectionState == ConnectionState.done
-                    ? const Center(
-                        child: Text('No invoice template configured.'),
+                    ? Center(
+                        child: Text(
+                          'No invoice template configured.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       )
                     : const Center(child: CircularProgressIndicator());
               }
@@ -418,8 +431,11 @@ class _InvoiceViewState extends State<InvoiceView> {
                   Expanded(
                     child: brandingPreviewFrame(
                       child: empty
-                          ? const Center(
-                              child: Text('No tracked time in this period.'),
+                          ? Center(
+                              child: Text(
+                                'No tracked time in this period.',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
                             )
                           : invoicePreviewPage(
                               doc: doc,

@@ -687,9 +687,14 @@ class _ProfileEditorState extends State<ProfileEditor> {
   Widget _preview() {
     final template = _selectedTemplate();
     if (template == null) {
-      return const SizedBox(
+      return SizedBox(
         height: 240,
-        child: Center(child: Text('Add a template to preview.')),
+        child: Center(
+          child: Text(
+            'Add a template to preview.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
       );
     }
     final doc = profilePreviewDocument(

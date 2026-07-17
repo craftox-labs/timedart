@@ -57,8 +57,8 @@ class TaskList extends StatelessWidget {
     if (rows.isEmpty) {
       return Center(
         child: Text(
-          'No tasks yet — start the timer or add one.',
-          style: Theme.of(context).textTheme.bodySmall,
+          'No tasks yet.',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       );
     }
