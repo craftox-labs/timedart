@@ -5,8 +5,9 @@ import 'package:timedart/constants/theme.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/onboarding/onboarding_gate.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/legacy_db_migration.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Edge-to-edge on mobile — content draws behind the status + navigation
   // bars, but they stay visible (the standard most apps follow). No-op on
@@ -16,6 +17,9 @@ void main() {
           defaultTargetPlatform == TargetPlatform.iOS)) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
+  // Rename any pre-1.0 `time_tracker.sqlite` to `timedart.sqlite` before the
+  // database opens (no-op on web / fresh installs). Keeps existing users' data.
+  await migrateLegacyDatabaseFile();
   final db = AppDatabase();
   runApp(MyApp(db: db));
 }
