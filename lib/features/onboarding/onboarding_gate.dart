@@ -41,8 +41,11 @@ class _RootGateState extends State<RootGate> {
   // Seed defaults first (so the default profile exists before the wizard can
   // edit it), then resolve the flag and try to advance.
   Future<void> _bootstrap() async {
-    _defaultProjectId = await widget.db.ensureDefaultProject();
     await widget.db.ensureInvoiceDefaults();
+    // Seed the first-run example data (once, empty DB only), then open on its
+    // first project — or none, if a returning user has cleared everything.
+    await widget.db.seedFirstRunExampleData();
+    _defaultProjectId = await widget.db.firstProjectId();
     // Mint the stable per-install id now (idempotent) so existing installs
     // acquire one before the optional sync layer needs it (PRD #189, Phase 4).
     await widget.db.installId();

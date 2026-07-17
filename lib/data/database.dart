@@ -855,37 +855,96 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<String> ensureDefaultProject() async {
-    // Look up by code IGNORING the tombstone: `code` is unique, so if a
-    // soft-deleted GENERAL exists, inserting a fresh one would collide. The
-    // default project must always be live — resurrect it if it was deleted.
-    final existing = await (select(
-      projects,
-    )..where((p) => p.code.equals('GENERAL'))).getSingleOrNull();
-    if (existing != null) {
-      if (existing.deletedAt != null) {
-        await (update(projects)..where((p) => p.id.equals(existing.id))).write(
-          ProjectsCompanion(
-            deletedAt: const Value(null),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
-      }
-      return existing.id;
+  // ── First-run example data (PRD #133) ─────────────────────────────────────
+  // A fresh install is seeded once with a small, deliberately generic example —
+  // one client, two projects, a handful of tasks and time entries — so a new
+  // user opens the app to a worked example of how tracking looks rather than a
+  // blank slate. It's ordinary data: explore it, then archive or delete it when
+  // you're ready for your own (see docs getting-started). There is no forced
+  // "default project" — the app degrades to a clean empty state when every
+  // project is gone (see [firstProjectId]).
+  static const _exampleSeededKey = 'example_data_seeded';
+
+  /// Seed the example data on first run — but only into a genuinely empty
+  /// database, and only once (guarded by a flag). The flag is set either way,
+  /// so removing the example data is permanent, and existing installs upgrading
+  /// (which already hold data) are never seeded into.
+  Future<void> seedFirstRunExampleData() async {
+    if (await _getFlag(_exampleSeededKey)) return;
+    final hasClient =
+        await (select(clients)..limit(1)).getSingleOrNull() != null;
+    final hasProject =
+        await (select(projects)..limit(1)).getSingleOrNull() != null;
+    if (!hasClient && !hasProject) {
+      await _insertExampleData();
     }
-    final clientId = await _defaultClientId();
-    // Generate the id up-front and return it: with a text PK, insert() yields
-    // the integer rowid, not the uuid the caller needs.
-    final id = idGen.newId();
-    await into(projects).insert(
-      ProjectsCompanion.insert(
-        id: Value(id),
-        clientId: clientId,
-        code: 'GENERAL',
-        title: 'Uncategorised',
-      ),
+    await _setFlag(_exampleSeededKey, true);
+  }
+
+  Future<void> _insertExampleData() => transaction(() async {
+    final now = DateTime.now();
+    final clientId = await addClient(
+      name: 'Example Client',
+      contactName: 'Jordan Example',
+      email: 'hello@example.com',
+      defaultRate: 80,
     );
-    return id;
+    final projectA = await addProject(
+      clientId: clientId,
+      code: 'EXAMPLE',
+      title: 'Example Project',
+    );
+    final projectB = await addProject(
+      clientId: clientId,
+      code: 'EXAMPLE2',
+      title: 'Example Project 2',
+      rate: 95,
+    );
+    final planning = await addTask(projectId: projectA, title: 'Planning');
+    final design = await addTask(projectId: projectA, title: 'Design');
+    final review = await addTask(projectId: projectA, title: 'Review');
+    final research = await addTask(projectId: projectB, title: 'Research');
+    final documentation =
+        await addTask(projectId: projectB, title: 'Documentation');
+
+    Future<void> entry(
+      String projectId,
+      String taskId,
+      String note,
+      int daysAgo,
+      int seconds,
+    ) {
+      final started = now.subtract(Duration(days: daysAgo));
+      return addEntry(
+        projectId: projectId,
+        taskId: taskId,
+        description: note,
+        startedAt: started,
+        endedAt: started.add(Duration(seconds: seconds)),
+        seconds: seconds,
+      );
+    }
+
+    await entry(projectA, planning, 'Kickoff & scope', 9, 6300); // 1h45m
+    await entry(projectA, design, 'First draft', 7, 7800); // 2h10m
+    await entry(projectA, design, 'Layout revisions', 5, 4800); // 1h20m
+    await entry(projectA, review, 'Feedback round', 3, 3000); // 0h50m
+    await entry(projectA, planning, 'Client call', 2, 1800); // 0h30m
+    await entry(projectB, research, 'Background reading', 6, 5400); // 1h30m
+    await entry(projectB, research, 'Notes consolidation', 4, 2700); // 0h45m
+    await entry(projectB, documentation, 'Write-up', 1, 7200); // 2h00m
+  });
+
+  /// The first live, non-archived project by the ordering the project list uses
+  /// (title, ascending), or null when there are none. The shell opens on this,
+  /// so it degrades cleanly to the empty state once all projects are gone.
+  Future<String?> firstProjectId() async {
+    final row = await (select(projects)
+          ..where((p) => p.deletedAt.isNull() & p.archivedAt.isNull())
+          ..orderBy([(p) => OrderingTerm.asc(p.title)])
+          ..limit(1))
+        .getSingleOrNull();
+    return row?.id;
   }
 
   Future<void> addEntry({
@@ -931,19 +990,6 @@ class AppDatabase extends _$AppDatabase {
     return (update(timeEntries)..where((t) => t.id.equals(id))).write(
       TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
-  }
-
-  Future<String> _defaultClientId() async {
-    final c = await (select(clients)
-          ..where((c) => c.deletedAt.isNull())
-          ..limit(1))
-        .getSingleOrNull();
-    if (c != null) return c.id;
-    final id = idGen.newId();
-    await into(clients).insert(
-      ClientsCompanion.insert(id: Value(id), name: 'Personal', defaultRate: 0.0),
-    );
-    return id;
   }
 
   Future<String> addProject({

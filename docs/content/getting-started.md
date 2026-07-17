@@ -10,6 +10,14 @@ summary: What timedart is and how to track and bill your first work.
 timedart is a local-first app for tracking billable time and turning it into
 invoices. Your data lives on your device — no account required.
 
+> **Note:** A new install starts with a small **example** — one client, two
+> projects, and some tasks and time entries — so you can see how tracking looks
+> before adding your own. It's ordinary data: explore it freely, then when
+> you're ready for the real thing, **delete the "Example Client"** (timedart
+> will offer to remove it and everything under it in one step) or **archive** it
+> to tuck it away while keeping it around. See the **Your data** page for the
+> difference between archiving and deleting.
+
 ## How your work is organised
 
 timedart uses a simple hierarchy:

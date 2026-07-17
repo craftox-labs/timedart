@@ -9,8 +9,14 @@ void main() {
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 
+  // A project to attach tasks/entries to (no default project is seeded).
+  Future<String> aProject() async {
+    final clientId = await db.addClient(name: 'Client', defaultRate: 50);
+    return db.addProject(clientId: clientId, code: 'P1', title: 'Project');
+  }
+
   test('addEntry attaches to the given task', () async {
-    final projectId = await db.ensureDefaultProject();
+    final projectId = await aProject();
     final taskId = await db.addTask(projectId: projectId, title: 'Design');
 
     await db.addEntry(
@@ -28,7 +34,7 @@ void main() {
   });
 
   test('deleteTask is blocked while the task has time entries', () async {
-    final projectId = await db.ensureDefaultProject();
+    final projectId = await aProject();
     final taskId = await db.addTask(projectId: projectId, title: 'Build');
     await db.addEntry(
       projectId: projectId,
@@ -48,7 +54,7 @@ void main() {
   });
 
   test('deleteTask soft-deletes a task with no entries', () async {
-    final projectId = await db.ensureDefaultProject();
+    final projectId = await aProject();
     final taskId = await db.addTask(projectId: projectId, title: 'Empty');
 
     await db.deleteTask(taskId);

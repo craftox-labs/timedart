@@ -448,10 +448,11 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       if (pid != null) setState(() => _selectedProjectId = pid);
     });
     // Start with the gate-resolved selection so the tracker paints content on
-    // its first frame; fall back to seeding a default only if none was passed.
+    // its first frame; if none was passed, fall back to the first project (or
+    // leave it null → the tracker shows its "select a project" empty state).
     _selectedProjectId = widget.initialSelectedProjectId;
-    widget.db.ensureDefaultProject().then((id) {
-      if (mounted) {
+    widget.db.firstProjectId().then((id) {
+      if (mounted && id != null) {
         setState(() => _selectedProjectId ??= id); // default only if unset
       }
     });
