@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -74,5 +76,39 @@ void main() {
     expect(await db.isOnboardingComplete(), isFalse);
     await db.setOnboardingComplete();
     expect(await db.isOnboardingComplete(), isTrue);
+  });
+
+  test('installId mints once and is stable across calls', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final first = await db.installId();
+    expect(first, isNotEmpty);
+    // Subsequent calls return the SAME id — minted once, then persisted.
+    expect(await db.installId(), first);
+    expect(await db.installId(), first);
+  });
+
+  test('installId persists across reopen (survives restart)', () async {
+    final dir = await Directory.systemTemp.createTemp('timedart_install_id');
+    final file = File('${dir.path}/db.sqlite');
+    addTearDown(() => dir.delete(recursive: true));
+
+    final db1 = AppDatabase(NativeDatabase(file));
+    final id = await db1.installId();
+    await db1.close();
+
+    // Reopen the same file → the id is read back, not re-minted.
+    final db2 = AppDatabase(NativeDatabase(file));
+    addTearDown(db2.close);
+    expect(await db2.installId(), id);
+  });
+
+  test('distinct installs get distinct ids', () async {
+    final a = AppDatabase(NativeDatabase.memory());
+    final b = AppDatabase(NativeDatabase.memory());
+    addTearDown(a.close);
+    addTearDown(b.close);
+    expect(await a.installId(), isNot(await b.installId()));
   });
 }
