@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Release builds merge only this manifest (debug/profile have their own
+         copy for the Flutter tool), so the network permission must live here or
+         release APKs get no internet at all — every request fails host lookup.
+         Needed for the update check and, later, cross-device sync. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="timedart"
         android:name="${applicationName}"

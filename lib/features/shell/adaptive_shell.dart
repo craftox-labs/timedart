@@ -1050,43 +1050,43 @@ class _AdaptiveShellState extends State<AdaptiveShell>
               // Padding lifts the sheet clear of the on-screen keyboard when a
               // field inside it (e.g. the search box) is focused.
               Positioned.fill(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, bodyC) {
-                      // Sheet height in pixels — the divisor that maps a drag in
-                      // logical pixels to the controller's 0..1 range for 1:1
-                      // finger tracking.
-                      final sheetHeight = bodyC.maxHeight * 0.85;
-                      return Align(
-                        alignment: Alignment.bottomCenter,
-                        child: IgnorePointer(
-                          ignoring: !_panelOpen,
-                          child: SlideTransition(
-                            position: _sheetOffset,
-                            child: FractionallySizedBox(
-                              heightFactor: 0.85,
-                              child: Material(
-                                color: scheme.surface,
-                                clipBehavior: Clip.antiAlias,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(AppTokens.radiusLg),
+                // The closed sheet is hidden only by SlideTransition's
+                // paint-time translation (Offset(0,1)), which doesn't change
+                // layout — so the Stack sees no overflow and never clips it. In
+                // edge-to-edge that translated sheet paints through the nav
+                // bar's transparent bottom safe-area strip. ClipRect confines it
+                // to the body bounds; the open sheet is within bounds, untouched.
+                child: ClipRect(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewInsetsOf(context).bottom,
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, bodyC) {
+                        // Sheet height in pixels — the divisor that maps a drag in
+                        // logical pixels to the controller's 0..1 range for 1:1
+                        // finger tracking.
+                        final sheetHeight = bodyC.maxHeight * 0.85;
+                        return Align(
+                          alignment: Alignment.bottomCenter,
+                          child: IgnorePointer(
+                            ignoring: !_panelOpen,
+                            child: SlideTransition(
+                              position: _sheetOffset,
+                              child: FractionallySizedBox(
+                                heightFactor: 0.85,
+                                child: Material(
+                                  color: scheme.surface,
+                                  clipBehavior: Clip.antiAlias,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(AppTokens.radiusLg),
+                                    ),
+                                    side: BorderSide(
+                                      color: AppTokens.colorBorder,
+                                      width: AppTokens.strokeThin,
+                                    ),
                                   ),
-                                  side: BorderSide(
-                                    color: AppTokens.colorBorder,
-                                    width: AppTokens.strokeThin,
-                                  ),
-                                ),
-                                // Inset the panel content off the system
-                                // navigation bar; with edge-to-edge + a
-                                // transparent system nav bar the sheet would
-                                // otherwise bleed its search header into that
-                                // zone. top:false — the grab handle owns the top.
-                                child: SafeArea(
-                                  top: false,
                                   child: Column(
                                     children: [
                                       // Grab handle — drag it to follow the finger,
@@ -1094,10 +1094,12 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                                       GestureDetector(
                                         behavior: HitTestBehavior
                                             .opaque, // catch drags on the whole strip, not just the 4px bar
-                                        onVerticalDragUpdate: (d) => _sheetCtrl
-                                            .value -= d.delta.dy / sheetHeight,
-                                        onVerticalDragEnd: (d) =>
-                                            _settleSheet(d.primaryVelocity ?? 0),
+                                        onVerticalDragUpdate: (d) =>
+                                            _sheetCtrl.value -=
+                                                d.delta.dy / sheetHeight,
+                                        onVerticalDragEnd: (d) => _settleSheet(
+                                          d.primaryVelocity ?? 0,
+                                        ),
                                         child: const SheetGrabHandle(),
                                       ),
                                       Expanded(
@@ -1112,9 +1114,9 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
