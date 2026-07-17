@@ -140,6 +140,25 @@ machine. Each release ships a `SHA256SUMS` file — verify with `sha256sum -c SH
 
 > Pre-1.0 while in beta: the local database format may still change between versions.
 
+## Uninstalling
+
+Nothing is installed system-wide, so removing timedart is quick and complete — handy if you're
+just helping test it.
+
+1. **Delete the app:** remove the AppImage / extracted folder (Linux, Windows), drag the app to the
+   Trash (macOS), or uninstall the APK (Android).
+2. **Delete your data folder** (skip on Android — it's cleared automatically on uninstall):
+
+   | Platform | Data folder |
+   |---|---|
+   | **Linux** | `~/.local/share/timedart/` |
+   | **macOS** | `~/Library/Application Support/timedart/` |
+   | **Windows** | `%APPDATA%\timedart\` |
+   | **Android** | removed automatically on uninstall |
+
+Exported backups and PDFs live wherever you saved them — remove those separately. Want to keep your
+data? **Export** it first (in-app **Settings → Data**, or see the [docs](https://timedart.app)).
+
 ## Build from source
 
 Requires the Flutter SDK ([install guide](https://docs.flutter.dev/get-started/install)).
@@ -156,7 +175,7 @@ flutter build linux       # release build
 For iterative work there's `./dev.sh`: it runs `build_runner watch` (regenerating `*.g.dart` from
 drift on save) alongside `flutter run -d linux`, and hot-reloads on changes under `lib/`.
 
-The database lives in the platform app-support directory (e.g. `~/.local/share/` on Linux), not the
+The database lives in the platform data directory (`~/.local/share/timedart/` on Linux), not the
 project folder.
 
 ## Roadmap

@@ -31,3 +31,29 @@ If you try to delete a client, project, or task that still has dependents undern
 > **Warning:** A cascading "Delete everything" removes every dependent along with the parent, and none of it can be undone.
 
 Both archiving and deleting are blocked while a timer is currently running on that item or anything beneath it — stop the timer first, then archive or delete.
+
+## Removing timedart from your device
+
+timedart is portable and self-contained — there's no installer, and nothing is scattered across your system. Removing it completely is two steps: delete the app, then delete its data folder.
+
+> **Want to keep your data?** Use **Export data** (above) *before* you remove anything. The backup file is yours to keep and can be re-imported into any future install. Once the data folder is gone it can't be recovered.
+
+**1. Remove the app**
+
+- **Linux:** delete the `AppImage`, or the folder you extracted the `tar.gz` into. Nothing was installed system-wide.
+- **Windows:** delete the folder you extracted the `.zip` into. It's portable — there's no entry in *Add or remove programs*.
+- **macOS:** drag timedart to the Trash.
+- **Android:** uninstall it like any app (long-press the icon → **Uninstall**, or **Settings → Apps → timedart → Uninstall**).
+
+**2. Remove your data**
+
+Everything timedart stores — your database, settings, and saved logo — lives in a single folder. Delete that folder and timedart is gone without a trace.
+
+| Platform | Data folder |
+|---|---|
+| **Linux** | `~/.local/share/timedart/` |
+| **macOS** | `~/Library/Application Support/timedart/` |
+| **Windows** | `%APPDATA%\timedart\` — paste that into the File Explorer address bar |
+| **Android** | *Nothing to do* — Android erases all of an app's data automatically when you uninstall it. |
+
+> **Note:** Any invoice PDFs or backup files you exported are saved wherever you chose to put them at the time (for example your Downloads or Documents folder) — they live outside the app's data folder, so delete those separately if you want them gone too.
