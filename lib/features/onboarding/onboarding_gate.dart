@@ -43,6 +43,9 @@ class _RootGateState extends State<RootGate> {
   Future<void> _bootstrap() async {
     _defaultProjectId = await widget.db.ensureDefaultProject();
     await widget.db.ensureInvoiceDefaults();
+    // Mint the stable per-install id now (idempotent) so existing installs
+    // acquire one before the optional sync layer needs it (PRD #189, Phase 4).
+    await widget.db.installId();
     final complete = await widget.db.isOnboardingComplete();
     if (!mounted) return;
     _onboardingComplete = complete;

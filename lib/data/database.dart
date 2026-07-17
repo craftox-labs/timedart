@@ -197,9 +197,10 @@ class Profiles extends Table {
 
 /// App-level key-value preferences (PRD #133, schema v10). The single home for
 /// flags that are app *state* rather than Profile *data* — first use is the
-/// onboarding-complete flag; future app prefs (page size, theme) belong here
-/// too. Values are stored as strings; typed accessors on [AppDatabase] (e.g.
-/// [AppDatabase.isOnboardingComplete]) hide the key names and the encoding.
+/// onboarding-complete flag + the stable per-install id; future app prefs
+/// (page size, theme) belong here too. Values are stored as strings; typed
+/// accessors on [AppDatabase] (e.g. [AppDatabase.isOnboardingComplete],
+/// [AppDatabase.installId]) hide the key names and the encoding.
 class AppSettings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
@@ -1452,8 +1453,9 @@ class AppDatabase extends _$AppDatabase {
 
   // ── App settings (key-value; PRD #133) ─────────────────────────────────────
   // A deep module: the string key/value encoding stays private; callers use the
-  // typed helpers below. `_onboardingCompleteKey` is the only key so far.
+  // typed helpers below.
   static const _onboardingCompleteKey = 'onboarding_complete';
+  static const _installIdKey = 'install_id';
 
   Future<String?> _getSetting(String key) async {
     final row = await (select(
@@ -1483,6 +1485,22 @@ class AppDatabase extends _$AppDatabase {
   /// flow, which the Settings "Re-run setup" action and tests rely on.
   Future<void> setOnboardingComplete([bool value = true]) =>
       _setFlag(_onboardingCompleteKey, value);
+
+  /// A stable, per-install identifier: minted once (UUIDv7) on first read and
+  /// persisted thereafter, so every subsequent call returns the same value.
+  /// Groundwork for the optional sync layer (PRD #189, Phase 4): it gives the
+  /// eventual account subject / `org_id` a stable source that predates sync, so
+  /// existing local data can be attributed at enable-time without inventing an
+  /// identity right when we also seed and connect. Called at startup so current
+  /// installs acquire one now, while the base is small. Device-local: it lives
+  /// in [AppSettings] (never synced) and is not surfaced in the UI.
+  Future<String> installId() => transaction(() async {
+    final existing = await _getSetting(_installIdKey);
+    if (existing != null) return existing;
+    final id = idGen.newId();
+    await _setSetting(_installIdKey, id);
+    return id;
+  });
 
   // Row getters for assembling an InvoiceDocument (the pure builder lives in
   // features/invoices — the data layer only hands back rows).
