@@ -421,23 +421,47 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     _updateBannerShown = true;
     final messenger = ScaffoldMessenger.of(context);
     final release = status.release;
+    void dismiss() => messenger.hideCurrentMaterialBanner();
+
+    final message = Text('timedart ${release.tag} is available.');
+    final buttons = [
+      TextButton(onPressed: dismiss, child: const Text('Later')),
+      const SizedBox(width: AppTokens.spaceSm),
+      FilledButton(
+        onPressed: () {
+          dismiss();
+          _showUpdateDialog(release);
+        },
+        child: const Text('View'),
+      ),
+    ];
+
+    // Both buttons live in the banner's content (not its actions) so we own the
+    // layout: a single row on desktop; on a narrow screen the text stacks with
+    // the buttons left-aligned beneath it. A zero-size phantom action satisfies
+    // MaterialBanner's non-empty `actions` without it adding a second row.
+    final narrow = MediaQuery.sizeOf(context).width < AppTokens.breakpointMd;
     messenger.showMaterialBanner(
       MaterialBanner(
         leading: const Icon(Icons.system_update_alt),
-        content: Text('timedart ${release.tag} is available.'),
-        actions: [
-          TextButton(
-            onPressed: () => messenger.hideCurrentMaterialBanner(),
-            child: const Text('Later'),
-          ),
-          TextButton(
-            onPressed: () {
-              messenger.hideCurrentMaterialBanner();
-              _showUpdateDialog(release);
-            },
-            child: const Text('View'),
-          ),
-        ],
+        forceActionsBelow: false,
+        actions: const [SizedBox.shrink()],
+        content: narrow
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  message,
+                  const SizedBox(height: AppTokens.spaceSm),
+                  Row(mainAxisSize: MainAxisSize.min, children: buttons),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: message),
+                  const SizedBox(width: AppTokens.spaceMd),
+                  ...buttons,
+                ],
+              ),
       ),
     );
   }
