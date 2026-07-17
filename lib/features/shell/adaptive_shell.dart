@@ -1,7 +1,12 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:timedart/features/updates/update_checker.dart';
+import 'package:timedart/widgets/markdown_style.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/backup.dart';
 import 'package:timedart/util/save_file.dart';
@@ -404,6 +409,133 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     messenger.showSnackBar(SnackBar(content: Text('Data imported.$skipped')));
   }
 
+  // ── Update check (Phase 1: notify only — never auto-installs) ──────────────
+  // Guards the launch banner to at most once per run.
+  bool _updateBannerShown = false;
+
+  // Silent launch check: if a newer release exists, surface a non-blocking,
+  // dismissible banner. Failures (offline, rate-limited) are swallowed.
+  Future<void> _autoCheckForUpdates() async {
+    final status = await UpdateChecker().check();
+    if (!mounted || _updateBannerShown || status is! UpdateAvailable) return;
+    _updateBannerShown = true;
+    final messenger = ScaffoldMessenger.of(context);
+    final release = status.release;
+    void dismiss() => messenger.hideCurrentMaterialBanner();
+
+    final message = Text('timedart ${release.tag} is available.');
+    final buttons = [
+      TextButton(onPressed: dismiss, child: const Text('Later')),
+      const SizedBox(width: AppTokens.spaceSm),
+      FilledButton(
+        onPressed: () {
+          dismiss();
+          _showUpdateDialog(release);
+        },
+        child: const Text('View'),
+      ),
+    ];
+
+    // Both buttons live in the banner's content (not its actions) so we own the
+    // layout: a single row on desktop; on a narrow screen the text stacks with
+    // the buttons left-aligned beneath it. A zero-size phantom action satisfies
+    // MaterialBanner's non-empty `actions` without it adding a second row.
+    final narrow = MediaQuery.sizeOf(context).width < AppTokens.breakpointMd;
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        leading: const Icon(Icons.system_update_alt),
+        forceActionsBelow: false,
+        actions: const [SizedBox.shrink()],
+        content: narrow
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  message,
+                  const SizedBox(height: AppTokens.spaceSm),
+                  Row(mainAxisSize: MainAxisSize.min, children: buttons),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: message),
+                  const SizedBox(width: AppTokens.spaceMd),
+                  ...buttons,
+                ],
+              ),
+      ),
+    );
+  }
+
+  // Settings → "Check for updates": an explicit check with feedback for every
+  // outcome.
+  Future<void> _checkForUpdates() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Checking for updates…')),
+    );
+    final status = await UpdateChecker().check();
+    if (!mounted) return;
+    messenger.hideCurrentSnackBar();
+    switch (status) {
+      case UpdateAvailable(:final release):
+        await _showUpdateDialog(release);
+      case UpToDate():
+        messenger.showSnackBar(
+          const SnackBar(content: Text("You're on the latest version.")),
+        );
+      case DevBuild(:final latest):
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              latest == null
+                  ? 'Development build — updates are not tracked.'
+                  : 'Development build. Latest release is ${latest.tag}.',
+            ),
+          ),
+        );
+      case CheckFailed(:final reason):
+        messenger.showSnackBar(
+          SnackBar(content: Text("Couldn't check for updates: $reason")),
+        );
+    }
+  }
+
+  // Shared release dialog: the version + markdown notes, and a button that opens
+  // the release page in the browser (Phase 1 hands the download off to the OS).
+  Future<void> _showUpdateDialog(AppRelease release) => showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Update available — ${release.tag}'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 420),
+        child: SingleChildScrollView(
+          child: MarkdownBody(
+            data: release.notes.trim().isEmpty
+                ? 'A new version of timedart is available.'
+                : release.notes,
+            styleSheet: appMarkdownStyleSheet(Theme.of(dialogContext)),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Close'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(dialogContext).pop();
+            launchUrl(
+              Uri.parse(release.url),
+              mode: LaunchMode.externalApplication,
+            );
+          },
+          child: const Text('Download'),
+        ),
+      ],
+    ),
+  );
+
   // App Settings home.
   void _openSettings() => _navigateTo(const _Settings());
   void _showSettingsHome() => _navigateTo(const _Settings());
@@ -457,6 +589,11 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       }
     });
     widget.db.ensureInvoiceDefaults(); // seed timedart theme/profile/template
+
+    // Notify (don't auto-install) if a newer release exists. Fire-and-forget,
+    // non-blocking, silent on failure — never gates startup (Phase 1 update
+    // check). Skipped on web, which is always the deployed latest.
+    if (!kIsWeb) _autoCheckForUpdates();
 
     // Keep the selection honest when projects change: if the selected project is
     // deleted, fall back to the first remaining project (or none).
@@ -616,6 +753,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           onRerunOnboarding: widget.onRerunOnboarding,
           onExportData: () async => run(_exportData),
           onImportData: () async => run(_importData),
+          onCheckForUpdates: kIsWeb ? null : () async => run(_checkForUpdates),
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),

@@ -43,7 +43,7 @@ jobs:
             libgtk-3-dev liblzma-dev
       - run: flutter config --enable-linux-desktop
       - run: flutter pub get
-      - run: flutter build linux --release
+      - run: flutter build linux --release --dart-define=RELEASE_TAG=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
       - name: Tarball
         run: |
           tar -czf timedart-linux-x86_64.tar.gz \
@@ -96,7 +96,7 @@ jobs:
           channel: stable
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
-      - run: flutter build windows --release
+      - run: flutter build windows --release --dart-define=RELEASE_TAG=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
       - name: Zip
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath timedart-windows-x64.zip
       - uses: softprops/action-gh-release@v2
@@ -115,7 +115,7 @@ jobs:
           channel: stable
       - run: flutter config --enable-macos-desktop
       - run: flutter pub get
-      - run: flutter build macos --release
+      - run: flutter build macos --release --dart-define=RELEASE_TAG=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
       - name: Zip .app (preserving the bundle)
         run: |
           set -eux
@@ -164,7 +164,7 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
           echo "Release signing configured."
-      - run: flutter build apk --release
+      - run: flutter build apk --release --dart-define=RELEASE_TAG=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk timedart-android.apk
       - uses: softprops/action-gh-release@v2

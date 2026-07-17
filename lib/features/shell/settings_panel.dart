@@ -30,6 +30,7 @@ class SettingsPanel extends StatefulWidget {
     this.onRerunOnboarding,
     this.onExportData,
     this.onImportData,
+    this.onCheckForUpdates,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -74,6 +75,9 @@ class SettingsPanel extends StatefulWidget {
   final Future<void> Function()? onExportData;
   // Import a backup file, replacing all data (PRD #189, #191); null hides it.
   final Future<void> Function()? onImportData;
+  // Check GitHub Releases for a newer build (Phase 1 update check); null hides
+  // the row (e.g. on web, which is always the deployed latest).
+  final Future<void> Function()? onCheckForUpdates;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -264,6 +268,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
         label: 'Import data',
         icon: Icons.file_upload_outlined,
         onTap: () => widget.onImportData!(),
+      ),
+    if (widget.onCheckForUpdates != null)
+      _ActionRow(
+        label: 'Check for updates',
+        icon: Icons.system_update_alt,
+        onTap: () => widget.onCheckForUpdates!(),
       ),
     if (widget.onRerunOnboarding != null)
       _ActionRow(
