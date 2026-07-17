@@ -6,6 +6,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:timedart/features/updates/update_checker.dart';
+import 'package:timedart/widgets/markdown_style.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/backup.dart';
 import 'package:timedart/util/save_file.dart';
@@ -488,6 +489,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
             data: release.notes.trim().isEmpty
                 ? 'A new version of timedart is available.'
                 : release.notes,
+            styleSheet: appMarkdownStyleSheet(Theme.of(dialogContext)),
           ),
         ),
       ),

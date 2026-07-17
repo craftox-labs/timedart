@@ -7,6 +7,7 @@ import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/docs/docs_assets.dart';
 import 'package:timedart/features/docs/docs_catalog.dart';
+import 'package:timedart/widgets/markdown_style.dart';
 import 'package:timedart/widgets/panel.dart';
 import 'package:timedart/widgets/tap_target.dart';
 
@@ -380,7 +381,7 @@ class _DocPageBody extends StatelessWidget {
                 ],
                 MarkdownBody(
                   data: page.body,
-                  styleSheet: _styleSheet(theme),
+                  styleSheet: appMarkdownStyleSheet(theme),
                   imageBuilder: _imageBuilder,
                   builders: {
                     'blockquote': _AdmonitionBuilder(),
@@ -578,63 +579,6 @@ class _KeycapBuilder extends MarkdownElementBuilder {
 /// Markdown theming from the app's design tokens. Built from the ambient theme,
 /// then nudged so headings, code, links, and spacing read like the rest of the
 /// app rather than flutter_markdown's Material defaults.
-MarkdownStyleSheet _styleSheet(ThemeData theme) {
-  final scheme = theme.colorScheme;
-  final base = TextStyle(
-    fontFamily: AppTokens.fontFamily,
-    fontSize: AppTokens.fontSizeDocsBody,
-    fontWeight: AppTokens.fontWeightDocsBody,
-    height: AppTokens.fontHeightDocsBody,
-    color: scheme.onSurface,
-  );
-  final heading = TextStyle(
-    fontFamily: AppTokens.fontFamilyHeading,
-    fontStyle: FontStyle.italic,
-    color: scheme.primary,
-  );
-  return MarkdownStyleSheet.fromTheme(theme).copyWith(
-    p: base,
-    listBullet: base,
-    h1: heading.copyWith(
-      fontSize: AppTokens.fontSizeDocsH1,
-      fontWeight: AppTokens.fontWeightHeading,
-    ),
-    h2: heading.copyWith(
-      fontSize: AppTokens.fontSizeDocsH2,
-      fontWeight: AppTokens.fontWeightHeading,
-    ),
-    h3: heading.copyWith(
-      fontSize: AppTokens.fontSizeDocsH3,
-      fontWeight: AppTokens.fontWeightHeading,
-    ),
-    // Space before section headings so they breathe from the preceding block.
-    // h1 is the page title (right under the eyebrow), so it stays tight.
-    h2Padding: const EdgeInsets.only(top: AppTokens.spaceLg),
-    h3Padding: const EdgeInsets.only(top: AppTokens.spaceMd),
-    a: base.copyWith(
-      color: AppTokens.colorAccentText,
-      decoration: TextDecoration.underline,
-    ),
-    code: TextStyle(
-      fontFamily: 'monospace',
-      fontSize: AppTokens.fontSizeXs,
-      color: scheme.onSurface,
-      backgroundColor: scheme.surfaceContainerHighest,
-    ),
-    codeblockDecoration: BoxDecoration(
-      color: scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-      border: Border.all(color: AppTokens.colorBorder),
-    ),
-    tableBorder: TableBorder.all(color: AppTokens.colorBorder),
-    tableHead: base.copyWith(fontWeight: FontWeight.w600),
-    // Flat: our custom builder draws the whole callout/quote. Clear the
-    // fromTheme default (a shadowed grey box) so it doesn't wrap ours.
-    blockquotePadding: EdgeInsets.zero,
-    blockquoteDecoration: const BoxDecoration(),
-  );
-}
-
 /// One admonition kind (the callout convention): its leading marker, label,
 /// icon, and accent colour.
 enum _Admonition {
