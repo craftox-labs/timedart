@@ -58,9 +58,10 @@ timedart timer resume
 
 ## Listing your work
 
-Find the projects and tasks to track against:
+Find the clients, projects and tasks to track against:
 
 ```
+timedart list clients
 timedart list projects
 timedart list tasks --project "Acme Website"
 ```
@@ -68,6 +69,48 @@ timedart list tasks --project "Acme Website"
 ```
 ACME  Acme Website  (Acme Co)
   019f…c9
+```
+
+## Managing clients, projects and tasks
+
+You can set up and maintain your whole client → project → task structure from the
+terminal — the same actions the app offers, on the same database.
+
+Create a client, a project under it, and a task under that:
+
+```
+timedart client add --name "Acme Co" --rate 150
+timedart project add --client "Acme Co" --code ACME --title "Acme Website"
+timedart task add --project ACME --title Design
+```
+
+A client's rate is the default its projects inherit; a project or task can set
+its own `--rate` to override it, or use `--rate inherit` to clear it back to the
+default.
+
+Edit any of them — only the fields you pass change:
+
+```
+timedart project edit ACME --title "Acme Marketing Site"
+timedart client edit "Acme Co" --email accounts@acme.example
+```
+
+**Archive** a client or project to hide it from your active lists without losing
+its history (it stays available for invoices); unarchive to bring it back:
+
+```
+timedart client archive "Acme Co"
+timedart client unarchive "Acme Co"
+```
+
+**Delete** removes an entity for good, along with everything under it (a
+project's tasks and time entries, a client's whole tree). Because that can't be
+undone, delete needs `--force` — without it, the command just shows you what
+*would* be removed:
+
+```
+timedart project delete ACME            # shows the impact, deletes nothing
+timedart project delete ACME --force    # actually deletes it and everything under it
 ```
 
 ## Logging past work
