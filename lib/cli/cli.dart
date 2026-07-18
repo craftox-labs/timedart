@@ -28,7 +28,7 @@ import '../util/parse_rate.dart';
 /// `exit()` itself — `bin/timedart.dart` owns that.
 Future<int> runTimedartCli(List<String> args) async {
   final runner =
-      CommandRunner<int>(
+      _TimedartRunner(
           'timedart',
           'timedart companion CLI — a DB peer of the app.\n\n'
               '${versionLine()}',
@@ -40,6 +40,7 @@ Future<int> runTimedartCli(List<String> args) async {
         )
         ..argParser.addFlag(
           'json',
+          abbr: 'j',
           negatable: false,
           help: 'Emit machine-readable JSON instead of human text.',
         )
@@ -79,6 +80,57 @@ Future<int> runTimedartCli(List<String> args) async {
     stderr.writeln(e.usage);
     return CliExit.usage;
   }
+}
+
+/// The top-level [CommandRunner], extended only to attach [usageFooter] —
+/// the exit-code table, selector rule, duration formats and a typical flow,
+/// appended to `timedart --help` (see docs/cli/agent-guide.md, the source of
+/// truth this distils).
+class _TimedartRunner extends CommandRunner<int> {
+  _TimedartRunner(super.executableName, super.description);
+
+  @override
+  String get usageFooter =>
+      'Exit codes:\n'
+      '  0  success               Command completed.\n'
+      '  2  usage                 Bad command line: unknown verb/flag, '
+      'missing required arg, unparseable --duration/--at.\n'
+      '  3  schemaMismatch        DB schema version differs from this '
+      "binary's — it never migrates.\n"
+      '  4  dbNotFound            No database file at the resolved/--db '
+      'path.\n'
+      '  5  unknownEntity         A --project/--task/--client selector '
+      'matched nothing live.\n'
+      '  6  ambiguousEntity       A name matched more than one live entity — '
+      'disambiguate with a UUID.\n'
+      '  7  noTimerRunning        stop/pause/resume with no active timer.\n'
+      '  8  timerAlreadyRunning   start while a timer is active, resume '
+      'while already running, or a delete targeting the entity the running '
+      'timer is bound to.\n'
+      '  9  timerAlreadyPaused    pause while already paused.\n'
+      '  10 confirmationRequired  A cascade delete was run without --force; '
+      'nothing changed.\n'
+      '  11 constraintViolation   A create/edit was rejected by a DB '
+      'constraint (e.g. a duplicate project code).\n'
+      '\n'
+      'Selectors (id-or-name): --project/-p, --task/-t and --client/-c '
+      'accept either a stable UUID or an exact name — project matches its '
+      'code then title, task matches its title scoped to the chosen '
+      'project, client matches its name. Only live (non-deleted) entities '
+      'match; no match exits 5, more than one name match exits 6. Prefer '
+      'UUIDs (from `list`) for unambiguous scripting.\n'
+      '\n'
+      'Duration formats (--duration/-D): unit tokens combined in any order '
+      '(1h30m, 90m, 45s, 1h 30m), a single decimal-with-unit (1.5h, 0.5m), '
+      'or a bare number of seconds (5400).\n'
+      '\n'
+      'A typical flow:\n'
+      '  timedart client add -n Globex -r 150 -j\n'
+      '  timedart project add -c Globex -C GLOB -T "Globex Site" -j\n'
+      '  timedart task add -p GLOB -T Build -j\n'
+      '  timedart list projects -j                 # discover ids/names\n'
+      '  timedart timer start -p GLOB -t Build -j\n'
+      '  timedart timer stop -j                    # record the entry';
 }
 
 /// `timedart timer …` — the running-timer verb group.
@@ -225,7 +277,11 @@ class TimerStatusCommand extends _CliVerb {
   final String name = 'status';
   @override
   final String description =
-      'Show the currently running timer and its live elapsed time.';
+      'Show the currently running timer and its live elapsed time.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart timer status\n'
+      '  timedart timer status -j --db /tmp/scratch.sqlite';
 
   @override
   Future<int> run() async {
@@ -244,7 +300,12 @@ class TimerStartCommand extends _CliVerb {
   @override
   final String name = 'start';
   @override
-  final String description = 'Start a timer against a project and task.';
+  final String description =
+      'Start a timer against a project and task.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart timer start -p ACME -t Design -d "hero section"\n'
+      '  timedart timer start -p ACME -t Design -j';
 
   TimerStartCommand() {
     argParser
@@ -323,7 +384,11 @@ class TimerStopCommand extends _CliVerb {
   final String name = 'stop';
   @override
   final String description =
-      'Stop the running timer and record the elapsed time as an entry.';
+      'Stop the running timer and record the elapsed time as an entry.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart timer stop\n'
+      '  timedart timer stop -j';
 
   @override
   Future<int> run() async {
@@ -385,7 +450,12 @@ class TimerPauseCommand extends _CliVerb {
   @override
   final String name = 'pause';
   @override
-  final String description = 'Pause the running timer.';
+  final String description =
+      'Pause the running timer.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart timer pause\n'
+      '  timedart timer pause -j';
 
   @override
   Future<int> run() async {
@@ -417,7 +487,12 @@ class TimerResumeCommand extends _CliVerb {
   @override
   final String name = 'resume';
   @override
-  final String description = 'Resume a paused timer.';
+  final String description =
+      'Resume a paused timer.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart timer resume\n'
+      '  timedart timer resume -j';
 
   @override
   Future<int> run() async {
@@ -470,7 +545,12 @@ class ListClientsCommand extends _CliVerb {
   @override
   final String name = 'clients';
   @override
-  final String description = 'List live clients.';
+  final String description =
+      'List live clients.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart list clients\n'
+      '  timedart list clients -j';
 
   @override
   Future<int> run() async {
@@ -489,7 +569,12 @@ class ListProjectsCommand extends _CliVerb {
   @override
   final String name = 'projects';
   @override
-  final String description = 'List live projects.';
+  final String description =
+      'List live projects.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart list projects\n'
+      '  timedart list projects -j';
 
   @override
   Future<int> run() async {
@@ -508,7 +593,12 @@ class ListTasksCommand extends _CliVerb {
   @override
   final String name = 'tasks';
   @override
-  final String description = 'List live tasks, optionally scoped to a project.';
+  final String description =
+      'List live tasks, optionally scoped to a project.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart list tasks\n'
+      '  timedart list tasks -p "Acme Website" -j';
 
   ListTasksCommand() {
     argParser.addOption(
@@ -547,7 +637,12 @@ class LogCommand extends _CliVerb {
   @override
   final String name = 'log';
   @override
-  final String description = 'Record a completed time entry directly.';
+  final String description =
+      'Record a completed time entry directly.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart log -p ACME -t Design -D 1h30m -d "spec review"\n'
+      '  timedart log -p ACME -t Design -D 45m --at 2026-07-10T09:00 -j';
 
   LogCommand() {
     argParser
@@ -677,13 +772,18 @@ class ClientAddCommand extends _CliVerb {
   @override
   final String name = 'add';
   @override
-  final String description = 'Create a client.';
+  final String description =
+      'Create a client.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart client add -n "Globex" -r 150 --email ops@globex.test -j';
 
   ClientAddCommand() {
     argParser
-      ..addOption('name', help: 'Client name (required).')
+      ..addOption('name', abbr: 'n', help: 'Client name (required).')
       ..addOption(
         'rate',
+        abbr: 'r',
         help: 'Default hourly rate its projects inherit (required, a number).',
       )
       ..addOption('contact', help: 'Contact person.')
@@ -724,12 +824,17 @@ class ClientEditCommand extends _CliVerb {
   @override
   final String name = 'edit';
   @override
-  final String description = 'Edit a client (only the fields you pass change).';
+  final String description =
+      'Edit a client (only the fields you pass change).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart client edit "Globex" --phone "+61 400 000 000"\n'
+      '  timedart client edit "Globex" -n "Globex Corp" -r 175 -j';
 
   ClientEditCommand() {
     argParser
-      ..addOption('name', help: 'New name.')
-      ..addOption('rate', help: 'New default rate (a number).')
+      ..addOption('name', abbr: 'n', help: 'New name.')
+      ..addOption('rate', abbr: 'r', help: 'New default rate (a number).')
       ..addOption('contact', help: 'Contact person ("" clears).')
       ..addOption('email', help: 'Email ("" clears).')
       ..addOption('phone', help: 'Phone ("" clears).')
@@ -785,8 +890,11 @@ class ClientArchiveCommand extends _CliVerb {
   String get name => archive ? 'archive' : 'unarchive';
   @override
   String get description =>
-      archive ? 'Archive a client (hide from the active list).'
-              : 'Unarchive a client.';
+      '${archive ? 'Archive a client (hide from the active list).' : 'Unarchive a client.'}\n'
+      '\n'
+      'Examples:\n'
+      '  timedart client $name "Globex"\n'
+      '  timedart client $name "Globex" -j';
 
   @override
   Future<int> run() async {
@@ -821,11 +929,16 @@ class ClientDeleteCommand extends _CliVerb {
   final String name = 'delete';
   @override
   final String description =
-      'Delete a client and everything under it (needs --force).';
+      'Delete a client and everything under it (needs --force).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart client delete "Globex"            # preview only → exit 10\n'
+      '  timedart client delete "Globex" -f -j      # actually delete';
 
   ClientDeleteCommand() {
     argParser.addFlag(
       'force',
+      abbr: 'f',
       negatable: false,
       help: 'Actually delete (and cascade). Without it, only the impact is '
           'shown.',
@@ -902,7 +1015,11 @@ class ProjectAddCommand extends _CliVerb {
   @override
   final String name = 'add';
   @override
-  final String description = 'Create a project under a client.';
+  final String description =
+      'Create a project under a client.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart project add -c "Globex" -C GLOB -T "Globex Site" -j';
 
   ProjectAddCommand() {
     argParser
@@ -911,10 +1028,19 @@ class ProjectAddCommand extends _CliVerb {
         abbr: 'c',
         help: 'Owning client — a UUID or exact name (required).',
       )
-      ..addOption('code', help: 'Unique project code (required).')
-      ..addOption('title', help: 'Project title (required).')
+      ..addOption(
+        'code',
+        abbr: 'C',
+        help: 'Unique project code (required).',
+      )
+      ..addOption(
+        'title',
+        abbr: 'T',
+        help: 'Project title (required).',
+      )
       ..addOption(
         'rate',
+        abbr: 'r',
         help: 'Project rate (a number). Omit to inherit the client default.',
       );
   }
@@ -955,14 +1081,23 @@ class ProjectEditCommand extends _CliVerb {
   @override
   final String name = 'edit';
   @override
-  final String description = 'Edit a project (only the fields you pass change).';
+  final String description =
+      'Edit a project (only the fields you pass change).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart project edit GLOB -r 175\n'
+      '  timedart project edit GLOB -r inherit      # back to the client default';
 
   ProjectEditCommand() {
     argParser
       ..addOption('client', abbr: 'c', help: 'Reassign to this client.')
-      ..addOption('code', help: 'New code.')
-      ..addOption('title', help: 'New title.')
-      ..addOption('rate', help: 'New rate (a number, or "inherit" to clear).');
+      ..addOption('code', abbr: 'C', help: 'New code.')
+      ..addOption('title', abbr: 'T', help: 'New title.')
+      ..addOption(
+        'rate',
+        abbr: 'r',
+        help: 'New rate (a number, or "inherit" to clear).',
+      );
   }
 
   @override
@@ -1012,9 +1147,12 @@ class ProjectArchiveCommand extends _CliVerb {
   @override
   String get name => archive ? 'archive' : 'unarchive';
   @override
-  String get description => archive
-      ? 'Archive a project (hide from the active list).'
-      : 'Unarchive a project.';
+  String get description =>
+      '${archive ? 'Archive a project (hide from the active list).' : 'Unarchive a project.'}\n'
+      '\n'
+      'Examples:\n'
+      '  timedart project $name GLOB\n'
+      '  timedart project $name GLOB -j';
 
   @override
   Future<int> run() async {
@@ -1051,11 +1189,16 @@ class ProjectDeleteCommand extends _CliVerb {
   final String name = 'delete';
   @override
   final String description =
-      'Delete a project and its tasks/entries (needs --force).';
+      'Delete a project and its tasks/entries (needs --force).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart project delete GLOB -j            # preview only → exit 10\n'
+      '  timedart project delete GLOB -f -j         # actually delete';
 
   ProjectDeleteCommand() {
     argParser.addFlag(
       'force',
+      abbr: 'f',
       negatable: false,
       help: 'Actually delete (and cascade). Without it, only the impact is '
           'shown.',
@@ -1132,7 +1275,11 @@ class TaskAddCommand extends _CliVerb {
   @override
   final String name = 'add';
   @override
-  final String description = 'Create a task under a project.';
+  final String description =
+      'Create a task under a project.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart task add -p GLOB -T "Build" -j';
 
   TaskAddCommand() {
     argParser
@@ -1141,9 +1288,10 @@ class TaskAddCommand extends _CliVerb {
         abbr: 'p',
         help: 'Owning project — a UUID or exact code/title (required).',
       )
-      ..addOption('title', help: 'Task title (required).')
+      ..addOption('title', abbr: 'T', help: 'Task title (required).')
       ..addOption(
         'rate',
+        abbr: 'r',
         help: 'Task rate (a number). Omit to inherit the project rate.',
       );
   }
@@ -1180,7 +1328,11 @@ class TaskEditCommand extends _CliVerb {
   @override
   final String name = 'edit';
   @override
-  final String description = 'Edit a task (only the fields you pass change).';
+  final String description =
+      'Edit a task (only the fields you pass change).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart task edit "Build" -p GLOB -T "Build v2"';
 
   TaskEditCommand() {
     argParser
@@ -1189,8 +1341,12 @@ class TaskEditCommand extends _CliVerb {
         abbr: 'p',
         help: 'Scope the <id|name> lookup to this project.',
       )
-      ..addOption('title', help: 'New title.')
-      ..addOption('rate', help: 'New rate (a number, or "inherit" to clear).');
+      ..addOption('title', abbr: 'T', help: 'New title.')
+      ..addOption(
+        'rate',
+        abbr: 'r',
+        help: 'New rate (a number, or "inherit" to clear).',
+      );
   }
 
   @override
@@ -1232,7 +1388,12 @@ class TaskDeleteCommand extends _CliVerb {
   @override
   final String name = 'delete';
   @override
-  final String description = 'Delete a task and its time entries (needs --force).';
+  final String description =
+      'Delete a task and its time entries (needs --force).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart task delete "Build" -p GLOB -j    # preview only → exit 10\n'
+      '  timedart task delete "Build" -p GLOB -f -j # actually delete';
 
   TaskDeleteCommand() {
     argParser
@@ -1243,6 +1404,7 @@ class TaskDeleteCommand extends _CliVerb {
       )
       ..addFlag(
         'force',
+        abbr: 'f',
         negatable: false,
         help: 'Actually delete (and cascade). Without it, only the impact is '
             'shown.',

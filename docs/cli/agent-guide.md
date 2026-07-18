@@ -16,10 +16,23 @@ CLI and vice-versa. Designed to be driven by an LLM/agent — every command has 
 
 | Flag | Meaning |
 | --- | --- |
-| `--json` | Emit machine-readable JSON instead of human text. Put it before or after the verb. |
+| `-j, --json` | Emit machine-readable JSON instead of human text. Put it before or after the verb. |
 | `--db <path>` | Use this database. A file path, or a directory (→ `<dir>/timedart.sqlite`). Overrides `TIMEDART_DB` and the default. |
 | `--version` | Print CLI version, DB schema version, sync-awareness. Exit 0. |
 | `-h`, `--help` | Usage. Also `timedart <command> --help`. |
+
+**Abbreviations (CLI-wide).** One reserved single-char abbreviation per concept,
+applied consistently on every verb that carries the flag: `--json`→`-j`
+(global), `--project`→`-p`, `--client`→`-c`, `--task`→`-t`, `--name`→`-n`,
+`--rate`→`-r`, `--description`→`-d`, `--duration`→`-D`, `--force`→`-f`,
+`--title`→`-T`, `--code`→`-C`. Where a fundamental flag and a related one share
+an initial, the fundamental one stays lowercase and its partner takes the
+capital (`-c` client / `-C` code, `-t` task / `-T` title, `-d` description /
+`-D` duration). Client detail flags (`--contact --email --phone --address
+--abn`) stay long-form only — low-frequency enough that single letters would
+be cryptic. `timedart <verb> --help` shows each verb's abbreviations and a
+worked example; `timedart --help` carries this exit-code/selector/duration
+summary as its footer.
 
 **DB location (when `--db` / `TIMEDART_DB` are unset)** — the same file the GUI
 uses:
@@ -280,12 +293,12 @@ change**; pass an empty value (`--phone ""`) to clear an optional text field.
 | Arg | add | edit | Notes |
 | --- | --- | --- | --- |
 | `<id\|name>` (positional) | — | yes | The client to edit. |
-| `--name` | **yes** | opt | Client name. |
-| `--rate` | **yes** | opt | Default hourly rate its projects inherit (a number). |
-| `--contact` `--email` `--phone` `--address` `--abn` | opt | opt | Optional details (`""` clears on edit). |
+| `-n, --name` | **yes** | opt | Client name. |
+| `-r, --rate` | **yes** | opt | Default hourly rate its projects inherit (a number). |
+| `--contact` `--email` `--phone` `--address` `--abn` | opt | opt | Optional details (`""` clears on edit; long-form only, no abbr). |
 
 ```
-timedart client add --name "Globex" --rate 150 --email ops@globex.test --json
+timedart client add -n "Globex" -r 150 --email ops@globex.test -j
 timedart client edit "Globex" --phone "+61 400 000 000"
 ```
 
@@ -295,14 +308,14 @@ timedart client edit "Globex" --phone "+61 400 000 000"
 | --- | --- | --- | --- |
 | `<id\|name>` (positional) | — | yes | The project to edit. |
 | `-c, --client <id\|name>` | **yes** | opt | Owning client; on edit, reassigns it. |
-| `--code` | **yes** | opt | Unique project code. |
-| `--title` | **yes** | opt | Title. |
-| `--rate` | opt | opt | A number to set. Omit on add → inherit the client's default. On edit, `--rate inherit` (or `""`) clears it back to inherited. |
+| `-C, --code` | **yes** | opt | Unique project code. |
+| `-T, --title` | **yes** | opt | Title. |
+| `-r, --rate` | opt | opt | A number to set. Omit on add → inherit the client's default. On edit, `--rate inherit` (or `""`) clears it back to inherited. |
 
 ```
-timedart project add --client "Globex" --code GLOB --title "Globex Site" --json
-timedart project edit GLOB --rate 175
-timedart project edit GLOB --rate inherit          # back to the client default
+timedart project add -c "Globex" -C GLOB -T "Globex Site" -j
+timedart project edit GLOB -r 175
+timedart project edit GLOB -r inherit          # back to the client default
 ```
 
 ### `task add` / `task edit`
@@ -311,12 +324,12 @@ timedart project edit GLOB --rate inherit          # back to the client default
 | --- | --- | --- | --- |
 | `<id\|name>` (positional) | — | yes | The task to edit. |
 | `-p, --project <id\|name>` | **yes** | opt | add: owning project. edit: scope the `<id\|name>` lookup (needed only if the title isn't unique across projects). |
-| `--title` | **yes** | opt | Title. |
-| `--rate` | opt | opt | Like project rate: a number sets it; `inherit`/`""` clears to inherit the project's. |
+| `-T, --title` | **yes** | opt | Title. |
+| `-r, --rate` | opt | opt | Like project rate: a number sets it; `inherit`/`""` clears to inherit the project's. |
 
 ```
-timedart task add --project GLOB --title "Build" --json
-timedart task edit "Build" --project GLOB --title "Build v2"
+timedart task add -p GLOB -T "Build" -j
+timedart task edit "Build" -p GLOB -T "Build v2"
 ```
 
 ### `client archive` / `client unarchive`, `project archive` / `project unarchive`
@@ -335,14 +348,14 @@ timedart project unarchive GLOB
 Destructive and **cascading** — deleting a client removes its projects, their
 tasks and all their time entries. Guarded:
 
-- **`--force` is required.** Without it the command **changes nothing**, prints
-  the cascade impact, and exits `10` (confirmationRequired).
+- **`-f`/`--force` is required.** Without it the command **changes nothing**,
+  prints the cascade impact, and exits `10` (confirmationRequired).
 - If the running timer is bound to the target (or something under it), it exits
   `8` — stop the timer first.
 
 ```
-timedart project delete GLOB --json         # preview only → exit 10
-timedart project delete GLOB --force --json # actually delete → exit 0
+timedart project delete GLOB -j         # preview only → exit 10
+timedart project delete GLOB -f -j      # actually delete → exit 0
 ```
 
 Impact shape (same whether refused or done — `deleted` distinguishes them):
