@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/cli/cli.dart';
 import 'package:timedart/cli/entity_resolver.dart';
 import 'package:timedart/cli/exit_codes.dart';
+import 'package:timedart/cli/timer_status.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/tracker/timer_store.dart';
 
@@ -279,6 +280,191 @@ void main() {
       expect(
         await runTimedartCli(['timer', 'resume', '--db', s.file.path]),
         CliExit.noTimerRunning,
+      );
+    });
+  });
+
+  group('discard', () {
+    test('discard with none running → noTimerRunning', () async {
+      final s = await _seed(tmp);
+      expect(
+        await runTimedartCli(['timer', 'discard', '--db', s.file.path]),
+        CliExit.noTimerRunning,
+      );
+    });
+
+    test('discard clears the timer and records NO entry', () async {
+      final s = await _seed(tmp);
+      // Start in the past so a real elapsed span exists that stop WOULD record.
+      final db0 = _inspect(s.file);
+      await TimerStore(db0).start(
+        s.projectId,
+        s.taskId,
+        now: DateTime.now().subtract(const Duration(minutes: 3)),
+        description: 'mistake',
+      );
+      await db0.close();
+
+      expect(
+        await runTimedartCli(['timer', 'discard', '--db', s.file.path]),
+        CliExit.success,
+      );
+
+      final db = _inspect(s.file);
+      addTearDown(db.close);
+      expect(await db.activeTimer(), isNull, reason: 'timer cleared');
+      final entries = await (db.select(
+        db.timeEntries,
+      )..where((t) => t.deletedAt.isNull())).get();
+      expect(entries, isEmpty, reason: 'discard records nothing');
+    });
+
+    test('discard also abandons a paused timer', () async {
+      final s = await _seed(tmp);
+      final db0 = _inspect(s.file);
+      await TimerStore(db0).start(
+        s.projectId,
+        s.taskId,
+        now: DateTime.now().subtract(const Duration(minutes: 1)),
+      );
+      await db0.close();
+      await runTimedartCli(['timer', 'pause', '--db', s.file.path]);
+
+      expect(
+        await runTimedartCli(['timer', 'discard', '--db', s.file.path]),
+        CliExit.success,
+      );
+      final db = _inspect(s.file);
+      addTearDown(db.close);
+      expect(await db.activeTimer(), isNull);
+      expect(
+        await (db.select(db.timeEntries)
+              ..where((t) => t.deletedAt.isNull()))
+            .get(),
+        isEmpty,
+      );
+    });
+  });
+
+  group('edit running timer', () {
+    Future<void> startPast(_Seed s, {String? description}) async {
+      final db = _inspect(s.file);
+      await TimerStore(db).start(
+        s.projectId,
+        s.taskId,
+        now: DateTime.now().subtract(const Duration(minutes: 2)),
+        description: description,
+      );
+      await db.close();
+    }
+
+    test('edit description with none running → noTimerRunning', () async {
+      final s = await _seed(tmp);
+      expect(
+        await runTimedartCli([
+          'timer', 'edit', '-d', 'x', '--db', s.file.path,
+        ]),
+        CliExit.noTimerRunning,
+      );
+    });
+
+    test('edit with nothing to change → usage', () async {
+      final s = await _seed(tmp);
+      await startPast(s);
+      expect(
+        await runTimedartCli(['timer', 'edit', '--db', s.file.path]),
+        CliExit.usage,
+      );
+    });
+
+    test('changed description is visible to a later status; no entry', () async {
+      final s = await _seed(tmp);
+      await startPast(s, description: 'first');
+
+      expect(
+        await runTimedartCli([
+          'timer', 'edit', '-d', 'second take', '--db', s.file.path,
+        ]),
+        CliExit.success,
+      );
+
+      final db = _inspect(s.file);
+      addTearDown(db.close);
+      final status = await queryTimerStatus(db, now: DateTime.now());
+      expect(status.description, 'second take');
+      expect(status.running, isTrue, reason: 'still running');
+      expect(status.elapsedSeconds, greaterThanOrEqualTo(120),
+          reason: 'elapsed not reset by the edit');
+      expect(
+        await (db.select(db.timeEntries)
+              ..where((t) => t.deletedAt.isNull()))
+            .get(),
+        isEmpty,
+        reason: 'editing records nothing',
+      );
+    });
+
+    test('empty -d clears the note', () async {
+      final s = await _seed(tmp);
+      await startPast(s, description: 'note');
+      expect(
+        await runTimedartCli(['timer', 'edit', '-d', '', '--db', s.file.path]),
+        CliExit.success,
+      );
+      final db = _inspect(s.file);
+      addTearDown(db.close);
+      expect((await queryTimerStatus(db, now: DateTime.now())).description,
+          isNull);
+    });
+
+    test('rebind to another task moves project+task, keeps elapsed', () async {
+      final s = await _seed(tmp);
+      // A second project/task to rebind onto.
+      final setup = _inspect(s.file);
+      final clientId = await setup.addClient(name: 'Beta', defaultRate: 100);
+      final proj2 = await setup.addProject(
+        clientId: clientId,
+        code: 'BETA',
+        title: 'Beta Site',
+      );
+      final task2 = await setup.addTask(projectId: proj2, title: 'Research');
+      await setup.close();
+
+      await startPast(s, description: 'keep me');
+
+      expect(
+        await runTimedartCli([
+          'timer', 'edit', '-t', 'Research', '-p', 'BETA', //
+          '--db', s.file.path,
+        ]),
+        CliExit.success,
+      );
+
+      final db = _inspect(s.file);
+      addTearDown(db.close);
+      final status = await queryTimerStatus(db, now: DateTime.now());
+      expect(status.projectId, proj2);
+      expect(status.taskId, task2);
+      expect(status.description, 'keep me', reason: 'note untouched by rebind');
+      expect(status.running, isTrue);
+      expect(status.elapsedSeconds, greaterThanOrEqualTo(120),
+          reason: 'rebind preserves tracked time');
+      expect(
+        await (db.select(db.timeEntries)
+              ..where((t) => t.deletedAt.isNull()))
+            .get(),
+        isEmpty,
+      );
+    });
+
+    test('--project without --task → usage', () async {
+      final s = await _seed(tmp);
+      await startPast(s);
+      expect(
+        await runTimedartCli([
+          'timer', 'edit', '-p', 'ACME', '--db', s.file.path,
+        ]),
+        CliExit.usage,
       );
     });
   });

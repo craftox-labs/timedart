@@ -194,6 +194,34 @@ timedart timer stop --json
 `recorded` is `false` (and `entry` is `null`) only on the zero-elapsed edge case
 (a task is always bound). The timer is cleared either way.
 
+### `timer discard`
+Abandon the running (or paused) timer **without recording an entry** — the
+elapsed time is thrown away. Use it for a mistaken session. Fails (`7`) if none
+running. Output is the resulting idle `timer status`.
+
+```
+timedart timer discard --json
+```
+
+### `timer edit`
+Change the **live** timer in place — its session note and/or its project/task
+binding — without recording an entry or resetting the elapsed clock. Only the
+flags you pass change; fails (`7`) if none running. Output shape matches
+`timer status`.
+
+- `-d, --description` — new note; pass `-d ""` to clear it.
+- `-t, --task` — rebind to another task (a UUID or exact title, scoped by
+  `-p`). The project is set to that task's project — rebinding is task-level.
+- `-p, --project` — scopes `--task` resolution; only meaningful with `--task`.
+
+Editing must ask for something to change (a `--description` and/or `--task`),
+else it fails `2` (usage) rather than silently re-stamping the row.
+
+```
+timedart timer edit -d "hero section, take 2"
+timedart timer edit -t "Design" -p ACME --json
+```
+
 ### `timer pause` / `timer resume`
 Pause freezes elapsed; resume continues it. `pause` fails `7` (none) / `9`
 (already paused); `resume` fails `7` (none) / `8` (already running). Output

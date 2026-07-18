@@ -211,6 +211,8 @@ class TimerCommand extends Command<int> {
     addSubcommand(TimerStatusCommand());
     addSubcommand(TimerStartCommand());
     addSubcommand(TimerStopCommand());
+    addSubcommand(TimerDiscardCommand());
+    addSubcommand(TimerEditCommand());
     addSubcommand(TimerPauseCommand());
     addSubcommand(TimerResumeCommand());
   }
@@ -585,6 +587,159 @@ class TimerResumeCommand extends _CliVerb {
         now: now,
         description: store.recoveredDescription,
       );
+      final result = await queryTimerStatus(db, now: now);
+      return emit(formatTimerStatus(result, json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart timer discard` — abandon the running/paused timer, recording NO
+/// entry (unlike `stop`, which always records the elapsed span).
+class TimerDiscardCommand extends _CliVerb {
+  @override
+  final String name = 'discard';
+  @override
+  final String description =
+      'Discard the running (or paused) timer without recording an entry.\n'
+      '\n'
+      'Unlike `timer stop`, no time entry is written — the elapsed time is\n'
+      'thrown away. Use it to abandon a mistaken session.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart timer discard\n'
+      '  timedart timer discard -j';
+
+  @override
+  Future<int> run() async {
+    final db = openDb();
+    try {
+      final now = DateTime.now();
+      final store = TimerStore(db);
+      await store.recover(now: now);
+      if (!store.session.hasSession) {
+        throw const CliException(
+          'No timer is running.',
+          CliExit.noTimerRunning,
+        );
+      }
+      await store.discard();
+      // Discard leaves no timer: report the resulting idle state, shaped exactly
+      // like `timer status` (never records an entry).
+      final result = await queryTimerStatus(db, now: now);
+      return emit(formatTimerStatus(result, json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart timer edit [-d] [-p] [-t]` — change the LIVE timer's description
+/// and/or rebind its project/task while it runs, without recording an entry.
+class TimerEditCommand extends _CliVerb {
+  @override
+  final String name = 'edit';
+  @override
+  final String description =
+      'Edit the running (or paused) timer in place — its session note and/or\n'
+      'its project/task binding — without recording an entry or resetting the\n'
+      'elapsed clock. Only the flags you pass change.\n'
+      '\n'
+      'Rebinding is task-level: pass --task (optionally scoped by --project) to\n'
+      'move the timer to another task; the project is set to that task\'s\n'
+      'project. Pass -d "" to clear the note.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart timer edit -d "hero section, take 2"\n'
+      '  timedart timer edit -t "Design" -p ACME\n'
+      '  timedart timer edit -d "" -j';
+
+  TimerEditCommand() {
+    argParser
+      ..addOption(
+        'description',
+        abbr: 'd',
+        help: 'New session note. Pass an empty string to clear it.',
+      )
+      ..addOption(
+        'project',
+        abbr: 'p',
+        help: 'Scope --task resolution to this project (a UUID or exact '
+            'code/title). Only meaningful with --task.',
+      )
+      ..addOption(
+        'task',
+        abbr: 't',
+        help: 'Rebind the timer to this task — a UUID or exact title (scoped '
+            'by --project when given). The project is set to the task\'s '
+            'project.',
+      );
+  }
+
+  @override
+  Future<int> run() async {
+    // `wasParsed` distinguishes "-d not given" (leave the note) from `-d ""`
+    // (clear the note) — the latter is a deliberate edit.
+    final setDescription = argResults!.wasParsed('description');
+    final description = _clean(argResults!['description'] as String?);
+    final projectSel = argResults!['project'] as String?;
+    final taskSel = argResults!['task'] as String?;
+
+    if (!setDescription && (taskSel == null || taskSel.isEmpty)) {
+      // --project alone can't rebind (binding is task-level) and nothing else
+      // was asked — refuse a no-op rather than silently re-stamping the row.
+      throw const CliException(
+        'timer edit needs something to change: --description and/or --task '
+        '(project is set from the task).',
+        CliExit.usage,
+      );
+    }
+
+    final db = openDb();
+    try {
+      final now = DateTime.now();
+      final store = TimerStore(db);
+      await store.recover(now: now);
+      if (!store.session.hasSession) {
+        throw const CliException(
+          'No timer is running.',
+          CliExit.noTimerRunning,
+        );
+      }
+
+      String? newProjectId;
+      String? newTaskId;
+      if (taskSel != null && taskSel.isNotEmpty) {
+        // Resolve the (optionally project-scoped) task, then set BOTH ids from
+        // it so projectId can never drift from the task's real project.
+        String? scopeProjectId;
+        if (projectSel != null && projectSel.isNotEmpty) {
+          scopeProjectId = (await resolveProject(db, projectSel)).id;
+        }
+        final task = await resolveTaskAnywhere(
+          db,
+          taskSel,
+          projectId: scopeProjectId,
+        );
+        newProjectId = task.projectId;
+        newTaskId = task.id;
+      } else if (projectSel != null && projectSel.isNotEmpty) {
+        throw const CliException(
+          'timer edit --project only rebinds together with --task (binding is '
+          'task-level).',
+          CliExit.usage,
+        );
+      }
+
+      await store.editRunning(
+        now: now,
+        setDescription: setDescription,
+        description: description,
+        projectId: newProjectId,
+        taskId: newTaskId,
+      );
+
       final result = await queryTimerStatus(db, now: now);
       return emit(formatTimerStatus(result, json: json));
     } finally {

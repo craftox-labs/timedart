@@ -126,6 +126,58 @@ void main() {
       expect(store.reconcile(null, now: t0), TimerReconcile.unchanged);
     });
 
+    test('CLI rebind (project/task change) reconciles as updated, not cleared',
+        () async {
+      // A second project/task the running timer can be rebound onto.
+      final proj2 = await db.addProject(
+        clientId: await db.addClient(name: 'Two', defaultRate: 100),
+        code: 'P2',
+        title: 'Other',
+      );
+      final task2 = await db.addTask(projectId: proj2, title: 'Ship');
+
+      // A GUI store owns a running session (started at t0).
+      final gui = TimerStore(db);
+      gui.reconcile(await writeRow(running: true, runningSince: t0), now: t0);
+      expect(gui.session.isRunning, isTrue);
+
+      // The CLI edits the live timer, rebinding it — through TimerStore, which
+      // re-freezes elapsed into accumulated and re-anchors runningSince.
+      final t1 = t0.add(const Duration(minutes: 5));
+      final cli = TimerStore(db);
+      await cli.recover(now: t1);
+      await cli.editRunning(now: t1, projectId: proj2, taskId: task2);
+
+      // The GUI sees the CLI's write and reconciles it as an in-place update:
+      // never `cleared` (no strand) and the session is NOT re-adopted.
+      final rebound = (await db.activeTimer())!;
+      expect(rebound.projectId, proj2);
+      expect(rebound.taskId, task2);
+      final outcome = gui.reconcile(
+        rebound,
+        now: t1.add(const Duration(seconds: 1)),
+      );
+      expect(outcome, TimerReconcile.updated);
+      expect(gui.session.isRunning, isTrue, reason: 'no strand');
+      expect(gui.session.boundProjectId, proj2);
+      expect(gui.session.boundTaskId, task2);
+      // Elapsed preserved across the rebind: ~5 min of the original run.
+      expect(gui.session.elapsed, greaterThanOrEqualTo(300));
+
+      // Stop records exactly one entry against the NEW binding (no double-record
+      // and no time stranded on the old task).
+      final finished = await cli.finish(now: t1.add(const Duration(minutes: 1)));
+      expect(finished, isNotNull);
+      expect(finished!.projectId, proj2);
+      expect(finished.taskId, task2);
+      final entries = await (db.select(db.timeEntries)
+            ..where((t) => t.deletedAt.isNull()))
+          .get();
+      expect(entries, hasLength(1));
+      expect(entries.single.projectId, proj2);
+      expect(entries.single.taskId, task2);
+    });
+
     test('startup recover still restores a running timer', () async {
       await writeRow(running: true, runningSince: t0, description: 'note');
       final store = TimerStore(db);

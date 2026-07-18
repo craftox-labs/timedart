@@ -67,6 +67,16 @@ class TimerSession {
 
   void pause() => _running = false;
 
+  /// Rebind the project/task of an in-flight session (CLI `timer edit`) without
+  /// touching elapsed, run state, or startedAt. Only non-null values change the
+  /// binding, so the caller can rebind just one facet. Unlike [start]'s
+  /// bind-once rule this deliberately overwrites, letting a mistaken selection
+  /// be corrected mid-session; the caller must keep project/task consistent.
+  void rebind({String? projectId, String? taskId}) {
+    if (projectId != null) _boundProjectId = projectId;
+    if (taskId != null) _boundTaskId = taskId;
+  }
+
   /// Advance one second.
   void tick() => _elapsed++;
 

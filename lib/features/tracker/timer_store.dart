@@ -172,6 +172,49 @@ class TimerStore {
     return finished;
   }
 
+  /// Discard the running/paused timer WITHOUT recording a [TimeEntry]: tombstone
+  /// the active-timer row and reset the session. Symmetric with [finish] minus
+  /// the entry write — the abandon path for a mistaken session. Call [recover]
+  /// first; a no-op when no row was recovered.
+  Future<void> discard() async {
+    final rowId = _rowId;
+    if (rowId != null) {
+      await _db.tombstoneActiveTimer(rowId);
+      _rowId = null;
+    }
+    _recoveredDescription = null;
+    _session.reset();
+  }
+
+  /// Edit the live timer in place — change its session note and/or rebind its
+  /// project/task — WITHOUT recording an entry. Rewrites the active-timer row
+  /// through [_persist], so elapsed is re-frozen into `accumulatedSeconds` and
+  /// the derived total is unchanged (no reset of tracked time, no run-state
+  /// flip). Run state and [startedAt] are preserved. Rebinding goes through the
+  /// session so the single-active-timer invariant holds and an open GUI's
+  /// [reconcile] sees the change as an `updated` (never `cleared`) transition.
+  ///
+  /// Pass [setDescription] to change the note (to [description], which may be
+  /// null to clear it); a non-null [projectId]/[taskId] rebinds that facet.
+  /// Caller must have [recover]ed a live session.
+  Future<void> editRunning({
+    required DateTime now,
+    bool setDescription = false,
+    String? description,
+    String? projectId,
+    String? taskId,
+  }) async {
+    if (setDescription) _recoveredDescription = description;
+    if (projectId != null || taskId != null) {
+      _session.rebind(projectId: projectId, taskId: taskId);
+    }
+    await _persist(
+      now: now,
+      running: _session.isRunning,
+      description: _recoveredDescription,
+    );
+  }
+
   Future<void> _persist({
     required DateTime now,
     required bool running,
