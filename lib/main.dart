@@ -7,6 +7,7 @@ import 'package:timedart/features/onboarding/onboarding_gate.dart';
 import 'package:timedart/data/app_database_flutter.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/legacy_db_migration.dart';
+import 'package:timedart/widgets/external_change_watcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +46,10 @@ class MyApp extends StatelessWidget {
       },
       title: 'timedart',
       theme: buildAppTheme(Brightness.dark),
-      home: RootGate(db: db),
+      // Reflect external DB writes (CLI now, PowerSync later) live — polls
+      // `data_version` while foregrounded and refreshes drift streams on an
+      // external commit (PRD #270, slice #274).
+      home: ExternalChangeWatcher(db: db, child: RootGate(db: db)),
     );
   }
 }

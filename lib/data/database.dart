@@ -1589,6 +1589,22 @@ class AppDatabase extends _$AppDatabase {
             ..limit(1))
           .getSingleOrNull();
 
+  // ── External-change detection (live GUI refresh; PRD #270, slice #274) ─────
+  // SQLite bumps `data_version` on this connection whenever ANOTHER connection
+  // commits (the CLI now, PowerSync later); it is unchanged by this
+  // connection's own writes. The ExternalChangeWatcher polls [dataVersion] and,
+  // on a detected external commit, calls [refreshAllStreams] so every open
+  // `watch()` re-emits — no per-screen wiring.
+  Future<int> dataVersion() async {
+    final row = await customSelect('PRAGMA data_version').getSingle();
+    return row.data.values.first as int;
+  }
+
+  /// Notify drift that every content table may have changed, so all live
+  /// `watch()` streams re-emit. Used only to reflect *external* writes — drift
+  /// already refreshes streams for this connection's own writes.
+  void refreshAllStreams() => markTablesUpdated(allTables);
+
   // Insert-or-update the active-timer row by id, re-stamping updatedAt at the
   // choke-point (like every other write).
   Future<void> saveActiveTimer(ActiveTimersCompanion row) => into(
