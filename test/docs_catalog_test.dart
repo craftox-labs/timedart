@@ -235,7 +235,7 @@ void main() {
 
     test('all pages parse and order into the expected groups', () {
       final c = realCatalog();
-      expect(c.pages, hasLength(5));
+      expect(c.pages, hasLength(6));
       expect(c.groups.map((g) => g.title), [
         'Getting started',
         'Tracking',
@@ -243,6 +243,11 @@ void main() {
         'Data',
         'Reference',
       ]);
+      // Reference holds keyboard-shortcuts (50) then the CLI page (60).
+      expect(
+        c.groups.last.pages.map((p) => p.slug),
+        ['keyboard-shortcuts', 'cli'],
+      );
     });
   });
 }
