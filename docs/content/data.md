@@ -36,7 +36,7 @@ Both archiving and deleting are blocked while a timer is currently running on th
 
 timedart is portable and self-contained — there's no installer, and nothing is scattered across your system. Removing it completely is two steps: delete the app, then delete its data folder.
 
-> **Want to keep your data?** Use **Export data** (above) *before* you remove anything. The backup file is yours to keep and can be re-imported into any future install. Once the data folder is gone it can't be recovered.
+> **Note:** Want to keep your data? Use **Export data** (above) *before* you remove anything. The backup file is yours to keep and can be re-imported into any future install. Once the data folder is gone it can't be recovered.
 
 **1. Remove the app**
 
