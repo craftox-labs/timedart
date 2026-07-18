@@ -4,6 +4,7 @@ import 'package:timedart/constants/layout.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_fonts.dart';
 import 'package:timedart/features/invoices/invoice_layout.dart';
 import 'package:timedart/features/invoices/invoice_layout_plan.dart';
 import 'package:timedart/features/invoices/invoice_region.dart';
@@ -160,12 +161,7 @@ class _ZoomablePageState extends State<_ZoomablePage>
           0,
           1,
         )
-        ..scaleByDouble(
-          _doubleTapScale,
-          _doubleTapScale,
-          _doubleTapScale,
-          1,
-        );
+        ..scaleByDouble(_doubleTapScale, _doubleTapScale, _doubleTapScale, 1);
     }
     _zoomAnim = Matrix4Tween(begin: current, end: target).animate(
       CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
@@ -231,45 +227,56 @@ class InvoicePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final plan = InvoiceLayout.resolve(doc);
-    return Container(
-      color: _bg,
-      padding: const EdgeInsets.all(InvoiceLayout.pageMargin),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _masthead(plan.masthead),
-          const SizedBox(height: InvoiceLayout.sectionGap),
-          _party(plan.party, plan.geometry),
-          const SizedBox(height: InvoiceLayout.partyBlockGap),
-          _recipientGrid(plan.recipient, plan.geometry),
-          const SizedBox(height: InvoiceLayout.detailsBlockGap),
-          Text(
-            'Details',
-            style: TextStyle(
-              color: _primary,
-              fontSize: InvoiceLayout.fontDetailsHeading,
-              fontWeight: InvoiceLayout.fontWeightBold,
-            ),
-          ),
-          const SizedBox(height: InvoiceLayout.detailsHeadingGap),
-          _table(),
-          const SizedBox(height: InvoiceLayout.totalsGap),
-          _totals(plan.totals),
-          if (plan.totals.showReverseCharge) ...[
-            const SizedBox(height: InvoiceLayout.totalsGap),
+    // Bind the whole preview to the template's family so it matches the PDF.
+    // The individual TextStyles below set no fontFamily, so they inherit this
+    // via DefaultTextStyle merge; each keeps its own fontWeight (400/500/600),
+    // which Flutter resolves to the family's declared static faces — the same
+    // three weights the PDF loads by asset. Falls back to Outfit for a
+    // legacy/unknown stored value, mirroring the PDF's resolve().
+    return DefaultTextStyle.merge(
+      style: TextStyle(
+        fontFamily: resolveInvoiceFont(template.fontFamily).flutterFamily,
+      ),
+      child: Container(
+        color: _bg,
+        padding: const EdgeInsets.all(InvoiceLayout.pageMargin),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _masthead(plan.masthead),
+            const SizedBox(height: InvoiceLayout.sectionGap),
+            _party(plan.party, plan.geometry),
+            const SizedBox(height: InvoiceLayout.partyBlockGap),
+            _recipientGrid(plan.recipient, plan.geometry),
+            const SizedBox(height: InvoiceLayout.detailsBlockGap),
             Text(
-              InvoiceDocument.reverseChargeStatement,
+              'Details',
               style: TextStyle(
                 color: _primary,
-                fontSize: InvoiceLayout.fontLabel,
-                fontWeight: InvoiceLayout.fontWeightLabel,
+                fontSize: InvoiceLayout.fontDetailsHeading,
+                fontWeight: InvoiceLayout.fontWeightBold,
               ),
             ),
+            const SizedBox(height: InvoiceLayout.detailsHeadingGap),
+            _table(),
+            const SizedBox(height: InvoiceLayout.totalsGap),
+            _totals(plan.totals),
+            if (plan.totals.showReverseCharge) ...[
+              const SizedBox(height: InvoiceLayout.totalsGap),
+              Text(
+                InvoiceDocument.reverseChargeStatement,
+                style: TextStyle(
+                  color: _primary,
+                  fontSize: InvoiceLayout.fontLabel,
+                  fontWeight: InvoiceLayout.fontWeightLabel,
+                ),
+              ),
+            ],
+            const SizedBox(height: InvoiceLayout.sectionGap),
+            _payments(plan.payments),
           ],
-          const SizedBox(height: InvoiceLayout.sectionGap),
-          _payments(plan.payments),
-        ],
+        ),
       ),
     );
   }
@@ -407,10 +414,7 @@ class InvoicePreview extends StatelessWidget {
         const SizedBox(height: InvoiceLayout.headlineGap),
         Text(
           _iso(doc.issueDate),
-          style: TextStyle(
-            color: _primary,
-            fontSize: InvoiceLayout.fontLabel,
-          ),
+          style: TextStyle(color: _primary, fontSize: InvoiceLayout.fontLabel),
         ),
         if (party.showInvoiceNumber)
           Text(
@@ -613,9 +617,7 @@ class InvoicePreview extends StatelessWidget {
   // matching the line rows so every value box lands under its column exactly.
   Widget _totalsRow(String label, int labelSpan, List<Widget> trailing) =>
       Padding(
-        padding: const EdgeInsets.only(
-          bottom: InvoiceLayout.rowMarginBottom,
-        ),
+        padding: const EdgeInsets.only(bottom: InvoiceLayout.rowMarginBottom),
         child: Row(
           children: [
             _gutter,

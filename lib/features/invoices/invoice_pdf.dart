@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:timedart/constants/format.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_fonts.dart';
 import 'package:timedart/features/invoices/invoice_layout.dart';
 import 'package:timedart/features/invoices/invoice_layout_plan.dart';
 import 'package:timedart/features/invoices/invoice_region.dart';
@@ -28,19 +29,21 @@ Future<Uint8List> buildBrandedInvoicePdf({
   required InvoiceTemplate template,
 }) async {
   // The pdf package can't shift a variable font's axis — it renders one static
-  // instance per file. So the three invoice weights (value w400, label w500,
-  // bold w600 in InvoiceLayout) are shipped as pre-instanced static Outfit ttfs
-  // and mapped here one-to-one. The on-screen preview, by contrast, inherits
-  // the app's ambient font (also Outfit) and interpolates the wght axis from
-  // fontWeight directly — so preview and PDF match.
+  // instance per file. So each selectable family ships three pre-instanced
+  // static ttfs (value w400, label w500, bold w600 in InvoiceLayout), resolved
+  // here from the template's stored family via the shared [invoiceFonts]
+  // registry (falling back to Outfit for a legacy/unknown value). The on-screen
+  // preview binds the same family's flutterFamily and interpolates the wght
+  // axis from fontWeight — so preview and PDF match.
+  final fontSpec = resolveInvoiceFont(template.fontFamily);
   final font = pw.Font.ttf(
-    await rootBundle.load('assets/fonts/Outfit-Regular.ttf'),
+    await rootBundle.load(fontSpec.pdfRegularAsset),
   ); // w400 — values
   final medium = pw.Font.ttf(
-    await rootBundle.load('assets/fonts/Outfit-Medium.ttf'),
+    await rootBundle.load(fontSpec.pdfMediumAsset),
   ); // w500 — labels (fontWeightLabel)
   final bold = pw.Font.ttf(
-    await rootBundle.load('assets/fonts/Outfit-SemiBold.ttf'),
+    await rootBundle.load(fontSpec.pdfSemiBoldAsset),
   ); // w600 — headings (fontWeightBold)
 
   final plan = InvoiceLayout.resolve(doc);
@@ -267,7 +270,8 @@ Future<Uint8List> buildBrandedInvoicePdf({
                         fontSize: _p(InvoiceLayout.fontValue),
                       ),
                       children: [
-                        for (final (i, entry) in plan.masthead.contact.indexed) ...[
+                        for (final (i, entry)
+                            in plan.masthead.contact.indexed) ...[
                           if (i > 0) const pw.TextSpan(text: '    '),
                           pw.TextSpan(
                             text: entry.prefix,

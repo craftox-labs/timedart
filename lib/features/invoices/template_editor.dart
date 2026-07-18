@@ -6,6 +6,7 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/features/invoices/editor_common.dart';
 import 'package:timedart/features/invoices/editor_session.dart';
 import 'package:timedart/features/invoices/invoice_document.dart';
+import 'package:timedart/features/invoices/invoice_fonts.dart';
 import 'package:timedart/features/invoices/invoice_preview.dart';
 import 'package:timedart/widgets/color_picker.dart';
 import 'package:timedart/widgets/confirm_dialog.dart';
@@ -49,12 +50,13 @@ class _TemplateEditorState extends State<TemplateEditor> {
     accent: 0xFF2E6C0F,
   );
 
-  // The fonts the template picker offers. Single source of truth: the dropdown
-  // items are built from this list, and a loaded template's stored family is
-  // validated against it (a value the picker can't show would trip
+  // The fonts the template picker offers — the shared invoice font registry,
+  // so preview, PDF, and picker draw from one list. A loaded template's stored
+  // family is validated against it (a value the picker can't show would trip
   // DropdownButton's one-matching-item assertion). Legacy rows written before
-  // a font change fall back to the first entry and self-heal on next save.
-  static const _fontFamilies = ['Outfit'];
+  // a font change fall back to the first entry (Outfit) and self-heal on next
+  // save.
+  static final _fontFamilies = invoiceFontFamilies;
 
   late final TextEditingController _name;
   late int _bg, _surface, _primary, _text;
@@ -296,8 +298,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
     label: 'Font',
     value: _fontFamily,
     items: [
-      for (final f in _fontFamilies)
-        DropdownMenuItem(value: f, child: Text(f)),
+      for (final f in _fontFamilies) DropdownMenuItem(value: f, child: Text(f)),
     ],
     onChanged: (v) => setState(() {
       _fontFamily = v ?? _fontFamily;
@@ -323,7 +324,9 @@ class _TemplateEditorState extends State<TemplateEditor> {
         FieldRow(stackBelow: _gridStackBelow, [
           Field(flex: 2, _nameField()),
           Field(_fontField()),
-          Field(Align(alignment: Alignment.centerRight, child: _defaultToggle())),
+          Field(
+            Align(alignment: Alignment.centerRight, child: _defaultToggle()),
+          ),
         ]),
         const SizedBox(height: AppTokens.spaceSm),
         _colorRow(),

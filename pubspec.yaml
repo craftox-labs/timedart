@@ -128,3 +128,50 @@ flutter:
         - asset: assets/fonts/Raleway-VariableFont_wght.ttf
         - asset: assets/fonts/Raleway-Italic-VariableFont_wght.ttf
           style: italic
+    # Invoice-template families (issue #232). Each ships pre-instanced static
+    # Regular/Medium/SemiBold faces (w400/500/600) so the PDF renderer can load
+    # one file per weight and the preview resolves the same three weights by
+    # fontWeight. IBM Plex Sans, Libre Franklin and Source Serif 4 are instanced
+    # from their Google Fonts variable sources; Spectral ships statics upstream.
+    # OFL licences live in assets/fonts/licenses/. Family names must match the
+    # flutterFamily values in features/invoices/invoice_fonts.dart.
+    - family: IBM Plex Sans
+      fonts:
+        - asset: assets/fonts/IBMPlexSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSans-SemiBold.ttf
+          weight: 600
+    - family: Libre Franklin
+      fonts:
+        - asset: assets/fonts/LibreFranklin-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/LibreFranklin-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/LibreFranklin-SemiBold.ttf
+          weight: 600
+    - family: Source Serif 4
+      fonts:
+        - asset: assets/fonts/SourceSerif4-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/SourceSerif4-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/SourceSerif4-SemiBold.ttf
+          weight: 600
+    - family: Spectral
+      fonts:
+        - asset: assets/fonts/Spectral-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Spectral-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Spectral-SemiBold.ttf
+          weight: 600
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
