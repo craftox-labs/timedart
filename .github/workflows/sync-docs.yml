@@ -1,0 +1,58 @@
+# Propagates user docs from this (authoritative) repo to the marketing site
+# repo, which auto-deploys via Netlify. See issue #254 / PRD #251.
+#
+# One-time setup by the maintainer:
+#   Create a token with write access to craftox-labs/timedart-site and add it
+#   here as the repo secret SITE_SYNC_TOKEN. Either:
+#     - a fine-grained PAT scoped to timedart-site with Contents: read/write, or
+#     - a classic PAT with `repo` scope.
+#   No secret => this workflow fails loudly on the first docs push (safe: it
+#   never touches this repo, only pushes to the site repo).
+name: Sync docs to site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/content/**'
+  workflow_dispatch: {}
+
+concurrency:
+  group: sync-docs
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app repo (source of truth)
+        uses: actions/checkout@v4
+        with:
+          path: app
+
+      - name: Checkout site repo
+        uses: actions/checkout@v4
+        with:
+          repository: craftox-labs/timedart-site
+          token: ${{ secrets.SITE_SYNC_TOKEN }}
+          path: site
+
+      - name: Mirror docs content into the site collection
+        run: |
+          mkdir -p site/src/content/docs
+          # --delete so removed pages/images propagate; the target holds only
+          # synced docs. Trailing slashes matter (copy contents, not the dir).
+          rsync -a --delete app/docs/content/ site/src/content/docs/
+
+      - name: Commit & push if changed
+        working-directory: site
+        run: |
+          git config user.name  "timedart-docs-sync[bot]"
+          git config user.email "docs-sync@users.noreply.github.com"
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No docs changes to propagate."
+            exit 0
+          fi
+          git add src/content/docs
+          git commit -m "docs: sync from app@${GITHUB_SHA::7}"
+          git push
