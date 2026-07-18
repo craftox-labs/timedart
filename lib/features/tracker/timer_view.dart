@@ -21,12 +21,22 @@ import 'package:timedart/widgets/tap_target.dart';
 /// discards a running session. The view renders from this and listens for
 /// repaints.
 class TimerController extends ChangeNotifier {
-  TimerController(AppDatabase db) : _store = TimerStore(db);
+  TimerController(AppDatabase db) : _db = db, _store = TimerStore(db) {
+    // Reflect EXTERNAL active-timer writes (the companion CLI now, PowerSync
+    // later) live: watchActiveTimer re-emits on every commit — including those
+    // the ExternalChangeWatcher surfaces from other connections — and reconcile
+    // adopts/updates/clears the in-memory session accordingly (#274). The app's
+    // own writes emit here too but reconcile treats them as no-ops.
+    _activeSub = _db.watchActiveTimer().listen(_onActiveTimerRow);
+  }
+
+  final AppDatabase _db;
 
   // The DB-backed timer store (PRD #189, Phase 3) — owns the pure state machine
   // plus persistence of the active-timer row, so a running timer survives a
   // restart and (once sync lands) travels across devices.
   final TimerStore _store;
+  StreamSubscription<ActiveTimer?>? _activeSub;
   Timer? _ticker;
   // Optional description for the session in progress, becoming the finished
   // entry's description. Lives here so it survives content-pane switches.
@@ -51,6 +61,41 @@ class TimerController extends ChangeNotifier {
     if (note != null) description.text = note;
     if (_store.session.isRunning) _startTicker();
     notifyListeners();
+  }
+
+  /// Handle a `watchActiveTimer` emission: reconcile the session to the row and
+  /// drive the ticker/description to match. Own writes reconcile to
+  /// [TimerReconcile.unchanged], so they don't reset or jitter a locally-owned
+  /// timer; only genuine external changes update the UI.
+  void _onActiveTimerRow(ActiveTimer? row) {
+    final outcome = _store.reconcile(row, now: DateTime.now());
+    switch (outcome) {
+      case TimerReconcile.unchanged:
+        return; // no visible change — leave the local ticker/session untouched
+      case TimerReconcile.cleared:
+        _ticker?.cancel();
+        _ticker = null;
+        description.clear();
+      case TimerReconcile.adopted:
+        // Seed the note ONLY when adopting an external timer (never clobber a
+        // note the user is editing on their own session).
+        final note = _store.recoveredDescription;
+        if (note != null) description.text = note;
+        _syncTicker();
+      case TimerReconcile.updated:
+        _syncTicker();
+    }
+    notifyListeners();
+  }
+
+  /// Start or stop the ticker to match the (already-reconciled) session.
+  void _syncTicker() {
+    if (_store.session.isRunning) {
+      _startTicker();
+    } else {
+      _ticker?.cancel();
+      _ticker = null;
+    }
   }
 
   String? get _note {
@@ -103,6 +148,7 @@ class TimerController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _activeSub?.cancel();
     _ticker?.cancel();
     description.dispose();
     super.dispose();

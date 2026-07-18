@@ -5,6 +5,25 @@ import 'package:timedart/data/id.dart';
 
 import 'timer_session.dart';
 
+/// The outcome of [TimerStore.reconcile] — how the in-memory session changed in
+/// response to the live active-timer row, so the UI layer can drive its ticker
+/// and description field without re-inspecting private store state.
+enum TimerReconcile {
+  /// The row already matched the session (e.g. the app's own write) — no-op.
+  unchanged,
+
+  /// A previously-unowned timer was adopted (external start): seed the
+  /// description from the row.
+  adopted,
+
+  /// An owned session's run state changed (external pause/resume): do NOT
+  /// touch the user's description field.
+  updated,
+
+  /// The live timer went away (external stop/tombstone): session reset.
+  cleared,
+}
+
 /// Owns persistence of the single active-timer row (PRD #189, Phase 3),
 /// bridging the pure [TimerSession] state machine to the DB so a running timer
 /// survives a restart and syncs across devices. Transitions mirror
@@ -51,6 +70,55 @@ class TimerStore {
       taskId: row.taskId,
       running: runningSince != null,
     );
+  }
+
+  /// Reconcile the in-memory session to the single live active-timer [row] (or
+  /// null when none is live), so an *external* write to `active_timer` — the
+  /// companion CLI now, PowerSync later — is reflected in the running GUI. Meant
+  /// to be driven by [AppDatabase.watchActiveTimer] emissions.
+  ///
+  /// Returns a [TimerReconcile] telling the caller how the session changed so it
+  /// can drive its ticker / description field, or [TimerReconcile.unchanged]
+  /// when the row already matches the current session — which is the case for
+  /// the app's OWN writes (they emit on this stream too), making them no-ops and
+  /// avoiding any refresh loop or elapsed jitter. Never writes to the DB.
+  TimerReconcile reconcile(ActiveTimer? row, {required DateTime now}) {
+    if (row == null) {
+      // External stop / tombstone: nothing is live. Clear any local session.
+      if (!_session.hasSession && _rowId == null) {
+        return TimerReconcile.unchanged;
+      }
+      _session.reset();
+      _rowId = null;
+      _recoveredDescription = null;
+      return TimerReconcile.cleared;
+    }
+
+    final running = row.runningSince != null;
+    final matches =
+        _session.hasSession &&
+        _session.boundProjectId == row.projectId &&
+        _session.boundTaskId == row.taskId &&
+        _session.isRunning == running;
+    if (matches) return TimerReconcile.unchanged; // our own state / no change
+
+    // Adopting a timer the controller didn't previously own (external start),
+    // versus updating an owned session's run state (external pause/resume).
+    final adopted = !_session.hasSession;
+
+    final gap = row.runningSince == null
+        ? 0
+        : now.difference(row.runningSince!).inSeconds;
+    _rowId = row.id;
+    _recoveredDescription = row.description;
+    _session.restore(
+      elapsed: row.accumulatedSeconds + (gap < 0 ? 0 : gap),
+      startedAt: row.startedAt,
+      projectId: row.projectId,
+      taskId: row.taskId,
+      running: running,
+    );
+    return adopted ? TimerReconcile.adopted : TimerReconcile.updated;
   }
 
   /// Start or resume; binds project/task at first start (a no-op while running).
