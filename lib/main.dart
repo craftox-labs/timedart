@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:timedart/constants/theme.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/onboarding/onboarding_gate.dart';
+import 'package:timedart/data/app_database_flutter.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/legacy_db_migration.dart';
 
@@ -20,7 +21,7 @@ void main() async {
   // Rename any pre-1.0 `time_tracker.sqlite` to `timedart.sqlite` before the
   // database opens (no-op on web / fresh installs). Keeps existing users' data.
   await migrateLegacyDatabaseFile();
-  final db = AppDatabase();
+  final db = openAppDatabase();
   runApp(MyApp(db: db));
 }
 

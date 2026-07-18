@@ -1,8 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
 
 import 'id.dart';
-import 'legacy_db_migration.dart';
 
 part 'database.g.dart'; // generated — doesn't exist until you run build_runner
 
@@ -279,11 +277,23 @@ class DeleteImpact {
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  // _$AppDatabase is generated
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
+  // _$AppDatabase is generated.
+  //
+  // The executor is always injected — the Flutter/`drift_flutter` open path
+  // lives in `app_database_flutter.dart` (imported only by the app), and the
+  // pure-Dart CLI open path lives in `cli/db_open.dart`. Keeping AppDatabase
+  // constructible from any [QueryExecutor] is what lets the non-Flutter CLI
+  // (compiled with `dart compile exe`) import this file without pulling in
+  // path_provider — a Flutter platform channel unavailable outside the app.
+  AppDatabase(super.executor);
+
+  /// The schema version this build ships with. The single source of truth for
+  /// both drift's migration ladder and the CLI's schema-version guard (which
+  /// refuses to open a DB whose on-disk `user_version` differs from this).
+  static const int latestSchemaVersion = 16;
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => latestSchemaVersion;
 
   // drift doesn't enforce foreign keys unless we turn the pragma on per
   // connection. With it on, deleting a project that has time entries (or a
@@ -836,23 +846,6 @@ class AppDatabase extends _$AppDatabase {
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
-  );
-
-  static QueryExecutor _open() => driftDatabase(
-    // The on-disk file is `timedart.sqlite`, in a plainly-named `timedart`
-    // folder (see appDatabaseDirectory) rather than the bundle-id folder.
-    // Installs from before this held `dev.craftox.timedart/time_tracker.sqlite`;
-    // migrateLegacyDatabaseFile() (called at startup, before this opens) moves
-    // it across so no data is orphaned.
-    name: 'timedart',
-    native: const DriftNativeOptions(databaseDirectory: appDatabaseDirectory),
-    // Web demo: drift_flutter branches platforms internally, so this block is
-    // ignored on native. Assets ship in web/ (version-matched to drift). No
-    // COOP/COEP headers → storage falls back to IndexedDB (fine for a demo).
-    web: DriftWebOptions(
-      sqlite3Wasm: Uri.parse('sqlite3.wasm'),
-      driftWorker: Uri.parse('drift_worker.js'),
-    ),
   );
 
   // ── First-run example data (PRD #133) ─────────────────────────────────────

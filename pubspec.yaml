@@ -38,6 +38,12 @@ dependencies:
   drift: ^2.34.0
   drift_flutter: ^0.3.0 # wraps sqlite3 + path_provider; works on Linux desktop
   path_provider: ^2.1.0 # we reference it directly to pick the DB location
+  # Companion CLI (#270/#271): `args` for verb dispatch, and `sqlite3` as a
+  # first-class dependency (not just a dev dep) so the pure-Dart CLI DB-open
+  # seam and its `dart compile exe` binary can open the app's SQLite file
+  # without any Flutter/path_provider runtime.
+  args: ^2.5.0
+  sqlite3: ^3.3.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -61,7 +67,6 @@ dev_dependencies:
     sdk: flutter
   drift_dev: ^2.34.0
   build_runner: ^2.4.0
-  sqlite3: ^3.3.0 # migration tests open a raw in-memory v1 db
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
