@@ -11,6 +11,10 @@ name: CLI build check
 
 on:
   workflow_dispatch:
+  # Throwaway branch — run automatically on push so no default-branch
+  # workflow_dispatch registration is needed. Removed with the file pre-release.
+  push:
+    branches: [chore/cli-release-packaging]
 
 jobs:
   cli-build:
