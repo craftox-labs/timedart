@@ -228,6 +228,38 @@ void main() {
       );
     });
 
+    // `runTimedartCli` only returns the exit code (the message goes to
+    // stderr), so this drives the real duplicate-code failure straight through
+    // the DB layer and pins the clean message (#288): no raw SqliteException,
+    // no SQL, no bound parameters.
+    test(
+      'duplicate code → clean message naming the code, no raw SQL',
+      () async {
+        final s = await _seed(tmp);
+        final db = _open(s.file);
+        addTearDown(db.close);
+        Object? caught;
+        try {
+          await db.addProject(clientId: s.clientId, code: 'ACME', title: 'Dup');
+        } catch (e) {
+          caught = e;
+        }
+        expect(caught, isNotNull);
+        expect(caught.toString(), contains('UNIQUE'));
+        final message = constraintViolationMessage(
+          caught!,
+          projectCode: 'ACME',
+        );
+        expect(
+          message,
+          'A project with code "ACME" already exists. Choose a different '
+          'code.',
+        );
+        expect(message, isNot(contains('SqliteException')));
+        expect(message, isNot(contains('INSERT INTO')));
+      },
+    );
+
     test('edit --rate inherit clears the project rate', () async {
       final s = await _seed(tmp);
       final db = _open(s.file);

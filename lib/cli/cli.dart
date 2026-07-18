@@ -182,20 +182,38 @@ double? _optionalRate(String raw) {
   return parsed.value;
 }
 
-/// Run a write, mapping a database constraint failure (e.g. the unique project
-/// `code`) to the documented [CliExit.constraintViolation]. Other errors pass
-/// through unchanged.
-Future<T> _guardConstraints<T>(Future<T> Function() write) async {
+/// Maps a caught database write failure to the clean, user-facing message for
+/// [CliExit.constraintViolation] — never the raw driver exception or SQL
+/// statement/parameters — or returns null if [error] isn't a constraint
+/// failure at all.
+///
+/// [projectCode], when given, names the code being written so a duplicate
+/// `projects.code` failure can point at it specifically; other constraint
+/// failures fall back to a terse generic message. Exposed (not private) so
+/// tests can pin the exact wording without spawning the CLI.
+String? constraintViolationMessage(Object error, {String? projectCode}) {
+  final msg = error.toString();
+  if (!msg.contains('UNIQUE') && !msg.contains('constraint')) return null;
+  if (projectCode != null && msg.contains('projects.code')) {
+    return 'A project with code "$projectCode" already exists. Choose a '
+        'different code.';
+  }
+  return 'The write violates a database constraint.';
+}
+
+/// Run a write, mapping a database constraint failure to
+/// [CliExit.constraintViolation] via [constraintViolationMessage]. Other
+/// errors pass through unchanged.
+Future<T> _guardConstraints<T>(
+  Future<T> Function() write, {
+  String? projectCode,
+}) async {
   try {
     return await write();
   } catch (e) {
-    final msg = e.toString();
-    if (msg.contains('UNIQUE') || msg.contains('constraint')) {
-      throw CliException(
-        'The database rejected the write (a constraint would be violated — '
-        'e.g. a project code already in use): $e',
-        CliExit.constraintViolation,
-      );
+    final message = constraintViolationMessage(e, projectCode: projectCode);
+    if (message != null) {
+      throw CliException(message, CliExit.constraintViolation);
     }
     rethrow;
   }
@@ -918,6 +936,7 @@ class ProjectAddCommand extends _CliVerb {
           title: title,
           rate: rate,
         ),
+        projectCode: code,
       );
       final item = projectListItem(
         await db.getProject(id),
@@ -957,13 +976,14 @@ class ProjectEditCommand extends _CliVerb {
       if (wants.wasParsed('client')) {
         clientId = (await resolveClient(db, wants['client'] as String)).id;
       }
+      final newCode = wants.wasParsed('code')
+          ? required('code', 'project edit')
+          : p.code;
       await _guardConstraints(
         () => db.updateProject(
           id: p.id,
           clientId: clientId,
-          code: wants.wasParsed('code')
-              ? required('code', 'project edit')
-              : p.code,
+          code: newCode,
           title: wants.wasParsed('title')
               ? required('title', 'project edit')
               : p.title,
@@ -971,6 +991,7 @@ class ProjectEditCommand extends _CliVerb {
               ? _optionalRate(wants['rate'] as String)
               : p.rate,
         ),
+        projectCode: newCode,
       );
       final updated = await db.getProject(p.id);
       final item = projectListItem(
