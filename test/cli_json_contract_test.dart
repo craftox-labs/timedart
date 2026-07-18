@@ -119,6 +119,68 @@ void main() {
     expect(top.keys.toSet(), {'action', 'task'});
   });
 
+  test('list entries JSON keys', () {
+    final item = EntryListItem(
+      id: 'e',
+      projectId: 'p',
+      seconds: 60,
+      startedAt: DateTime.utc(2026),
+      endedAt: DateTime.utc(2026),
+    );
+    final row = _arr(formatEntries([item], json: true)).single as Map;
+    expect(row.keys.toSet(), {
+      'id',
+      'projectId',
+      'projectCode',
+      'projectTitle',
+      'taskId',
+      'taskTitle',
+      'description',
+      'seconds',
+      'startedAt',
+      'endedAt',
+    });
+  });
+
+  test('entry edit result JSON shape', () {
+    final item = EntryListItem(
+      id: 'e',
+      projectId: 'p',
+      seconds: 60,
+      startedAt: DateTime.utc(2026),
+      endedAt: DateTime.utc(2026),
+    );
+    final top = _obj(formatEntry(item, action: 'Updated', json: true));
+    expect(top.keys.toSet(), {'action', 'entry'});
+    expect(top['action'], 'updated');
+    expect((top['entry'] as Map).keys.toSet(), {
+      'id',
+      'projectId',
+      'projectCode',
+      'projectTitle',
+      'taskId',
+      'taskTitle',
+      'description',
+      'seconds',
+      'startedAt',
+      'endedAt',
+    });
+  });
+
+  test('entry delete result JSON shape (shares the delete shape)', () {
+    const outcome = DeleteOutcome(
+      kind: 'entry',
+      id: 'e',
+      label: '10m on ACME / Design',
+      impact: DeleteImpact(),
+      deleted: false,
+    );
+    final top = _obj(formatDelete(outcome, json: true));
+    expect(top.keys.toSet(), {'deleted', 'kind', 'id', 'label', 'impact'});
+    expect(top['kind'], 'entry');
+    expect((top['impact'] as Map)['total'], 0);
+  });
+
   test('delete result JSON shape (refused + confirmed share it)', () {
     const outcome = DeleteOutcome(
       kind: 'project',

@@ -15,7 +15,7 @@ export '../data/database.dart' show DeleteImpact;
 /// true, the cascade ran and [impact] describes what was removed with the
 /// parent.
 class DeleteOutcome {
-  final String kind; // 'client' | 'project' | 'task'
+  final String kind; // 'client' | 'project' | 'task' | 'entry'
   final String id;
   final String label; // human name for messages
   final DeleteImpact impact;

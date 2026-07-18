@@ -245,6 +245,67 @@ String formatTasks(List<TaskListItem> items, {required bool json}) => json
     ? const JsonEncoder.withIndent('  ').convert(tasksJson(items))
     : formatTasksHuman(items);
 
+// ── `list entries` + entry edit/delete rendering (issue #284) ──────────────
+
+String formatEntriesHuman(List<EntryListItem> items) {
+  if (items.isEmpty) return 'No entries.';
+  return items
+      .map((e) {
+        final project = e.projectCode != null && e.projectTitle != null
+            ? '${e.projectCode} ${e.projectTitle}'
+            : (e.projectTitle ?? e.projectCode ?? e.projectId);
+        final where = <String>[project, ?e.taskTitle].join(' / ');
+        final desc = (e.description == null || e.description!.isEmpty)
+            ? ''
+            : '  ${e.description}';
+        return '${formatElapsed(e.seconds)}  $where'
+            '  (${e.startedAt.toIso8601String()} → '
+            '${e.endedAt.toIso8601String()})$desc\n  ${e.id}';
+      })
+      .join('\n');
+}
+
+Map<String, Object?> entryJson(EntryListItem e) => {
+  'id': e.id,
+  'projectId': e.projectId,
+  'projectCode': e.projectCode,
+  'projectTitle': e.projectTitle,
+  'taskId': e.taskId,
+  'taskTitle': e.taskTitle,
+  'description': e.description,
+  'seconds': e.seconds,
+  'startedAt': e.startedAt.toIso8601String(),
+  'endedAt': e.endedAt.toIso8601String(),
+};
+
+List<Map<String, Object?>> entriesJson(List<EntryListItem> items) => [
+  for (final e in items) entryJson(e),
+];
+
+String formatEntries(List<EntryListItem> items, {required bool json}) => json
+    ? const JsonEncoder.withIndent('  ').convert(entriesJson(items))
+    : formatEntriesHuman(items);
+
+/// One entry after an `entry edit` (edit only — entries have no add verb; use
+/// `log`). [action] is a past-tense verb ("Updated").
+String formatEntry(
+  EntryListItem e, {
+  required String action,
+  required bool json,
+}) {
+  if (json) {
+    return const JsonEncoder.withIndent('  ').convert({
+      'action': action.toLowerCase(),
+      'entry': entryJson(e),
+    });
+  }
+  final project = e.projectCode != null && e.projectTitle != null
+      ? '${e.projectCode} ${e.projectTitle}'
+      : (e.projectTitle ?? e.projectCode ?? e.projectId);
+  final where = <String>[project, ?e.taskTitle].join(' / ');
+  return '$action entry on $where (${formatElapsed(e.seconds)}).\n  ${e.id}';
+}
+
 // ── `log` rendering ────────────────────────────────────────────────────────
 
 String formatLogHuman(LogResult r) {

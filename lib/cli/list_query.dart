@@ -80,6 +80,67 @@ TaskListItem taskListItem(Task t, {String? projectCode, String? projectTitle}) =
       rate: t.rate,
     );
 
+/// Map a live [TimeEntry] row to its list/CRUD-result shape, given its owning
+/// project's code/title and (if task-bound) the task's title — looked up by
+/// the caller.
+EntryListItem entryListItem(
+  TimeEntry e, {
+  String? projectCode,
+  String? projectTitle,
+  String? taskTitle,
+}) => EntryListItem(
+  id: e.id,
+  projectId: e.projectId,
+  projectCode: projectCode,
+  projectTitle: projectTitle,
+  taskId: e.taskId,
+  taskTitle: taskTitle,
+  description: e.description,
+  seconds: e.seconds,
+  startedAt: e.startedAt,
+  endedAt: e.endedAt,
+);
+
+/// Live time entries, most-recent-first (by [TimeEntry.endedAt] — matching
+/// [AppDatabase.watchEntriesForProject]/[watchEntriesForTask]). Optionally
+/// scoped to [projectId] and/or [taskId], and to entries whose
+/// [TimeEntry.startedAt] falls within [since]..[until] inclusive (issue #284).
+Future<List<EntryListItem>> queryEntries(
+  AppDatabase db, {
+  String? projectId,
+  String? taskId,
+  DateTime? since,
+  DateTime? until,
+}) async {
+  final query = db.select(db.timeEntries)
+    ..where((e) => e.deletedAt.isNull())
+    ..orderBy([(e) => OrderingTerm.desc(e.endedAt)]);
+  if (projectId != null) query.where((e) => e.projectId.equals(projectId));
+  if (taskId != null) query.where((e) => e.taskId.equals(taskId));
+  if (since != null) query.where((e) => e.startedAt.isBiggerOrEqualValue(since));
+  if (until != null) query.where((e) => e.startedAt.isSmallerOrEqualValue(until));
+  final entries = await query.get();
+
+  final projects = await (db.select(
+    db.projects,
+  )..where((p) => p.deletedAt.isNull())).get();
+  final projectById = {for (final p in projects) p.id: p};
+  final tasks = await (db.select(
+    db.tasks,
+  )..where((t) => t.deletedAt.isNull())).get();
+  final taskById = {for (final t in tasks) t.id: t};
+
+  return [
+    for (final e in entries)
+      entryListItem(
+        e,
+        projectCode: projectById[e.projectId]?.code,
+        projectTitle: projectById[e.projectId]?.title,
+        taskTitle: e.taskId == null ? null : taskById[e.taskId]?.title,
+      ),
+  ];
+}
+
 /// Live tasks, title-ordered. Scoped to [projectId] when given, else across all
 /// live projects (each row carries its project's code/title for context).
 Future<List<TaskListItem>> queryTasks(

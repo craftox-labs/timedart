@@ -958,8 +958,14 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
+  // [projectId] is required (not optional) so every caller states the entry's
+  // owning project explicitly — this is how the CLI's `entry edit` keeps
+  // `projectId` from going stale when `--task` rebinds the entry to a task
+  // under a different project (issue #284): the caller resolves the new
+  // task first, reads *its* projectId, and passes both here together.
   Future<void> updateEntry({
     required String id,
+    required String projectId,
     required String taskId,
     String? description,
     required DateTime startedAt,
@@ -967,6 +973,7 @@ class AppDatabase extends _$AppDatabase {
     required int seconds,
   }) => (update(timeEntries)..where((t) => t.id.equals(id))).write(
     TimeEntriesCompanion(
+      projectId: Value(projectId),
       taskId: Value(taskId),
       description: Value(description),
       startedAt: Value(startedAt),

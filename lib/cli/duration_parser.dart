@@ -45,14 +45,16 @@ int parseDurationSeconds(String input) {
   return total.round();
 }
 
-/// Parse a start-time (`--at`) with [DateTime.parse] (ISO-8601-ish: `2026-07-18`,
-/// `2026-07-18T09:30`, `2026-07-18T09:30:00`). Throws [CliException] on a bad
-/// value.
-DateTime parseAt(String input) {
+/// Parse an ISO-8601-ish date/time (`2026-07-18`, `2026-07-18T09:30`,
+/// `2026-07-18T09:30:00`) with [DateTime.parse]. [label] names the option in
+/// the error message — defaults to `--at` (its original/primary caller), but
+/// `--since`/`--until`/`--end` pass their own so the error points at the right
+/// flag. Throws [CliException] on a bad value.
+DateTime parseAt(String input, {String label = '--at'}) {
   final v = DateTime.tryParse(input.trim());
   if (v == null) {
     throw CliException(
-      'Invalid --at "$input": expected an ISO-8601 date/time '
+      'Invalid $label "$input": expected an ISO-8601 date/time '
       '(e.g. 2026-07-18 or 2026-07-18T09:30).',
       CliExit.usage,
     );

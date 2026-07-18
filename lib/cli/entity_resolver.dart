@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart';
+
 import '../data/database.dart';
 import 'exit_codes.dart';
 
@@ -100,6 +102,24 @@ Future<Task> resolveTaskAnywhere(
     query: query,
     describe: (t) => '"${t.title}" (project ${t.projectId}, ${t.id})',
   );
+}
+
+/// Resolve [id] to a single live [TimeEntry]. Entries have no human name (no
+/// `code`/`title` to match) — they're targeted by UUID only, surfaced via
+/// `list entries`. Throws [CliException] ([CliExit.unknownEntity]) when no live
+/// entry has that id; there is no ambiguous-match case (ids are unique).
+Future<TimeEntry> resolveEntry(AppDatabase db, String id) async {
+  final row = await (db.select(db.timeEntries)
+        ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
+      .getSingleOrNull();
+  if (row == null) {
+    throw CliException(
+      'No live time entry matches "$id". Use the exact UUID (see `list '
+      'entries`).',
+      CliExit.unknownEntity,
+    );
+  }
+  return row;
 }
 
 T _one<T>(

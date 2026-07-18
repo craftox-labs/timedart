@@ -59,6 +59,7 @@ CommandRunner<int> buildTimedartRunner() =>
       ..addCommand(ClientCommand())
       ..addCommand(ProjectCommand())
       ..addCommand(TaskCommand())
+      ..addCommand(EntryCommand())
       ..addCommand(GuideCommand());
 
 /// Run the CLI for [args]; returns the process exit code. Never calls
@@ -597,12 +598,13 @@ class ListCommand extends Command<int> {
   @override
   final String name = 'list';
   @override
-  final String description = 'List live projects or tasks.';
+  final String description = 'List live clients, projects, tasks or entries.';
 
   ListCommand() {
     addSubcommand(ListClientsCommand());
     addSubcommand(ListProjectsCommand());
     addSubcommand(ListTasksCommand());
+    addSubcommand(ListEntriesCommand());
   }
 }
 
@@ -685,6 +687,86 @@ class ListTasksCommand extends _CliVerb {
       }
       final items = await queryTasks(db, projectId: projectId);
       return emit(formatTasks(items, json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart list entries [--task] [--project] [--since] [--until]` — live
+/// entries, most-recent-first, optionally scoped to a task/project and/or a
+/// date window on `startedAt` (issue #284).
+class ListEntriesCommand extends _CliVerb {
+  @override
+  final String name = 'entries';
+  @override
+  final String description =
+      'List live time entries, most-recent-first.\n'
+      '\n'
+      'Examples:\n'
+      '  timedart list entries\n'
+      '  timedart list entries -p ACME -t Design -j\n'
+      '  timedart list entries --since 2026-07-01 --until 2026-07-31 -j';
+
+  ListEntriesCommand() {
+    argParser
+      ..addOption(
+        'project',
+        abbr: 'p',
+        help: 'Only entries under this project — a UUID or exact code/title.',
+      )
+      ..addOption(
+        'task',
+        abbr: 't',
+        help: 'Only entries under this task — a UUID or exact title (scoped '
+            'to --project when both are given).',
+      )
+      ..addOption(
+        'since',
+        help: 'Only entries starting on/after this ISO-8601 date/time '
+            '(inclusive).',
+      )
+      ..addOption(
+        'until',
+        help: 'Only entries starting on/before this ISO-8601 date/time '
+            '(inclusive).',
+      );
+  }
+
+  @override
+  Future<int> run() async {
+    final projectSel = argResults!['project'] as String?;
+    final taskSel = argResults!['task'] as String?;
+    final sinceSel = argResults!['since'] as String?;
+    final untilSel = argResults!['until'] as String?;
+    final db = openDb();
+    try {
+      String? projectId;
+      if (projectSel != null && projectSel.isNotEmpty) {
+        projectId = (await resolveProject(db, projectSel)).id;
+      }
+      String? taskId;
+      if (taskSel != null && taskSel.isNotEmpty) {
+        taskId = (await resolveTaskAnywhere(
+          db,
+          taskSel,
+          projectId: projectId,
+        )).id;
+      }
+      final since = (sinceSel != null && sinceSel.isNotEmpty)
+          ? parseAt(sinceSel, label: '--since')
+          : null;
+      final until = (untilSel != null && untilSel.isNotEmpty)
+          ? parseAt(untilSel, label: '--until')
+          : null;
+      final items = await queryEntries(
+        db,
+        projectId: projectId,
+        taskId: taskId,
+        since: since,
+        until: until,
+      );
+      return emit(formatEntries(items, json: json));
     } finally {
       await db.close();
     }
@@ -1515,6 +1597,230 @@ class TaskDeleteCommand extends _CliVerb {
             kind: 'task',
             id: t.id,
             label: t.title,
+            impact: impact,
+            deleted: true,
+          ),
+          json: json,
+        ),
+      );
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart entry …` — manage individual time entries (issue #284). No `add`
+/// verb: `log` already creates entries. No `archive`: entries aren't
+/// archivable in the app either. Targeted by UUID only — entries have no
+/// human name (surface UUIDs via `list entries`).
+class EntryCommand extends Command<int> {
+  @override
+  final String name = 'entry';
+  @override
+  final String description = 'Edit or delete a time entry.';
+
+  EntryCommand() {
+    addSubcommand(EntryEditCommand());
+    addSubcommand(EntryDeleteCommand());
+  }
+}
+
+/// `timedart entry edit <id> [--duration --description --at --end --task]` —
+/// only the options you pass change. `seconds` is recomputed whenever
+/// `--duration` or `--at`/`--end` change; otherwise the entry's existing
+/// tracked `seconds` is left untouched (it may differ from `endedAt -
+/// startedAt` for a paused timer's recorded entry, so it's never silently
+/// re-derived unless the caller is actually changing the time window).
+/// Rebinding `--task` keeps `projectId` consistent with the new task's project
+/// — the task is resolved first, and its `projectId` is written alongside it.
+class EntryEditCommand extends _CliVerb {
+  @override
+  final String name = 'edit';
+  @override
+  final String description =
+      'Edit a time entry (only the fields you pass change).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart entry edit <id> -D 45m\n'
+      '  timedart entry edit <id> -d "fixed the bug" -t QA\n'
+      '  timedart entry edit <id> --at 2026-07-18T09:00 --end 2026-07-18T10:30';
+
+  EntryEditCommand() {
+    argParser
+      ..addOption(
+        'duration',
+        abbr: 'D',
+        help: 'New tracked duration: 90m, 1h30m, 1.5h, 45s, or bare seconds.',
+      )
+      ..addOption('description', abbr: 'd', help: 'New description ("" clears).')
+      ..addOption(
+        'at',
+        help: 'New ISO-8601 start time (e.g. 2026-07-18T09:00).',
+      )
+      ..addOption(
+        'end',
+        help: 'New ISO-8601 end time (e.g. 2026-07-18T10:30).',
+      )
+      ..addOption(
+        'task',
+        abbr: 't',
+        help: 'Rebind to this task — a UUID or exact title (any live '
+            'project); the entry\'s project follows the task\'s.',
+      );
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('entry edit');
+    final db = openDb();
+    try {
+      final e = await resolveEntry(db, sel);
+      final wants = argResults!;
+
+      var taskId = e.taskId;
+      var projectId = e.projectId;
+      if (wants.wasParsed('task')) {
+        final task = await resolveTaskAnywhere(db, wants['task'] as String);
+        taskId = task.id;
+        projectId = task.projectId;
+      }
+
+      var startedAt = e.startedAt;
+      var endedAt = e.endedAt;
+      if (wants.wasParsed('at')) {
+        startedAt = parseAt(wants['at'] as String, label: '--at');
+      }
+      if (wants.wasParsed('end')) {
+        endedAt = parseAt(wants['end'] as String, label: '--end');
+      }
+
+      final int seconds;
+      if (wants.wasParsed('duration')) {
+        seconds = parseDurationSeconds(wants['duration'] as String);
+        if (wants.wasParsed('end') && !wants.wasParsed('at')) {
+          // Duration + an explicit new end, no explicit new start: solve for
+          // the start.
+          startedAt = endedAt.subtract(Duration(seconds: seconds));
+        } else if (wants.wasParsed('at') && wants.wasParsed('end')) {
+          throw const CliException(
+            'entry edit: pass at most two of --duration/--at/--end (all '
+            'three over-specifies the entry).',
+            CliExit.usage,
+          );
+        } else {
+          // Duration + (optionally) a new start, no explicit new end: solve
+          // for the end.
+          endedAt = startedAt.add(Duration(seconds: seconds));
+        }
+      } else if (wants.wasParsed('at') || wants.wasParsed('end')) {
+        // The time window moved but --duration wasn't given: the new tracked
+        // duration is the new window's length.
+        if (endedAt.isBefore(startedAt)) {
+          throw const CliException(
+            'entry edit: --end must not be before --at (the start time).',
+            CliExit.usage,
+          );
+        }
+        seconds = endedAt.difference(startedAt).inSeconds;
+      } else {
+        // Neither duration nor the time window changed: keep the existing
+        // tracked seconds untouched (it may exclude pauses the raw
+        // endedAt-startedAt window doesn't reflect).
+        seconds = e.seconds;
+      }
+
+      final description = wants.wasParsed('description')
+          ? _clean(wants['description'] as String?)
+          : e.description;
+
+      await db.updateEntry(
+        id: e.id,
+        projectId: projectId,
+        taskId: taskId!,
+        description: description,
+        startedAt: startedAt,
+        endedAt: endedAt,
+        seconds: seconds,
+      );
+
+      final updated = await resolveEntry(db, e.id);
+      final project = await db.getProject(updated.projectId);
+      final taskTitle = updated.taskId == null
+          ? null
+          : (await _taskById(db, updated.taskId!)).title;
+      final item = entryListItem(
+        updated,
+        projectCode: project.code,
+        projectTitle: project.title,
+        taskTitle: taskTitle,
+      );
+      return emit(formatEntry(item, action: 'Updated', json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart entry delete <id> [--force]` — soft-delete a single entry, no
+/// cascade (entries have no children). Matches the other destructive verbs'
+/// `--force` + impact-preview + exit-10 pattern for consistency, even though
+/// the impact here is always zero.
+class EntryDeleteCommand extends _CliVerb {
+  @override
+  final String name = 'delete';
+  @override
+  final String description =
+      'Delete a time entry (needs --force).\n'
+      '\n'
+      'Examples:\n'
+      '  timedart entry delete <id>            # preview only → exit 10\n'
+      '  timedart entry delete <id> -f -j      # actually delete';
+
+  EntryDeleteCommand() {
+    argParser.addFlag(
+      'force',
+      abbr: 'f',
+      negatable: false,
+      help: 'Actually delete. Without it, nothing changes.',
+    );
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('entry delete');
+    final db = openDb();
+    try {
+      final e = await resolveEntry(db, sel);
+      final project = await db.getProject(e.projectId);
+      final taskTitle = e.taskId == null
+          ? null
+          : (await _taskById(db, e.taskId!)).title;
+      final label = '${formatElapsed(e.seconds)} on '
+          '${<String>[project.code, ?taskTitle].join(' / ')}';
+      const impact = DeleteImpact();
+      final force = argResults!['force'] as bool;
+      if (!force) {
+        stdout.writeln(
+          formatDelete(
+            DeleteOutcome(
+              kind: 'entry',
+              id: e.id,
+              label: label,
+              impact: impact,
+              deleted: false,
+            ),
+            json: json,
+          ),
+        );
+        return CliExit.confirmationRequired;
+      }
+      await db.deleteEntry(e.id);
+      return emit(
+        formatDelete(
+          DeleteOutcome(
+            kind: 'entry',
+            id: e.id,
+            label: label,
             impact: impact,
             deleted: true,
           ),

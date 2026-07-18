@@ -148,6 +148,7 @@ class _EntryFormState extends State<EntryForm> {
       if (_isEdit) {
         await widget.db.updateEntry(
           id: widget.entry!.id,
+          projectId: widget.projectId,
           taskId: taskId!,
           description: desc.isEmpty ? null : desc,
           startedAt: _start,

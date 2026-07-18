@@ -46,6 +46,35 @@ class ClientListItem {
   });
 }
 
+/// A row in `list entries` — a live time entry with its UUID, tracked duration,
+/// start/end timestamps, owning project/task and description. Entries have no
+/// human name; the UUID is the only selector `entry edit`/`entry delete` accept.
+class EntryListItem {
+  final String id;
+  final String projectId;
+  final String? projectCode;
+  final String? projectTitle;
+  final String? taskId;
+  final String? taskTitle;
+  final String? description;
+  final int seconds;
+  final DateTime startedAt;
+  final DateTime endedAt;
+
+  const EntryListItem({
+    required this.id,
+    required this.projectId,
+    this.projectCode,
+    this.projectTitle,
+    this.taskId,
+    this.taskTitle,
+    this.description,
+    required this.seconds,
+    required this.startedAt,
+    required this.endedAt,
+  });
+}
+
 /// A row in `list tasks` — a live task with its UUID, title, and owning project.
 class TaskListItem {
   final String id;
