@@ -78,6 +78,14 @@ jobs:
           chmod +x appimagetool
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
             "$APPDIR" timedart-linux-x86_64.AppImage
+      # Companion CLI (#276): dart build cli is per-host; output is a bundle dir
+      # (binary + co-located libsqlite3). Archive the whole bundle.
+      - name: Build CLI
+        run: dart build cli
+      - name: Archive CLI
+        run: |
+          tar -czf timedart-cli-linux-x86_64.tar.gz \
+            -C build/cli/linux_x64/bundle .
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
@@ -85,6 +93,7 @@ jobs:
           files: |
             timedart-linux-x86_64.tar.gz
             timedart-linux-x86_64.AppImage
+            timedart-cli-linux-x86_64.tar.gz
 
   # ── Windows: portable zip (unsigned) ───────────────────────────────────────
   windows:
@@ -99,11 +108,18 @@ jobs:
       - run: flutter build windows --release --dart-define=RELEASE_TAG=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
       - name: Zip
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath timedart-windows-x64.zip
+      # Companion CLI (#276) — bundle dir (timedart.exe + sqlite3.dll).
+      - name: Build CLI
+        run: dart build cli
+      - name: Archive CLI
+        run: Compress-Archive -Path build/cli/windows_x64/bundle/* -DestinationPath timedart-cli-windows-x64.zip
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
           prerelease: ${{ env.PRERELEASE }}
-          files: timedart-windows-x64.zip
+          files: |
+            timedart-windows-x64.zip
+            timedart-cli-windows-x64.zip
 
   # ── macOS: universal .app zip (unsigned) ───────────────────────────────────
   macos:
@@ -123,11 +139,21 @@ jobs:
           # Log the architectures so we can confirm it's universal (arm64 + x86_64).
           lipo -archs "$APP/Contents/MacOS/"* || true
           ditto -c -k --keepParent "$APP" timedart-macos-universal.zip
+      # Companion CLI (#276) — arm64-only (dart build cli is host-arch; the runner
+      # is Apple Silicon). Archive the bundle contents (binary + libsqlite3.dylib).
+      - name: Build CLI
+        run: dart build cli
+      - name: Archive CLI
+        run: |
+          set -eux
+          ( cd build/cli/macos_arm64/bundle && zip -qr "$GITHUB_WORKSPACE/timedart-cli-macos-arm64.zip" . )
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
           prerelease: ${{ env.PRERELEASE }}
-          files: timedart-macos-universal.zip
+          files: |
+            timedart-macos-universal.zip
+            timedart-cli-macos-arm64.zip
 
   # ── Android: signed APK ────────────────────────────────────────────────────
   android:
