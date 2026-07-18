@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timedart/cli/crud_result.dart';
 import 'package:timedart/cli/list_result.dart';
 import 'package:timedart/cli/log_result.dart';
 import 'package:timedart/cli/output_formatter.dart';
@@ -76,7 +77,64 @@ void main() {
       'projectId',
       'projectCode',
       'projectTitle',
+      'rate',
     });
+  });
+
+  test('list clients JSON keys', () {
+    const item = ClientListItem(id: 'c', name: 'N', defaultRate: 100);
+    final row = _arr(formatClients([item], json: true)).single as Map;
+    expect(row.keys.toSet(), {
+      'id',
+      'name',
+      'defaultRate',
+      'contactName',
+      'email',
+      'phone',
+      'address',
+      'abn',
+      'archived',
+    });
+  });
+
+  test('client create/edit result JSON shape', () {
+    const item = ClientListItem(id: 'c', name: 'N', defaultRate: 100);
+    final top = _obj(formatClient(item, action: 'Created', json: true));
+    expect(top.keys.toSet(), {'action', 'client'});
+    expect(top['action'], 'created');
+    expect((top['client'] as Map)['id'], 'c');
+  });
+
+  test('project create/edit result JSON shape', () {
+    const item = ProjectListItem(id: 'p', code: 'C', title: 'T', clientId: 'c');
+    final top = _obj(formatProject(item, action: 'Updated', json: true));
+    expect(top.keys.toSet(), {'action', 'project'});
+    expect(top['action'], 'updated');
+  });
+
+  test('task create/edit result JSON shape', () {
+    const item = TaskListItem(id: 't', title: 'T', projectId: 'p');
+    final top = _obj(formatTask(item, action: 'Created', json: true));
+    expect(top.keys.toSet(), {'action', 'task'});
+  });
+
+  test('delete result JSON shape (refused + confirmed share it)', () {
+    const outcome = DeleteOutcome(
+      kind: 'project',
+      id: 'p',
+      label: 'C T',
+      impact: DeleteImpact(tasks: 2, entries: 5),
+      deleted: false,
+    );
+    final top = _obj(formatDelete(outcome, json: true));
+    expect(top.keys.toSet(), {'deleted', 'kind', 'id', 'label', 'impact'});
+    expect((top['impact'] as Map).keys.toSet(), {
+      'projects',
+      'tasks',
+      'entries',
+      'total',
+    });
+    expect((top['impact'] as Map)['total'], 7);
   });
 
   test('log JSON keys', () {

@@ -36,11 +36,23 @@ class CliExit {
   static const int noTimerRunning = 7;
 
   /// `start` found a timer already active, or `resume` found one already
-  /// running — the running clock must not be silently rebound.
+  /// running — the running clock must not be silently rebound. Also raised when
+  /// a `delete` targets an entity the running timer is bound to (stop it first,
+  /// or the active timer would be stranded under a tombstoned parent).
   static const int timerAlreadyRunning = 8;
 
   /// `pause` found the timer already paused.
   static const int timerAlreadyPaused = 9;
+
+  /// A destructive command (a cascade `delete`) was invoked without `--force`.
+  /// The CLI printed the cascade-impact count and made no change — re-run with
+  /// `--force` to proceed. Mirrors the GUI's count-warned "Delete everything".
+  static const int confirmationRequired = 10;
+
+  /// A database constraint rejected a create/edit write — e.g. a project `code`
+  /// that is already in use (codes are unique). The command line parsed fine;
+  /// the *value* clashes with existing data, so it's distinct from [usage].
+  static const int constraintViolation = 11;
 }
 
 /// A failure a command can raise to abort with a specific [exitCode] and a

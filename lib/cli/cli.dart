@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 
 import '../data/database.dart';
 import '../features/tracker/timer_store.dart';
+import 'crud_result.dart';
 import 'db_open.dart';
 import 'duration_parser.dart';
 import 'entity_resolver.dart';
@@ -14,6 +15,7 @@ import 'output_formatter.dart';
 import 'timer_status.dart';
 import 'timer_stop_result.dart';
 import 'version.dart';
+import '../util/parse_rate.dart';
 
 // ── Verb dispatch (args-based) ─────────────────────────────────────────────
 // The CLI spine: a CommandRunner that owns the global flags (`--json`, `--db`),
@@ -49,7 +51,10 @@ Future<int> runTimedartCli(List<String> args) async {
         )
         ..addCommand(TimerCommand())
         ..addCommand(ListCommand())
-        ..addCommand(LogCommand());
+        ..addCommand(LogCommand())
+        ..addCommand(ClientCommand())
+        ..addCommand(ProjectCommand())
+        ..addCommand(TaskCommand());
 
   try {
     // `--version` is handled before dispatch so it works with no sub-command.
@@ -106,6 +111,93 @@ abstract class _CliVerb extends Command<int> {
   int emit(String text) {
     stdout.writeln(text);
     return CliExit.success;
+  }
+
+  /// The single positional `<id|name>` selector a mutate verb targets. Throws
+  /// [CliExit.usage] when absent or when more than one bare argument is given
+  /// (a name with spaces must be quoted).
+  String selector(String verb) {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      throw CliException(
+        '$verb requires a <id|name> argument.',
+        CliExit.usage,
+      );
+    }
+    if (rest.length > 1) {
+      throw CliException(
+        '$verb takes a single <id|name> argument (got ${rest.length}) — quote '
+        'names that contain spaces.',
+        CliExit.usage,
+      );
+    }
+    return rest.single;
+  }
+
+  /// Read a required non-empty option, else fail with a usage error naming it.
+  String required(String option, String verb) {
+    final v = argResults![option] as String?;
+    if (v == null || v.trim().isEmpty) {
+      throw CliException(
+        '$verb requires --$option.',
+        CliExit.usage,
+      );
+    }
+    return v.trim();
+  }
+}
+
+// ── Mutate-verb helpers ────────────────────────────────────────────────────
+
+/// Trim [raw]; an empty string becomes null (clears an optional text field).
+String? _clean(String? raw) =>
+    (raw == null || raw.trim().isEmpty) ? null : raw.trim();
+
+/// Parse a required rate (client default rate) — a plain number. Throws a usage
+/// error rather than silently dropping a typo to null.
+double _requiredRate(String raw) {
+  final parsed = parseRate(raw);
+  if (parsed.error != null || parsed.value == null) {
+    throw CliException(
+      'Invalid --rate "$raw": enter a number.',
+      CliExit.usage,
+    );
+  }
+  return parsed.value!;
+}
+
+/// Parse an optional rate (project/task) that may *clear* to inherit. An empty
+/// value or the literal `inherit` yields null (inherit the parent's rate); any
+/// other value must be a number.
+double? _optionalRate(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty || t.toLowerCase() == 'inherit') return null;
+  final parsed = parseRate(t);
+  if (parsed.error != null) {
+    throw CliException(
+      'Invalid --rate "$raw": enter a number, or "inherit" to clear it.',
+      CliExit.usage,
+    );
+  }
+  return parsed.value;
+}
+
+/// Run a write, mapping a database constraint failure (e.g. the unique project
+/// `code`) to the documented [CliExit.constraintViolation]. Other errors pass
+/// through unchanged.
+Future<T> _guardConstraints<T>(Future<T> Function() write) async {
+  try {
+    return await write();
+  } catch (e) {
+    final msg = e.toString();
+    if (msg.contains('UNIQUE') || msg.contains('constraint')) {
+      throw CliException(
+        'The database rejected the write (a constraint would be violated — '
+        'e.g. a project code already in use): $e',
+        CliExit.constraintViolation,
+      );
+    }
+    rethrow;
   }
 }
 
@@ -349,8 +441,28 @@ class ListCommand extends Command<int> {
   final String description = 'List live projects or tasks.';
 
   ListCommand() {
+    addSubcommand(ListClientsCommand());
     addSubcommand(ListProjectsCommand());
     addSubcommand(ListTasksCommand());
+  }
+}
+
+/// `timedart list clients` — live clients with UUID, name and default rate.
+class ListClientsCommand extends _CliVerb {
+  @override
+  final String name = 'clients';
+  @override
+  final String description = 'List live clients.';
+
+  @override
+  Future<int> run() async {
+    final db = openDb();
+    try {
+      final items = await queryClients(db);
+      return emit(formatClients(items, json: json));
+    } finally {
+      await db.close();
+    }
   }
 }
 
@@ -514,3 +626,667 @@ class LogCommand extends _CliVerb {
     }
   }
 }
+
+// ── Entity CRUD (issue #280) ───────────────────────────────────────────────
+// Manage the client → project → task graph, reusing the same lib/data write
+// methods the GUI calls (addClient/updateProject/deleteTaskCascade/…) so every
+// business rule — rate inheritance, unique codes, cascade soft-delete, sync
+// tombstones — matches the app exactly. Conventions carried from the shipped
+// slices: `--json` everywhere, id-or-name selectors, documented exit codes.
+//
+// Parity note: only clients and projects are archivable (they carry an
+// `archivedAt`); tasks are not archived in the app either, so `task` has no
+// archive verb — delete (with --force) is its removal path.
+
+/// `timedart client …` — manage clients.
+class ClientCommand extends Command<int> {
+  @override
+  final String name = 'client';
+  @override
+  final String description = 'Create, edit, archive or delete a client.';
+
+  ClientCommand() {
+    addSubcommand(ClientAddCommand());
+    addSubcommand(ClientEditCommand());
+    addSubcommand(ClientArchiveCommand(archive: true));
+    addSubcommand(ClientArchiveCommand(archive: false));
+    addSubcommand(ClientDeleteCommand());
+  }
+}
+
+/// `timedart client add --name <n> --rate <r> [--contact …]`
+class ClientAddCommand extends _CliVerb {
+  @override
+  final String name = 'add';
+  @override
+  final String description = 'Create a client.';
+
+  ClientAddCommand() {
+    argParser
+      ..addOption('name', help: 'Client name (required).')
+      ..addOption(
+        'rate',
+        help: 'Default hourly rate its projects inherit (required, a number).',
+      )
+      ..addOption('contact', help: 'Contact person.')
+      ..addOption('email', help: 'Email.')
+      ..addOption('phone', help: 'Phone.')
+      ..addOption('address', help: 'Postal address.')
+      ..addOption('abn', help: 'ABN / tax number.');
+  }
+
+  @override
+  Future<int> run() async {
+    final clientName = required('name', 'client add');
+    final rate = _requiredRate(required('rate', 'client add'));
+    final db = openDb();
+    try {
+      final id = await _guardConstraints(
+        () => db.addClient(
+          name: clientName,
+          contactName: _clean(argResults!['contact'] as String?),
+          email: _clean(argResults!['email'] as String?),
+          phone: _clean(argResults!['phone'] as String?),
+          address: _clean(argResults!['address'] as String?),
+          abn: _clean(argResults!['abn'] as String?),
+          defaultRate: rate,
+        ),
+      );
+      final item = clientListItem(await db.getClient(id));
+      return emit(formatClient(item, action: 'Created', json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart client edit <id|name> [--name --rate --contact …]` — only the
+/// options you pass change; pass an empty value to clear an optional text field.
+class ClientEditCommand extends _CliVerb {
+  @override
+  final String name = 'edit';
+  @override
+  final String description = 'Edit a client (only the fields you pass change).';
+
+  ClientEditCommand() {
+    argParser
+      ..addOption('name', help: 'New name.')
+      ..addOption('rate', help: 'New default rate (a number).')
+      ..addOption('contact', help: 'Contact person ("" clears).')
+      ..addOption('email', help: 'Email ("" clears).')
+      ..addOption('phone', help: 'Phone ("" clears).')
+      ..addOption('address', help: 'Address ("" clears).')
+      ..addOption('abn', help: 'ABN / tax number ("" clears).');
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('client edit');
+    final db = openDb();
+    try {
+      final c = await resolveClient(db, sel);
+      final wants = argResults!;
+      await _guardConstraints(
+        () => db.updateClient(
+          id: c.id,
+          name: wants.wasParsed('name')
+              ? required('name', 'client edit')
+              : c.name,
+          defaultRate: wants.wasParsed('rate')
+              ? _requiredRate(wants['rate'] as String)
+              : c.defaultRate,
+          contactName: wants.wasParsed('contact')
+              ? _clean(wants['contact'] as String?)
+              : c.contactName,
+          email: wants.wasParsed('email')
+              ? _clean(wants['email'] as String?)
+              : c.email,
+          phone: wants.wasParsed('phone')
+              ? _clean(wants['phone'] as String?)
+              : c.phone,
+          address: wants.wasParsed('address')
+              ? _clean(wants['address'] as String?)
+              : c.address,
+          abn: wants.wasParsed('abn') ? _clean(wants['abn'] as String?) : c.abn,
+        ),
+      );
+      final item = clientListItem(await db.getClient(c.id));
+      return emit(formatClient(item, action: 'Updated', json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart client archive|unarchive <id|name>` — reversible hide-from-UI,
+/// distinct from delete (the client stays live and invoiceable).
+class ClientArchiveCommand extends _CliVerb {
+  ClientArchiveCommand({required this.archive});
+  final bool archive;
+  @override
+  String get name => archive ? 'archive' : 'unarchive';
+  @override
+  String get description =>
+      archive ? 'Archive a client (hide from the active list).'
+              : 'Unarchive a client.';
+
+  @override
+  Future<int> run() async {
+    final sel = selector('client $name');
+    final db = openDb();
+    try {
+      final c = await resolveClient(db, sel);
+      if (archive) {
+        await db.archiveClient(c.id);
+      } else {
+        await db.unarchiveClient(c.id);
+      }
+      final item = clientListItem(await db.getClient(c.id));
+      return emit(
+        formatClient(
+          item,
+          action: archive ? 'Archived' : 'Unarchived',
+          json: json,
+        ),
+      );
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart client delete <id|name> [--force]` — destructive + cascading.
+/// Without `--force` it prints the cascade-impact count and exits
+/// [CliExit.confirmationRequired] without touching data.
+class ClientDeleteCommand extends _CliVerb {
+  @override
+  final String name = 'delete';
+  @override
+  final String description =
+      'Delete a client and everything under it (needs --force).';
+
+  ClientDeleteCommand() {
+    argParser.addFlag(
+      'force',
+      negatable: false,
+      help: 'Actually delete (and cascade). Without it, only the impact is '
+          'shown.',
+    );
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('client delete');
+    final db = openDb();
+    try {
+      final c = await resolveClient(db, sel);
+      if (await db.isTimerBoundToClient(c.id)) {
+        throw CliException(
+          'A timer is running under "${c.name}". Stop it before deleting this '
+          'client.',
+          CliExit.timerAlreadyRunning,
+        );
+      }
+      final impact = await db.clientDeleteImpact(c.id);
+      final force = argResults!['force'] as bool;
+      if (!force) {
+        stdout.writeln(
+          formatDelete(
+            DeleteOutcome(
+              kind: 'client',
+              id: c.id,
+              label: c.name,
+              impact: impact,
+              deleted: false,
+            ),
+            json: json,
+          ),
+        );
+        return CliExit.confirmationRequired;
+      }
+      await db.deleteClientCascade(c.id);
+      return emit(
+        formatDelete(
+          DeleteOutcome(
+            kind: 'client',
+            id: c.id,
+            label: c.name,
+            impact: impact,
+            deleted: true,
+          ),
+          json: json,
+        ),
+      );
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart project …` — manage projects.
+class ProjectCommand extends Command<int> {
+  @override
+  final String name = 'project';
+  @override
+  final String description = 'Create, edit, archive or delete a project.';
+
+  ProjectCommand() {
+    addSubcommand(ProjectAddCommand());
+    addSubcommand(ProjectEditCommand());
+    addSubcommand(ProjectArchiveCommand(archive: true));
+    addSubcommand(ProjectArchiveCommand(archive: false));
+    addSubcommand(ProjectDeleteCommand());
+  }
+}
+
+/// `timedart project add --client <id|name> --code <c> --title <t> [--rate]`
+class ProjectAddCommand extends _CliVerb {
+  @override
+  final String name = 'add';
+  @override
+  final String description = 'Create a project under a client.';
+
+  ProjectAddCommand() {
+    argParser
+      ..addOption(
+        'client',
+        abbr: 'c',
+        help: 'Owning client — a UUID or exact name (required).',
+      )
+      ..addOption('code', help: 'Unique project code (required).')
+      ..addOption('title', help: 'Project title (required).')
+      ..addOption(
+        'rate',
+        help: 'Project rate (a number). Omit to inherit the client default.',
+      );
+  }
+
+  @override
+  Future<int> run() async {
+    final clientSel = required('client', 'project add');
+    final code = required('code', 'project add');
+    final title = required('title', 'project add');
+    final rateRaw = argResults!['rate'] as String?;
+    final rate = rateRaw == null ? null : _optionalRate(rateRaw);
+    final db = openDb();
+    try {
+      final client = await resolveClient(db, clientSel);
+      final id = await _guardConstraints(
+        () => db.addProject(
+          clientId: client.id,
+          code: code,
+          title: title,
+          rate: rate,
+        ),
+      );
+      final item = projectListItem(
+        await db.getProject(id),
+        clientName: client.name,
+      );
+      return emit(formatProject(item, action: 'Created', json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart project edit <id|name> [--client --code --title --rate]`.
+/// `--rate inherit` (or an empty value) clears the project rate to inherit.
+class ProjectEditCommand extends _CliVerb {
+  @override
+  final String name = 'edit';
+  @override
+  final String description = 'Edit a project (only the fields you pass change).';
+
+  ProjectEditCommand() {
+    argParser
+      ..addOption('client', abbr: 'c', help: 'Reassign to this client.')
+      ..addOption('code', help: 'New code.')
+      ..addOption('title', help: 'New title.')
+      ..addOption('rate', help: 'New rate (a number, or "inherit" to clear).');
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('project edit');
+    final db = openDb();
+    try {
+      final p = await resolveProject(db, sel);
+      final wants = argResults!;
+      var clientId = p.clientId;
+      if (wants.wasParsed('client')) {
+        clientId = (await resolveClient(db, wants['client'] as String)).id;
+      }
+      await _guardConstraints(
+        () => db.updateProject(
+          id: p.id,
+          clientId: clientId,
+          code: wants.wasParsed('code')
+              ? required('code', 'project edit')
+              : p.code,
+          title: wants.wasParsed('title')
+              ? required('title', 'project edit')
+              : p.title,
+          rate: wants.wasParsed('rate')
+              ? _optionalRate(wants['rate'] as String)
+              : p.rate,
+        ),
+      );
+      final updated = await db.getProject(p.id);
+      final item = projectListItem(
+        updated,
+        clientName: (await db.getClient(updated.clientId)).name,
+      );
+      return emit(formatProject(item, action: 'Updated', json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart project archive|unarchive <id|name>`.
+class ProjectArchiveCommand extends _CliVerb {
+  ProjectArchiveCommand({required this.archive});
+  final bool archive;
+  @override
+  String get name => archive ? 'archive' : 'unarchive';
+  @override
+  String get description => archive
+      ? 'Archive a project (hide from the active list).'
+      : 'Unarchive a project.';
+
+  @override
+  Future<int> run() async {
+    final sel = selector('project $name');
+    final db = openDb();
+    try {
+      final p = await resolveProject(db, sel);
+      if (archive) {
+        await db.archiveProject(p.id);
+      } else {
+        await db.unarchiveProject(p.id);
+      }
+      final updated = await db.getProject(p.id);
+      final item = projectListItem(
+        updated,
+        clientName: (await db.getClient(updated.clientId)).name,
+      );
+      return emit(
+        formatProject(
+          item,
+          action: archive ? 'Archived' : 'Unarchived',
+          json: json,
+        ),
+      );
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart project delete <id|name> [--force]` — destructive + cascading.
+class ProjectDeleteCommand extends _CliVerb {
+  @override
+  final String name = 'delete';
+  @override
+  final String description =
+      'Delete a project and its tasks/entries (needs --force).';
+
+  ProjectDeleteCommand() {
+    argParser.addFlag(
+      'force',
+      negatable: false,
+      help: 'Actually delete (and cascade). Without it, only the impact is '
+          'shown.',
+    );
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('project delete');
+    final db = openDb();
+    try {
+      final p = await resolveProject(db, sel);
+      if (await db.isTimerBoundToProject(p.id)) {
+        throw CliException(
+          'A timer is running on "${p.title}". Stop it before deleting this '
+          'project.',
+          CliExit.timerAlreadyRunning,
+        );
+      }
+      final impact = await db.projectDeleteImpact(p.id);
+      final label = '${p.code} ${p.title}';
+      final force = argResults!['force'] as bool;
+      if (!force) {
+        stdout.writeln(
+          formatDelete(
+            DeleteOutcome(
+              kind: 'project',
+              id: p.id,
+              label: label,
+              impact: impact,
+              deleted: false,
+            ),
+            json: json,
+          ),
+        );
+        return CliExit.confirmationRequired;
+      }
+      await db.deleteProjectCascade(p.id);
+      return emit(
+        formatDelete(
+          DeleteOutcome(
+            kind: 'project',
+            id: p.id,
+            label: label,
+            impact: impact,
+            deleted: true,
+          ),
+          json: json,
+        ),
+      );
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart task …` — manage tasks. (No archive: tasks aren't archivable in
+/// the app; use delete for removal.)
+class TaskCommand extends Command<int> {
+  @override
+  final String name = 'task';
+  @override
+  final String description = 'Create, edit or delete a task.';
+
+  TaskCommand() {
+    addSubcommand(TaskAddCommand());
+    addSubcommand(TaskEditCommand());
+    addSubcommand(TaskDeleteCommand());
+  }
+}
+
+/// `timedart task add --project <id|name> --title <t> [--rate]`
+class TaskAddCommand extends _CliVerb {
+  @override
+  final String name = 'add';
+  @override
+  final String description = 'Create a task under a project.';
+
+  TaskAddCommand() {
+    argParser
+      ..addOption(
+        'project',
+        abbr: 'p',
+        help: 'Owning project — a UUID or exact code/title (required).',
+      )
+      ..addOption('title', help: 'Task title (required).')
+      ..addOption(
+        'rate',
+        help: 'Task rate (a number). Omit to inherit the project rate.',
+      );
+  }
+
+  @override
+  Future<int> run() async {
+    final projectSel = required('project', 'task add');
+    final title = required('title', 'task add');
+    final rateRaw = argResults!['rate'] as String?;
+    final rate = rateRaw == null ? null : _optionalRate(rateRaw);
+    final db = openDb();
+    try {
+      final project = await resolveProject(db, projectSel);
+      final id = await _guardConstraints(
+        () => db.addTask(projectId: project.id, title: title, rate: rate),
+      );
+      final task = await _taskById(db, id);
+      final item = taskListItem(
+        task,
+        projectCode: project.code,
+        projectTitle: project.title,
+      );
+      return emit(formatTask(item, action: 'Created', json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart task edit <id|name> [--project <scope>] [--title --rate]`. Give
+/// `--project` to disambiguate a task named the same across projects (not
+/// needed when the selector is a UUID). `--rate inherit`/empty clears the rate.
+class TaskEditCommand extends _CliVerb {
+  @override
+  final String name = 'edit';
+  @override
+  final String description = 'Edit a task (only the fields you pass change).';
+
+  TaskEditCommand() {
+    argParser
+      ..addOption(
+        'project',
+        abbr: 'p',
+        help: 'Scope the <id|name> lookup to this project.',
+      )
+      ..addOption('title', help: 'New title.')
+      ..addOption('rate', help: 'New rate (a number, or "inherit" to clear).');
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('task edit');
+    final db = openDb();
+    try {
+      final scope = await _resolveScope(db, argResults!['project'] as String?);
+      final t = await resolveTaskAnywhere(db, sel, projectId: scope);
+      final wants = argResults!;
+      await _guardConstraints(
+        () => db.updateTask(
+          id: t.id,
+          title: wants.wasParsed('title')
+              ? required('title', 'task edit')
+              : t.title,
+          rate: wants.wasParsed('rate')
+              ? _optionalRate(wants['rate'] as String)
+              : t.rate,
+        ),
+      );
+      final updated = await _taskById(db, t.id);
+      final project = await db.getProject(updated.projectId);
+      final item = taskListItem(
+        updated,
+        projectCode: project.code,
+        projectTitle: project.title,
+      );
+      return emit(formatTask(item, action: 'Updated', json: json));
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// `timedart task delete <id|name> [--project <scope>] [--force]` — destructive
+/// + cascading (its time entries).
+class TaskDeleteCommand extends _CliVerb {
+  @override
+  final String name = 'delete';
+  @override
+  final String description = 'Delete a task and its time entries (needs --force).';
+
+  TaskDeleteCommand() {
+    argParser
+      ..addOption(
+        'project',
+        abbr: 'p',
+        help: 'Scope the <id|name> lookup to this project.',
+      )
+      ..addFlag(
+        'force',
+        negatable: false,
+        help: 'Actually delete (and cascade). Without it, only the impact is '
+            'shown.',
+      );
+  }
+
+  @override
+  Future<int> run() async {
+    final sel = selector('task delete');
+    final db = openDb();
+    try {
+      final scope = await _resolveScope(db, argResults!['project'] as String?);
+      final t = await resolveTaskAnywhere(db, sel, projectId: scope);
+      if (await db.isTimerBoundToTask(t.id)) {
+        throw CliException(
+          'A timer is running on "${t.title}". Stop it before deleting this '
+          'task.',
+          CliExit.timerAlreadyRunning,
+        );
+      }
+      final impact = await db.taskDeleteImpact(t.id);
+      final force = argResults!['force'] as bool;
+      if (!force) {
+        stdout.writeln(
+          formatDelete(
+            DeleteOutcome(
+              kind: 'task',
+              id: t.id,
+              label: t.title,
+              impact: impact,
+              deleted: false,
+            ),
+            json: json,
+          ),
+        );
+        return CliExit.confirmationRequired;
+      }
+      await db.deleteTaskCascade(t.id);
+      return emit(
+        formatDelete(
+          DeleteOutcome(
+            kind: 'task',
+            id: t.id,
+            label: t.title,
+            impact: impact,
+            deleted: true,
+          ),
+          json: json,
+        ),
+      );
+    } finally {
+      await db.close();
+    }
+  }
+}
+
+/// Resolve an optional `--project` scope selector to a project id (or null when
+/// unset) for the task verbs.
+Future<String?> _resolveScope(AppDatabase db, String? projectSel) async {
+  if (projectSel == null || projectSel.isEmpty) return null;
+  return (await resolveProject(db, projectSel)).id;
+}
+
+/// Fetch a single live task by its id (there's no `getTask` on the data layer).
+Future<Task> _taskById(AppDatabase db, String id) => (db.select(db.tasks)
+      ..where((t) => t.id.equals(id))
+      ..where((t) => t.deletedAt.isNull()))
+    .getSingle();

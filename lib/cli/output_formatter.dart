@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'crud_result.dart';
 import 'list_result.dart';
 import 'log_result.dart';
 import 'timer_status_result.dart';
@@ -176,17 +177,18 @@ String formatProjectsHuman(List<ProjectListItem> items) {
       .join('\n');
 }
 
+Map<String, Object?> projectJson(ProjectListItem p) => {
+  'id': p.id,
+  'code': p.code,
+  'title': p.title,
+  'clientId': p.clientId,
+  'clientName': p.clientName,
+  'rate': p.rate,
+  'archived': p.archived,
+};
+
 List<Map<String, Object?>> projectsJson(List<ProjectListItem> items) => [
-  for (final p in items)
-    {
-      'id': p.id,
-      'code': p.code,
-      'title': p.title,
-      'clientId': p.clientId,
-      'clientName': p.clientName,
-      'rate': p.rate,
-      'archived': p.archived,
-    },
+  for (final p in items) projectJson(p),
 ];
 
 String formatProjects(List<ProjectListItem> items, {required bool json}) =>
@@ -206,15 +208,17 @@ String formatTasksHuman(List<TaskListItem> items) {
       .join('\n');
 }
 
+Map<String, Object?> taskJson(TaskListItem t) => {
+  'id': t.id,
+  'title': t.title,
+  'projectId': t.projectId,
+  'projectCode': t.projectCode,
+  'projectTitle': t.projectTitle,
+  'rate': t.rate,
+};
+
 List<Map<String, Object?>> tasksJson(List<TaskListItem> items) => [
-  for (final t in items)
-    {
-      'id': t.id,
-      'title': t.title,
-      'projectId': t.projectId,
-      'projectCode': t.projectCode,
-      'projectTitle': t.projectTitle,
-    },
+  for (final t in items) taskJson(t),
 ];
 
 String formatTasks(List<TaskListItem> items, {required bool json}) => json
@@ -251,3 +255,133 @@ Map<String, Object?> logJson(LogResult r) => {
 String formatLog(LogResult r, {required bool json}) => json
     ? const JsonEncoder.withIndent('  ').convert(logJson(r))
     : formatLogHuman(r);
+
+// ── `list clients` + client create/edit/archive rendering ──────────────────
+
+String _rateStr(double? rate) =>
+    rate == null ? '' : (rate == rate.roundToDouble()
+        ? rate.toStringAsFixed(0)
+        : rate.toString());
+
+Map<String, Object?> clientJson(ClientListItem c) => {
+  'id': c.id,
+  'name': c.name,
+  'defaultRate': c.defaultRate,
+  'contactName': c.contactName,
+  'email': c.email,
+  'phone': c.phone,
+  'address': c.address,
+  'abn': c.abn,
+  'archived': c.archived,
+};
+
+String formatClientsHuman(List<ClientListItem> items) {
+  if (items.isEmpty) return 'No clients.';
+  return items
+      .map((c) {
+        final archived = c.archived ? '  [archived]' : '';
+        return '${c.name}  (rate ${_rateStr(c.defaultRate)})$archived\n  ${c.id}';
+      })
+      .join('\n');
+}
+
+String formatClients(List<ClientListItem> items, {required bool json}) => json
+    ? const JsonEncoder.withIndent('  ').convert([
+        for (final c in items) clientJson(c),
+      ])
+    : formatClientsHuman(items);
+
+/// One client after a create/edit/archive. [action] is a past-tense verb
+/// ("Created" / "Updated" / "Archived" / "Unarchived").
+String formatClient(
+  ClientListItem c, {
+  required String action,
+  required bool json,
+}) => json
+    ? const JsonEncoder.withIndent('  ').convert({
+        'action': action.toLowerCase(),
+        'client': clientJson(c),
+      })
+    : '$action client "${c.name}".\n  ${c.id}';
+
+// ── project create/edit/archive rendering ──────────────────────────────────
+
+String formatProject(
+  ProjectListItem p, {
+  required String action,
+  required bool json,
+}) {
+  if (json) {
+    return const JsonEncoder.withIndent('  ').convert({
+      'action': action.toLowerCase(),
+      'project': projectJson(p),
+    });
+  }
+  final client = p.clientName == null ? '' : ' (${p.clientName})';
+  return '$action project ${p.code} "${p.title}"$client.\n  ${p.id}';
+}
+
+// ── task create/edit rendering ─────────────────────────────────────────────
+
+String formatTask(
+  TaskListItem t, {
+  required String action,
+  required bool json,
+}) {
+  if (json) {
+    return const JsonEncoder.withIndent('  ').convert({
+      'action': action.toLowerCase(),
+      'task': taskJson(t),
+    });
+  }
+  final proj = t.projectCode == null ? '' : ' under ${t.projectCode}';
+  return '$action task "${t.title}"$proj.\n  ${t.id}';
+}
+
+// ── `delete` rendering (impact-aware) ──────────────────────────────────────
+
+/// "3 projects, 8 tasks and 41 time entries" — non-zero parts only. Mirrors the
+/// GUI's cascade copy so the CLI warning reads the same.
+String _impactPhrase(DeleteImpact i) {
+  String plural(int n, String noun) => '$n $noun${n == 1 ? '' : 's'}';
+  final parts = <String>[
+    if (i.projects > 0) plural(i.projects, 'project'),
+    if (i.tasks > 0) plural(i.tasks, 'task'),
+    if (i.entries > 0)
+      '${i.entries} time ${i.entries == 1 ? 'entry' : 'entries'}',
+  ];
+  if (parts.isEmpty) return 'no other items';
+  if (parts.length == 1) return parts.first;
+  return '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
+}
+
+Map<String, Object?> deleteImpactJson(DeleteImpact i) => {
+  'projects': i.projects,
+  'tasks': i.tasks,
+  'entries': i.entries,
+  'total': i.total,
+};
+
+String formatDelete(DeleteOutcome o, {required bool json}) {
+  if (json) {
+    return const JsonEncoder.withIndent('  ').convert({
+      'deleted': o.deleted,
+      'kind': o.kind,
+      'id': o.id,
+      'label': o.label,
+      'impact': deleteImpactJson(o.impact),
+    });
+  }
+  if (o.deleted) {
+    final also = o.impact.total > 0
+        ? ' Also removed ${_impactPhrase(o.impact)}.'
+        : '';
+    return 'Deleted ${o.kind} "${o.label}".$also';
+  }
+  // Refused for lack of --force.
+  final has = o.impact.total > 0
+      ? ' It still has ${_impactPhrase(o.impact)}, which would also be removed.'
+      : '';
+  return 'Refusing to delete ${o.kind} "${o.label}" without --force.$has\n'
+      'Re-run with --force to delete it${o.impact.total > 0 ? ' and everything under it' : ''}.';
+}

@@ -36,9 +36,15 @@ or an exact human name:
 - project → matches a UUID, then the exact project **code**, then the exact
   **title**.
 - task → matches a UUID, then the exact **title**, scoped to the chosen project.
+- client → matches a UUID, then the exact **name** (clients have no code).
 - Only **live** (non-deleted) entities are selectable. No match → exit `5`
   (unknownEntity); more than one name match → exit `6` (ambiguousEntity). For
   unambiguous scripting, prefer UUIDs (get them from `list`).
+
+The **mutate verbs** (`client`/`project`/`task` — see [Managing
+entities](#managing-entities)) take the target as a **positional** `<id|name>`
+argument (`timedart project edit ACME --title …`); quote names containing
+spaces. `--json` works on every verb.
 
 ## Exit codes
 
@@ -51,8 +57,10 @@ or an exact human name:
 | 5 | unknownEntity | A `--project`/`--task` selector matched nothing live. |
 | 6 | ambiguousEntity | A name matched more than one live entity — disambiguate with a UUID. |
 | 7 | noTimerRunning | `stop`/`pause`/`resume` with no active timer. |
-| 8 | timerAlreadyRunning | `start` while a timer is active, or `resume` while already running. |
+| 8 | timerAlreadyRunning | `start` while a timer is active, `resume` while already running, or a `delete` targeting the entity the running timer is bound to. |
 | 9 | timerAlreadyPaused | `pause` while already paused. |
+| 10 | confirmationRequired | A cascade `delete` was run without `--force`. The impact count was printed; nothing changed. |
+| 11 | constraintViolation | A create/edit was rejected by a DB constraint (e.g. a project `code` already in use). |
 
 Human-readable errors go to **stderr**; JSON/data goes to **stdout**.
 
@@ -147,6 +155,29 @@ timedart timer pause
 timedart timer resume
 ```
 
+### `list clients`
+All live clients, name-ordered, each with the default rate its projects inherit.
+
+```
+timedart list clients --json
+```
+
+```json
+[
+  {
+    "id": "019f…a6",
+    "name": "Acme Co",
+    "defaultRate": 100,
+    "contactName": null,
+    "email": null,
+    "phone": null,
+    "address": null,
+    "abn": null,
+    "archived": false
+  }
+]
+```
+
 ### `list projects`
 All live projects, title-ordered.
 
@@ -187,10 +218,13 @@ timedart list tasks --project "Acme Website" --json
     "title": "Design",
     "projectId": "019f…c9",
     "projectCode": "ACME",
-    "projectTitle": "Acme Website"
+    "projectTitle": "Acme Website",
+    "rate": null
   }
 ]
 ```
+
+`rate` is the task's own rate, or `null` when it inherits the project's.
 
 ### `log`
 Record a completed `TimeEntry` directly (for work that wasn't live-tracked).
@@ -227,6 +261,102 @@ timedart log -p ACME -t Design -D 1h30m -d "spec review" --at 2026-07-10T09:00 -
 }
 ```
 
+## Managing entities
+
+Create, edit, archive and delete the **client → project → task** graph. Every
+verb reuses the app's data layer, so business rules match the GUI: projects
+inherit their client's rate unless given their own, project `code` is unique,
+and delete is a cascading soft-delete (sync-safe tombstone). Each verb supports
+`--json`; a create/edit/archive prints `{ "action": "created"|"updated"|
+"archived"|"unarchived", "<kind>": { … } }` (the entity in the same shape `list`
+uses); `delete` prints an impact object (below).
+
+The target of `edit`/`archive`/`unarchive`/`delete` is a **positional**
+`<id|name>`; field values are options. On `edit`, **only the options you pass
+change**; pass an empty value (`--phone ""`) to clear an optional text field.
+
+### `client add` / `client edit`
+
+| Arg | add | edit | Notes |
+| --- | --- | --- | --- |
+| `<id\|name>` (positional) | — | yes | The client to edit. |
+| `--name` | **yes** | opt | Client name. |
+| `--rate` | **yes** | opt | Default hourly rate its projects inherit (a number). |
+| `--contact` `--email` `--phone` `--address` `--abn` | opt | opt | Optional details (`""` clears on edit). |
+
+```
+timedart client add --name "Globex" --rate 150 --email ops@globex.test --json
+timedart client edit "Globex" --phone "+61 400 000 000"
+```
+
+### `project add` / `project edit`
+
+| Arg | add | edit | Notes |
+| --- | --- | --- | --- |
+| `<id\|name>` (positional) | — | yes | The project to edit. |
+| `-c, --client <id\|name>` | **yes** | opt | Owning client; on edit, reassigns it. |
+| `--code` | **yes** | opt | Unique project code. |
+| `--title` | **yes** | opt | Title. |
+| `--rate` | opt | opt | A number to set. Omit on add → inherit the client's default. On edit, `--rate inherit` (or `""`) clears it back to inherited. |
+
+```
+timedart project add --client "Globex" --code GLOB --title "Globex Site" --json
+timedart project edit GLOB --rate 175
+timedart project edit GLOB --rate inherit          # back to the client default
+```
+
+### `task add` / `task edit`
+
+| Arg | add | edit | Notes |
+| --- | --- | --- | --- |
+| `<id\|name>` (positional) | — | yes | The task to edit. |
+| `-p, --project <id\|name>` | **yes** | opt | add: owning project. edit: scope the `<id\|name>` lookup (needed only if the title isn't unique across projects). |
+| `--title` | **yes** | opt | Title. |
+| `--rate` | opt | opt | Like project rate: a number sets it; `inherit`/`""` clears to inherit the project's. |
+
+```
+timedart task add --project GLOB --title "Build" --json
+timedart task edit "Build" --project GLOB --title "Build v2"
+```
+
+### `client archive` / `client unarchive`, `project archive` / `project unarchive`
+
+Archive is a **reversible hide-from-active-lists** — the entity stays live and
+fully invoiceable, distinct from delete. **Tasks are not archivable** (the app
+has no task archive); use `task delete` to remove one.
+
+```
+timedart client archive "Globex"
+timedart project unarchive GLOB
+```
+
+### `client delete` / `project delete` / `task delete`
+
+Destructive and **cascading** — deleting a client removes its projects, their
+tasks and all their time entries. Guarded:
+
+- **`--force` is required.** Without it the command **changes nothing**, prints
+  the cascade impact, and exits `10` (confirmationRequired).
+- If the running timer is bound to the target (or something under it), it exits
+  `8` — stop the timer first.
+
+```
+timedart project delete GLOB --json         # preview only → exit 10
+timedart project delete GLOB --force --json # actually delete → exit 0
+```
+
+Impact shape (same whether refused or done — `deleted` distinguishes them):
+
+```json
+{
+  "deleted": false,
+  "kind": "project",
+  "id": "019f…c9",
+  "label": "GLOB Globex Site",
+  "impact": { "projects": 0, "tasks": 1, "entries": 0, "total": 1 }
+}
+```
+
 ## Live-update contract (CLI ↔ GUI)
 
 The CLI and a running GUI share one database:
@@ -244,6 +374,11 @@ The CLI and a running GUI share one database:
 ## A typical agent flow
 
 ```
+# set up a client → project → task graph from scratch
+timedart client add --name "Globex" --rate 150 --json
+timedart project add --client "Globex" --code GLOB --title "Globex Site" --json
+timedart task add --project GLOB --title "Build" --json
+
 timedart list projects --json                 # discover ids/names
 timedart timer start -p <projectId> -t <taskId> --json
 timedart timer status --json                  # confirm running

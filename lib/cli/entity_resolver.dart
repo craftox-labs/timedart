@@ -54,6 +54,54 @@ Future<Task> resolveTask(
   );
 }
 
+/// Resolve [query] to a single live [Client]. Matches an exact UUID id then an
+/// exact `name` (clients have no code). Throws [CliException] on no match or an
+/// ambiguous name.
+Future<Client> resolveClient(AppDatabase db, String query) async {
+  final live = await (db.select(
+    db.clients,
+  )..where((c) => c.deletedAt.isNull())).get();
+
+  final byId = live.where((c) => c.id == query).toList();
+  if (byId.length == 1) return byId.first;
+
+  final byName = live.where((c) => c.name == query).toList();
+  return _one<Client>(
+    byName,
+    kind: 'client',
+    query: query,
+    describe: (c) => '"${c.name}" (${c.id})',
+  );
+}
+
+/// Resolve [query] to a single live [Task], optionally scoped to [projectId].
+/// With a project it defers to [resolveTask]; without one it matches a UUID id
+/// across all live tasks, then an exact `title` across all live tasks (so a
+/// task can be targeted for edit/delete without naming its project, as long as
+/// the title is unique). Throws [CliException] on no match / ambiguity.
+Future<Task> resolveTaskAnywhere(
+  AppDatabase db,
+  String query, {
+  String? projectId,
+}) async {
+  if (projectId != null) return resolveTask(db, projectId, query);
+
+  final live = await (db.select(
+    db.tasks,
+  )..where((t) => t.deletedAt.isNull())).get();
+
+  final byId = live.where((t) => t.id == query).toList();
+  if (byId.length == 1) return byId.first;
+
+  final byName = live.where((t) => t.title == query).toList();
+  return _one<Task>(
+    byName,
+    kind: 'task',
+    query: query,
+    describe: (t) => '"${t.title}" (project ${t.projectId}, ${t.id})',
+  );
+}
+
 T _one<T>(
   List<T> matches, {
   required String kind,
