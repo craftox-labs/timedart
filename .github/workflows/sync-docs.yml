@@ -49,10 +49,14 @@ jobs:
         run: |
           git config user.name  "timedart-docs-sync[bot]"
           git config user.email "docs-sync@users.noreply.github.com"
-          if git diff --quiet && git diff --cached --quiet; then
+          # Stage FIRST, then check the staged diff. `git diff --quiet` only sees
+          # tracked files, so a brand-new page (an untracked file) slipped past it
+          # and never synced — only edits to existing pages propagated. Staging
+          # makes new + modified + deleted all visible to the guard.
+          git add src/content/docs
+          if git diff --cached --quiet; then
             echo "No docs changes to propagate."
             exit 0
           fi
-          git add src/content/docs
           git commit -m "docs: sync from app@${GITHUB_SHA::7}"
           git push
