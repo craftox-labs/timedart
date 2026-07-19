@@ -269,36 +269,21 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final styles = theme.extension<AppTextStyles>()!;
+    // A flat list of pages in reading order — no group subheadings. Most groups
+    // hold a single page (whose header would just echo the page name), so the one
+    // multi-page group ("Reference") was the only heading shown, reading as an
+    // odd lone label; dropping headers keeps the menu uniform. The catalog's
+    // grouping still drives ordering.
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: AppTokens.spaceSm),
       children: [
-        for (final group in catalog.groups) ...[
-          // A single-page group's header just echoes the page name, so only
-          // show a header once a section actually groups more than one page.
-          if (group.pages.length > 1)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppTokens.spaceLg,
-                AppTokens.spaceSm,
-                AppTokens.spaceLg,
-                AppTokens.space3xs,
-              ),
-              child: Text(
-                group.title,
-                style: styles.sectionHeader.copyWith(
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
+        for (final group in catalog.groups)
           for (final page in group.pages)
             _PageRow(
               title: page.title,
               selected: page.slug == selected,
               onTap: () => onSelect(page.slug),
             ),
-        ],
       ],
     );
   }

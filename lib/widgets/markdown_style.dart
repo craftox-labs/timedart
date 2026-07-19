@@ -46,6 +46,7 @@ MarkdownStyleSheet appMarkdownStyleSheet(ThemeData theme) {
     code: TextStyle(
       fontFamily: 'monospace',
       fontSize: AppTokens.fontSizeXs,
+      height: 1.5, // room to breathe between lines of a multi-line block
       color: scheme.onSurface,
       backgroundColor: scheme.surfaceContainerHighest,
     ),
@@ -53,6 +54,12 @@ MarkdownStyleSheet appMarkdownStyleSheet(ThemeData theme) {
       color: scheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(AppTokens.radiusSm),
       border: Border.all(color: AppTokens.colorBorder),
+    ),
+    // Roomier than the package default (all-8) so commands aren't cramped against
+    // the border; the block already scrolls horizontally for long CLI lines.
+    codeblockPadding: const EdgeInsets.symmetric(
+      horizontal: AppTokens.spaceMd,
+      vertical: AppTokens.spaceSm,
     ),
     tableBorder: TableBorder.all(color: AppTokens.colorBorder),
     tableHead: base.copyWith(fontWeight: FontWeight.w600),

@@ -58,13 +58,14 @@ Future<void> _pump(WidgetTester tester, {String? initialSlug}) async {
 }
 
 void main() {
-  testWidgets('sidebar lists every catalogue page', (tester) async {
+  testWidgets('sidebar lists every catalogue page (flat, no group headers)', (
+    tester,
+  ) async {
     await _pump(tester);
-    // Group headers and page rows are both present.
-    expect(find.text('Tracking'), findsOneWidget);
-    // "Getting started" is both a group header and a page title, so it appears
-    // more than once; "Tracking time" is a page row only.
+    // The menu is a flat list of page rows; group names aren't shown as headers.
+    expect(find.text('Tracking'), findsNothing);
     expect(find.text('Tracking time'), findsWidgets);
+    expect(find.text('Tracking rates'), findsWidgets);
     expect(find.text('Getting started'), findsWidgets);
   });
 
@@ -132,24 +133,23 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The first page is shown straight away; the section list is not (it's in
-    // the closed drawer). The "Tracking" group header is drawer-only (the pager
-    // shows the page *title* "Tracking time", so that isn't a drawer marker).
+    // The first page is shown straight away; the page list is not (it's in the
+    // closed drawer). "Tracking rates" is neither the current page nor adjacent
+    // to it, so it exists only as a drawer row — absent while the drawer is shut.
     expect(find.textContaining('Welcome to the docs.'), findsOneWidget);
-    expect(find.text('Tracking'), findsNothing);
+    expect(find.text('Tracking rates'), findsNothing);
 
-    // Open the contents drawer, pick another page: it closes and the page swaps.
+    // Open the contents drawer: the page rows appear.
     await tester.tap(find.byIcon(Icons.menu));
     await tester.pumpAndSettle();
-    expect(find.text('Tracking'), findsOneWidget); // group header, drawer-only
+    expect(find.text('Tracking rates'), findsOneWidget); // a drawer-only row
     await tester.tap(find.text('Tracking time').last);
     await tester.pumpAndSettle();
+    // Selecting from the drawer swaps the page body (and closes the drawer).
     expect(find.textContaining('How the timer works.'), findsOneWidget);
-    // The group header is drawer-only, so its absence confirms the drawer closed.
-    expect(find.text('Tracking'), findsNothing);
   });
 
-  testWidgets('a section header shows only when its group has >1 page', (
+  testWidgets('the menu is a flat page list — no group headers', (
     tester,
   ) async {
     final catalog = DocsCatalog.fromSources({
@@ -169,9 +169,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Single-page group: no header (it would just echo the page name).
+    // No group name is rendered as a header — neither single- nor multi-page.
     expect(find.text('Solo'), findsNothing);
-    // Multi-page group: header shown.
-    expect(find.text('Pair'), findsOneWidget);
+    expect(find.text('Pair'), findsNothing);
+    // Every page is still listed as a row.
+    expect(find.text('Alpha'), findsWidgets);
+    expect(find.text('Beta'), findsWidgets);
+    expect(find.text('Gamma'), findsWidgets);
   });
 }
