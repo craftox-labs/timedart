@@ -122,6 +122,31 @@ timedart is built to be flown from the keyboard. Navigation is identical across 
 > `j`/`k` before the page sees them. The keyboard experience is complete in the desktop build; on the
 > web, disable such extensions for the demo site (or just use the mouse).
 
+## Command-line interface
+
+A companion `timedart` CLI drives the **same local database as the app** — start
+and stop the timer, log and edit entries, manage clients / projects / tasks, and
+pull time reports from the terminal. A timer you start in the CLI shows up in the
+open app within a second, and vice versa.
+
+It's **agent-ready**: every command has a `--json` mode and a stable exit code,
+and the binary carries its own instructions — an LLM/agent can learn the whole
+tool by running `timedart guide` (or `timedart help --json` for a machine-readable
+command map).
+
+Download the `timedart-cli-<platform>` archive from the
+[Releases page](https://github.com/craftox-labs/timedart/releases), unpack it
+(keep its `bin/` and `lib/` together), and put `bin/timedart` on your PATH:
+
+```sh
+timedart --version
+timedart timer start -p "Acme Website" -t Design
+timedart log -p "Acme Website" -t Design -D 90m -d "spec review"
+timedart report --since 2026-07-01
+```
+
+Full reference: `timedart guide`, or the [docs](https://timedart.app).
+
 ## Download
 
 **timedart is in open beta (`v0.9.0-beta`).** Grab a build from the
@@ -137,6 +162,9 @@ timedart is built to be flown from the keyboard. Navigation is identical across 
 Beta builds are unsigned (bar the Android upload key), so your OS asks you to confirm the first
 launch — that's expected for a direct download, not a problem with the app. Data never leaves your
 machine. Each release ships a `SHA256SUMS` file — verify with `sha256sum -c SHA256SUMS`.
+
+The companion CLI ships as a separate `timedart-cli-<platform>` archive on the same page — see
+[Command-line interface](#command-line-interface).
 
 > Pre-1.0 while in beta: the local database format may still change between versions.
 
@@ -188,7 +216,6 @@ branding; and end-to-end keyboard control. Next on the horizon:
 - Stored, immutable invoice snapshots.
 - A richer, illustrated "how it works" step in onboarding.
 - **Optional cross-device sync** — self-hostable and opt-in; the app stays fully local by default.
-- A companion **CLI** — control the timer and log entries from the terminal, **agent-ready** for LLM workflows; bundled with the app and released standalone.
 - Ongoing design polish.
 
 <details>
