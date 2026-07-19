@@ -14,9 +14,51 @@ a second (and instantly when you focus its window), and a timer you start in the
 app can be stopped from the CLI. Every CLI command reads the current state fresh,
 so the two never drift apart.
 
-> **Note:** The CLI ships with an upcoming release. Download links and install
-> steps will be added here once it's available — this page describes how it
-> works so it's ready when the tool is.
+## Installing
+
+The CLI ships as a self-contained download with each timedart release — there's
+no separate runtime to install. Grab the archive for your platform from the
+[latest release](https://github.com/craftox-labs/timedart/releases/latest):
+
+| Platform | Download |
+| --- | --- |
+| Linux | `timedart-cli-linux-x86_64.tar.gz` |
+| macOS (Apple silicon) | `timedart-cli-macos-arm64.zip` |
+| Windows | `timedart-cli-windows-x64.zip` |
+
+Each archive contains a `bin/` (the `timedart` program) and a `lib/` (a small
+library it needs) — **keep the two together**; the program looks for its `lib/`
+right beside it.
+
+On Linux or macOS, unpack it somewhere permanent and link the program onto your
+PATH — for example, on Linux:
+
+```
+mkdir -p ~/.local/opt/timedart-cli
+tar -xzf timedart-cli-linux-x86_64.tar.gz -C ~/.local/opt/timedart-cli
+ln -sf ~/.local/opt/timedart-cli/bin/timedart ~/.local/bin/timedart
+```
+
+On macOS, `unzip timedart-cli-macos-arm64.zip -d ~/.local/opt/timedart-cli`
+instead of the `tar` step. On Windows, extract the zip to a folder you'll keep
+and add that folder's `bin` to your PATH.
+
+Check it's working:
+
+```
+timedart --version
+```
+
+The CLI reads the **same database as the app**, so once you've run the desktop
+app at least once, it works against your real data straight away — no setup, no
+config.
+
+> **Note:** The builds are unsigned before 1.0, so macOS or Windows may warn the
+> first time you run the CLI; allow it to continue.
+
+**Driving timedart from an AI agent?** It's built for that — the binary carries
+its own instructions, so an agent can learn the whole tool by running `timedart
+guide` (see **Scripting and agents**, below). No need to hand it this page.
 
 ## The timer
 
@@ -54,6 +96,16 @@ You can also pause and resume the running timer:
 ```
 timedart timer pause
 timedart timer resume
+```
+
+Change a running timer's note, or move it to a different task, without stopping
+it — and if you started one by mistake, **discard** it to throw it away with no
+entry recorded:
+
+```
+timedart timer edit --description "revised note"
+timedart timer edit --task "Code review"
+timedart timer discard
 ```
 
 ## Listing your work
@@ -125,6 +177,36 @@ Durations can be written as `1h30m`, `90m`, `1.5h`, `45s`, or a plain number of
 seconds. By default the entry ends now and starts `--duration` earlier; pass
 `--at <iso>` (e.g. `--at 2026-07-18T09:00`) to set an explicit start time.
 
+List recorded entries, then fix or remove one — handy when a duration was mistyped
+or an entry landed on the wrong task:
+
+```
+timedart list entries --project "Acme Website"
+timedart entry edit <id> --duration 45m --description "spec review"
+timedart entry delete <id> --force
+```
+
+Filter the list with `--task`, `--project`, and a date window (`--since` /
+`--until`). Entries are identified by the UUID shown in the list.
+
+## Reports
+
+Total up your tracked time over a period, grouped how you like:
+
+```
+timedart report
+timedart report --project "Acme Website" --since 2026-07-01 --by day
+```
+
+```
+ACME Acme Website   6h 30m   5 entries   $780.00
+TOTAL               6h 30m   5 entries   $780.00
+```
+
+Scope with `--client` / `--project` / `--task` and a `--since` / `--until`
+window (it defaults to the current week), and group with `--by project|task|client|day`.
+Where a rate is set, each row shows the amount too.
+
 ## Selecting projects and tasks
 
 `--project` and `--task` accept either the **name** (a project's code or title, a
@@ -134,17 +216,34 @@ task's title) or its **UUID**. Names must match exactly and be unique.
 > asks you to disambiguate. Use the UUID (shown by `timedart list …`) when a name
 > is ambiguous or when scripting.
 
-## Scripting
+Most flags have a short form, so common commands stay compact — `-p` project,
+`-t` task, `-d` description, `-D` duration, `-j` json, and so on (see any
+command's `--help`):
 
-Add `--json` to any command for machine-readable output, and every command
+```
+timedart log -p "Acme Website" -t Design -D 1h30m -d "spec review"
+```
+
+## Scripting and agents
+
+Add `--json` (`-j`) to any command for machine-readable output, and every command
 returns a meaningful exit code (`0` on success; distinct non-zero codes for
 errors like an unknown project or no running timer) so scripts can branch on the
-result.
+result. In `--json` mode, errors come back as JSON too.
 
 ```
 timedart timer status --json
 ```
 
-> **Note:** For the full machine-readable reference — every command's arguments,
-> JSON output shapes, and exit-code table — see the agent-usage guide at
-> `docs/cli/agent-guide.md`. It's written for automation and LLM/agent use.
+The CLI is built to be driven by an AI agent as well as by you. It carries its
+own instructions, so an agent can learn the whole tool from the binary — no need
+to hunt down a manual:
+
+```
+timedart guide          # the full usage guide, written for agents
+timedart help --json    # a machine-readable map of every command and exit code
+```
+
+> **Tip:** `timedart guide` prints the complete reference — every command's
+> arguments, JSON output shapes, and the exit-code table. It's the same guide an
+> agent reads to drive timedart from the terminal.
