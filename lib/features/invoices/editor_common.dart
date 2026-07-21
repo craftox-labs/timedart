@@ -145,6 +145,7 @@ class EditorDropdown<T> extends StatelessWidget {
     // floating label. The decoration's isDense keeps the field height in line.
     isExpanded: true,
     icon: kDropdownChevron,
+    borderRadius: kDropdownMenuRadius,
     decoration: fieldDecoration(context, label),
     items: items,
     onChanged: onChanged,

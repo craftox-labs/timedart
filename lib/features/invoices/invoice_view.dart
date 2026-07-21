@@ -270,6 +270,7 @@ class _InvoiceViewState extends State<InvoiceView> {
       initialValue: _profileId,
       isExpanded: true,
       icon: kDropdownChevron,
+      borderRadius: kDropdownMenuRadius,
       decoration: const InputDecoration(labelText: 'Profile'),
       items: [
         for (final p in _profiles)

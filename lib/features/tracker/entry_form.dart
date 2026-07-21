@@ -236,6 +236,7 @@ class _EntryFormState extends State<EntryForm> {
           initialValue: _selectedTaskId,
           isExpanded: true,
           icon: kDropdownChevron,
+          borderRadius: kDropdownMenuRadius,
           decoration: InputDecoration(
             label: requiredLabel(context, 'Task'),
             errorText: _taskError,

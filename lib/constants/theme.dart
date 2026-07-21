@@ -282,12 +282,12 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
 
-    // ── Date picker ── the stock M3 calendar is the odd one out: it has no
-    // theme entry, so it renders with M3's large corners, tonal-elevated
-    // surface and default header. Flatten it to the same panel the dialogs use
-    // (base surface, no tint/shadow, 8px hairline border, brand-green selection)
-    // so showDatePicker + any embedded CalendarDatePicker match the app. Text
-    // roles inherit Outfit via the textTheme cascade; we set the small labels
+    // ── Date picker ── styles the CalendarDatePicker grid used by the app date
+    // picker (showAppDatePicker) and the invoice period dialog: brand-green
+    // day/selection, app font, flat surface. The app doesn't use the stock
+    // showDatePicker dialog — so there's no header/action-button styling here;
+    // the surface/shape below only take effect if it's ever reintroduced. Text
+    // roles inherit Outfit via the textTheme cascade; the small labels are set
     // explicitly since component themes don't inherit ThemeData(fontFamily:).
     datePickerTheme: DatePickerThemeData(
       backgroundColor: scheme.surface,
@@ -295,23 +295,6 @@ ThemeData buildAppTheme(Brightness brightness) {
       elevation: 0,
       shadowColor: Colors.transparent,
       shape: panelShape,
-      // Flat header on the same surface (no M3 tonal fill).
-      headerBackgroundColor: scheme.surface,
-      headerForegroundColor: scheme.primary,
-      // The big selected-date headline: Raleway Medium Italic in the brand
-      // colour, matching every other modal title (dialogTheme.titleTextStyle).
-      headerHeadlineStyle: TextStyle(
-        fontFamily: AppTokens.fontFamilyHeading,
-        fontStyle: FontStyle.italic,
-        fontWeight: AppTokens.fontWeightHeading,
-        fontSize: 26,
-        color: scheme.primary,
-      ),
-      headerHelpStyle: TextStyle(
-        fontFamily: AppTokens.fontFamily,
-        fontSize: AppTokens.fontSizeSm,
-        color: scheme.onSurfaceVariant,
-      ),
       weekdayStyle: TextStyle(
         fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.fontSizeXs,
@@ -338,8 +321,6 @@ ThemeData buildAppTheme(Brightness brightness) {
         (states) => states.contains(WidgetState.selected) ? scheme.primary : null,
       ),
       todayBorder: const BorderSide(color: AppTokens.colorBrandPrimary),
-      confirmButtonStyle: filledButtonStyle,
-      cancelButtonStyle: outlinedButtonStyle,
       yearForegroundColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)
             ? scheme.onPrimary

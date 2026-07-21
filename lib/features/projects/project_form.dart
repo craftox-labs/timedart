@@ -196,6 +196,7 @@ class _ProjectFormState extends State<ProjectForm> {
                   isExpanded: true,
                   value: value,
                   icon: kDropdownChevron,
+                  borderRadius: kDropdownMenuRadius,
                   hint: const Text('Select a client'),
                   items: [
                     for (final c in clients)
