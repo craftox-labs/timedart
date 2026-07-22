@@ -9,6 +9,9 @@ import 'package:timedart/features/updates/update_checker.dart';
 import 'package:timedart/widgets/markdown_style.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/backup.dart';
+import 'package:timedart/data/sync/sync_activation.dart';
+import 'package:timedart/data/sync/sync_config.dart';
+import 'package:timedart/data/sync/sync_token.dart';
 import 'package:timedart/util/save_file.dart';
 import 'package:timedart/util/pick_file.dart';
 import 'package:timedart/constants/tokens.dart';
@@ -409,6 +412,74 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     messenger.showSnackBar(SnackBar(content: Text('Data imported.$skipped')));
   }
 
+  // ── Optional sync toggle (PRD #189, Phase 4d) ──────────────────────────────
+  // Mirrors the Settings row's state so the label reads Enable vs Disable.
+  bool _syncActive = false;
+
+  // Flip the sync layer on/off. Only reachable in a maintainer's ENABLE_SYNC
+  // build (the row is hidden otherwise). Enabling/disabling is a persisted
+  // intent applied on the next launch — the DB connection is chosen once at
+  // startup (openDatabaseForApp), so both paths end by asking for a restart.
+  // Enable stamps the personal org_id (the sync token's subject) and marks a
+  // seed pending; the first synced launch copies the local rows across.
+  Future<void> _toggleSync() async {
+    final current = await readSyncActivation();
+    if (!mounted) return;
+
+    if (current.enabled) {
+      final confirmed = await confirmAction(
+        context,
+        title: 'Disable sync?',
+        message:
+            'timedart will reopen on the local-only database on the next '
+            'launch. Your original local data is intact.\n\n'
+            'Changes made while sync was on stay in the synced copy and will '
+            "not appear in the local database.",
+        confirmLabel: 'Disable',
+      );
+      if (!confirmed || !mounted) return;
+      await writeSyncActivation(
+        current.copyWith(enabled: false, seedPending: false),
+      );
+      if (!mounted) return;
+      setState(() => _syncActive = false);
+    } else {
+      final orgId = tokenSubject(powerSyncToken);
+      if (orgId == null) {
+        await showInfoDialog(
+          context,
+          title: 'No sync token',
+          message:
+              'This build has no POWERSYNC_TOKEN, so there is no org to sync '
+              'under. Rebuild with the sync --dart-define values set.',
+        );
+        return;
+      }
+      final confirmed = await confirmAction(
+        context,
+        title: 'Enable sync?',
+        message:
+            'Your current data will be copied into a synced database (org '
+            '"$orgId") and start syncing on the next launch. The local-only '
+            'database is left untouched.',
+        confirmLabel: 'Enable',
+      );
+      if (!confirmed || !mounted) return;
+      await writeSyncActivation(
+        SyncActivation(enabled: true, orgId: orgId, seedPending: true),
+      );
+      if (!mounted) return;
+      setState(() => _syncActive = true);
+    }
+
+    if (!mounted) return;
+    await showInfoDialog(
+      context,
+      title: 'Restart required',
+      message: 'Close and reopen timedart to apply the sync change.',
+    );
+  }
+
   // ── Update check (Phase 1: notify only — never auto-installs) ──────────────
   // Guards the launch banner to at most once per run.
   bool _updateBannerShown = false;
@@ -588,6 +659,14 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     });
     widget.db.ensureInvoiceDefaults(); // seed timedart theme/profile/template
 
+    // Reflect the current sync state on the Settings toggle (PRD #189, Phase
+    // 4d). Const-false and dead-code-eliminated in every released build.
+    if (syncEnabled) {
+      readSyncActivation().then((a) {
+        if (mounted) setState(() => _syncActive = a.enabled);
+      });
+    }
+
     // Notify (don't auto-install) if a newer release exists. Fire-and-forget,
     // non-blocking, silent on failure — never gates startup (Phase 1 update
     // check). Skipped on web, which is always the deployed latest.
@@ -752,6 +831,10 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           onExportData: () async => run(_exportData),
           onImportData: () async => run(_importData),
           onCheckForUpdates: kIsWeb ? null : () async => run(_checkForUpdates),
+          // Maintainer-only sync toggle — wired only in an ENABLE_SYNC build,
+          // so released builds never render the row (PRD #189, Phase 4d).
+          onToggleSync: syncEnabled ? () async => run(_toggleSync) : null,
+          syncActive: _syncActive,
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),
