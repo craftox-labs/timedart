@@ -52,6 +52,10 @@ class Projects extends Table {
   TextColumn get code => text().unique()(); // human project number
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides client default
+  // NB: this SQL default does NOT fire on the PowerSync sync path (the table is
+  // a view there), so addProject stamps status/createdAt in Dart. Any new insert
+  // path for projects must do the same or the row uploads NULL and Postgres
+  // rejects it (#210).
   TextColumn get status => text().withDefault(const Constant('active'))();
   // User-facing "archive": hide a finished project from the active UI while
   // keeping it (and its history) for invoicing. Reversible; NULL = active.
@@ -74,6 +78,8 @@ class Tasks extends Table {
   TextColumn get projectId => text().references(Projects, #id)();
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides project.rate
+  // See Projects.status: SQL defaults don't fire on the PowerSync view, so
+  // addTask stamps status/createdAt in Dart (#210).
   TextColumn get status => text().withDefault(const Constant('active'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt =>
@@ -1101,6 +1107,12 @@ class AppDatabase extends _$AppDatabase {
             code: code,
             title: title,
             rate: rate == null ? const Value.absent() : Value(rate),
+            // Stamp status/createdAt in Dart rather than leaning on the columns'
+            // SQL defaults: on the PowerSync sync path these tables are views, so
+            // the CREATE TABLE defaults never fire and an omitted column uploads
+            // as NULL — which the NOT NULL source Postgres rejects (#210).
+            status: const Value('active'),
+            createdAt: Value(DateTime.now()),
           ),
         )
         .then((_) => id);
@@ -1207,6 +1219,10 @@ class AppDatabase extends _$AppDatabase {
             projectId: projectId,
             title: title,
             rate: rate == null ? const Value.absent() : Value(rate),
+            // See addProject: stamp in Dart so status/createdAt survive the
+            // PowerSync view insert (SQL defaults don't fire on views) (#210).
+            status: const Value('active'),
+            createdAt: Value(DateTime.now()),
           ),
         )
         .then((_) => id);
