@@ -31,6 +31,8 @@ class SettingsPanel extends StatefulWidget {
     this.onExportData,
     this.onImportData,
     this.onCheckForUpdates,
+    this.onToggleSync,
+    this.syncActive = false,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -78,6 +80,11 @@ class SettingsPanel extends StatefulWidget {
   // Check GitHub Releases for a newer build (Phase 1 update check); null hides
   // the row (e.g. on web, which is always the deployed latest).
   final Future<void> Function()? onCheckForUpdates;
+  // Toggle the optional sync layer (PRD #189, Phase 4d). Null hides the row —
+  // and it is only ever wired in a maintainer's ENABLE_SYNC build, so released
+  // builds never show it. [syncActive] drives the label (Enable vs Disable).
+  final Future<void> Function()? onToggleSync;
+  final bool syncActive;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -280,6 +287,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
         label: 'Re-run setup',
         icon: Icons.replay,
         onTap: () => widget.onRerunOnboarding!(),
+      ),
+    if (widget.onToggleSync != null)
+      _ActionRow(
+        label: widget.syncActive
+            ? 'Disable sync (experimental)'
+            : 'Enable sync (experimental)',
+        icon: widget.syncActive ? Icons.sync_disabled : Icons.sync,
+        onTap: () => widget.onToggleSync!(),
       ),
   ];
 

@@ -1,10 +1,13 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import 'backup.dart';
 import 'database.dart';
 import 'legacy_db_migration.dart';
 import 'sync/powersync_connection.dart';
+import 'sync/sync_activation.dart';
 import 'sync/sync_config.dart';
+import 'sync/sync_seed.dart';
 
 // ── The Flutter-coupled DB-open path (app-only) ────────────────────────────
 // This file is the ONLY place that imports `drift_flutter` + `path_provider`
@@ -38,20 +41,60 @@ QueryExecutor openAppQueryExecutor() => driftDatabase(
 /// Open the app's [AppDatabase] on the Flutter/drift_flutter executor.
 AppDatabase openAppDatabase() => AppDatabase(openAppQueryExecutor());
 
-/// The connection factory main.dart calls at startup. It chooses the database
-/// connection by the compile-time [syncEnabled] flag (PRD #189, Phase 4c):
-///   • sync **off** (every released build) → today's plain local `drift_flutter`
-///     database, byte-for-byte unchanged — the `if` branch below is const-false
-///     and dead-code-eliminated, so no PowerSync code runs;
-///   • sync **on** (a maintainer's `--dart-define=ENABLE_SYNC=true` build) → the
-///     PowerSync-backed connection (own file + `Schema`), which initializes and
-///     connects to stream this org's rows down.
+/// The connection factory main.dart calls at startup. Two gates decide the
+/// connection (PRD #189, Phase 4c/4d):
+///   • the compile-time [syncEnabled] flag — const-false in every released
+///     build, so the whole block below is dead-code-eliminated and no PowerSync
+///     code runs. "Sync off == today" holds for every shipped binary;
+///   • the runtime [SyncActivation] (a maintainer's on/off toggle, Phase 4d),
+///     read from a small file before any database opens.
+/// Only when BOTH say yes does the app open the PowerSync-backed connection;
+/// otherwise it opens today's plain local `drift_flutter` database, byte-for-byte
+/// unchanged. On the first launch after enabling, the plain-local rows are
+/// seeded into the fresh synced store ([_seedSyncedFromLocal]).
 /// Async because the PowerSync path initializes + connects; the local path just
 /// wraps the synchronous open in a resolved Future.
 Future<AppDatabase> openDatabaseForApp() async {
   if (syncEnabled) {
-    final synced = await openSyncedAppDatabase();
-    return synced.db;
+    final activation = await readSyncActivation();
+    if (activation.enabled) {
+      final synced = await openSyncedAppDatabase();
+      if (activation.seedPending) {
+        await _seedSyncedFromLocal(synced.db, orgId: activation.orgId);
+        await writeSyncActivation(activation.copyWith(seedPending: false));
+      }
+      return synced.db;
+    }
   }
   return openAppDatabase();
+}
+
+/// Copy the plain-local database's rows into the freshly-opened synced store,
+/// stamping [orgId] on the synced content rows (PRD #189, Phase 4d). PowerSync
+/// owns a separate file with no in-place conversion, so the seed reuses the
+/// Phase-1 backup machinery: read the local snapshot, stamp `org_id`, restore
+/// into the synced DB. The inserts land in PowerSync's views → they queue for
+/// upload under this org, and templates/profiles/`app_settings` carry over too
+/// (so onboarding does not replay on the fresh store). The local DB is opened
+/// transiently and closed; it is a different file, so there is no lock contention
+/// with the synced connection.
+Future<void> _seedSyncedFromLocal(
+  AppDatabase syncedDb, {
+  required String orgId,
+}) async {
+  final local = openAppDatabase();
+  try {
+    final snapshot = stampOrgId(await readBackupSnapshot(local), orgId);
+    await restoreBackup(
+      syncedDb,
+      Backup(
+        formatVersion: backupFormatVersion,
+        schemaVersion: syncedDb.schemaVersion,
+        exportedAt: DateTime.now(),
+        snapshot: snapshot,
+      ),
+    );
+  } finally {
+    await local.close();
+  }
 }
