@@ -28,3 +28,12 @@ const String powerSyncUrl = String.fromEnvironment('POWERSYNC_URL');
 /// after ~12 hours and are not for production — real JWT/JWKS auth is Phase 5.
 /// Empty unless provided via `--dart-define=POWERSYNC_TOKEN=...`.
 const String powerSyncToken = String.fromEnvironment('POWERSYNC_TOKEN');
+
+/// The Supabase Edge Function that applies uploaded CRUD to the source Postgres
+/// (Phase 4b / #209), e.g. `https://<ref>.supabase.co/functions/v1/upload-data`.
+/// The write path is disabled (uploads stay queued) when empty. See
+/// `supabase/functions/upload-data/`.
+/// Empty unless provided via `--dart-define=SUPABASE_FUNCTION_URL=...`.
+const String supabaseFunctionUrl = String.fromEnvironment(
+  'SUPABASE_FUNCTION_URL',
+);

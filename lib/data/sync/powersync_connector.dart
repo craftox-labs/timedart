@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:powersync/powersync.dart';
 
 import 'sync_config.dart';
@@ -6,12 +9,18 @@ import 'sync_config.dart';
 ///
 /// [fetchCredentials] points the client at the Cloud instance with a dashboard
 /// **Dev Token** ([powerSyncUrl] / [powerSyncToken], injected at build time) —
-/// this drives the read/stream-down path, which is 4c's definition of done.
+/// this drives the read/stream-down path (4c's definition of done).
 ///
-/// [uploadData] (the write path) is deliberately a **Phase 4b (#209) seam**: it
-/// does not push anywhere yet and, crucially, does not silently drop local
-/// changes. See its body.
+/// [uploadData] (the write path, Phase 4b / #209) POSTs the local CRUD queue to
+/// the `upload-data` Supabase Edge Function ([supabaseFunctionUrl]), which
+/// writes it to the source Postgres with the `service_role` key and stamps
+/// `org_id` from the token. See `supabase/functions/upload-data/`.
 class TimedartSyncConnector extends PowerSyncBackendConnector {
+  TimedartSyncConnector({http.Client? httpClient})
+    : _http = httpClient ?? http.Client();
+
+  final http.Client _http;
+
   @override
   Future<PowerSyncCredentials?> fetchCredentials() async {
     // No creds compiled in → no sync (returning null leaves the client
@@ -25,22 +34,52 @@ class TimedartSyncConnector extends PowerSyncBackendConnector {
     final transaction = await database.getNextCrudTransaction();
     if (transaction == null) return;
 
-    // ── Phase 4b seam (#209) — NOT wired yet ──────────────────────────────
-    // PowerSync never accepts writes itself; local CRUD must be applied to the
-    // Supabase source Postgres. The canonical path is the supabase_flutter
-    // client (`.from(table).upsert/update/delete`), but that requires Supabase
-    // Auth — which the trial deliberately defers (dev tokens only). The
-    // trial-safe route is a Supabase Edge Function that writes with the
-    // service_role key and stamps org_id from the token. That decision + wiring
-    // is #209.
-    //
-    // Until then we deliberately do NOT `transaction.complete()`: throwing
-    // leaves the ops safely in the local upload queue (no data loss) and
-    // PowerSync retries with backoff. The read/stream-down path — 4c's DoD — is
-    // entirely unaffected by this.
-    throw UnimplementedError(
-      'Sync upload is Phase 4b (#209): ${transaction.crud.length} local op(s) '
-      'queued until the Supabase write endpoint is wired.',
+    if (supabaseFunctionUrl.isEmpty) {
+      // Write endpoint not configured: keep the ops queued rather than dropping
+      // them. Throwing leaves the transaction uncompleted; PowerSync retries.
+      throw StateError(
+        'SUPABASE_FUNCTION_URL is not set: '
+        '${transaction.crud.length} local op(s) cannot be uploaded.',
+      );
+    }
+
+    final response = await _http.post(
+      Uri.parse(supabaseFunctionUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        // The Edge Function decodes org_id from this token's `sub` claim.
+        'Authorization': 'Bearer $powerSyncToken',
+      },
+      body: jsonEncode({'batch': encodeCrudBatch(transaction.crud)}),
     );
+
+    if (response.statusCode != 200) {
+      // Non-200 → do NOT complete(): the ops stay in the local queue and
+      // PowerSync retries the whole transaction with backoff. The Edge Function
+      // only returns 5xx for retryable failures (never 4xx, which would wedge
+      // the queue), so a retry is the correct response to any non-200 here.
+      throw http.ClientException(
+        'upload-data returned ${response.statusCode}: ${response.body}',
+        Uri.parse(supabaseFunctionUrl),
+      );
+    }
+
+    await transaction.complete();
   }
+}
+
+/// Serialise a PowerSync CRUD queue to the wire shape the `upload-data` Edge
+/// Function expects: one `{op, type, id, data}` object per entry, where `op` is
+/// `PUT`/`PATCH`/`DELETE`, `type` is the table name and `data` is the row's
+/// column map (`null` for deletes).
+List<Map<String, dynamic>> encodeCrudBatch(List<CrudEntry> crud) {
+  return [
+    for (final entry in crud)
+      {
+        'op': entry.op.toJson(),
+        'type': entry.table,
+        'id': entry.id,
+        'data': entry.opData,
+      },
+  ];
 }
