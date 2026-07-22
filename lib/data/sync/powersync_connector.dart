@@ -5,6 +5,20 @@ import 'package:powersync/powersync.dart';
 
 import 'sync_config.dart';
 
+/// Raised when the CRUD upload cannot be applied, so PowerSync retries the whole
+/// transaction (the ops stay in the local queue — nothing is dropped). Mirrors
+/// the typed-exception-per-failure-mode convention in `lib/data/backup.dart`
+/// (`BackupFormatException`, `BackupIncompatibleException`, …). [statusCode] is
+/// the Edge Function's HTTP status when the failure was a non-200 response, null
+/// when the endpoint was not configured.
+class SyncUploadException implements Exception {
+  final String message;
+  final int? statusCode;
+  const SyncUploadException(this.message, {this.statusCode});
+  @override
+  String toString() => 'SyncUploadException($message)';
+}
+
 /// The app's [PowerSyncBackendConnector] for the trial (PRD #189, Phase 4).
 ///
 /// [fetchCredentials] points the client at the Cloud instance with a dashboard
@@ -15,56 +29,76 @@ import 'sync_config.dart';
 /// the `upload-data` Supabase Edge Function ([supabaseFunctionUrl]), which
 /// writes it to the source Postgres with the `service_role` key and stamps
 /// `org_id` from the token. See `supabase/functions/upload-data/`.
+///
+/// The endpoint/token/HTTP client are injectable (defaulting to the build-time
+/// consts) so the upload contract can be unit-tested without a live PowerSync
+/// database or network.
 class TimedartSyncConnector extends PowerSyncBackendConnector {
-  TimedartSyncConnector({http.Client? httpClient})
-    : _http = httpClient ?? http.Client();
+  TimedartSyncConnector({
+    http.Client? httpClient,
+    String? functionUrl,
+    String? token,
+  }) : _http = httpClient ?? http.Client(),
+       _functionUrl = functionUrl ?? supabaseFunctionUrl,
+       _token = token ?? powerSyncToken;
 
   final http.Client _http;
+  final String _functionUrl;
+  final String _token;
 
   @override
   Future<PowerSyncCredentials?> fetchCredentials() async {
     // No creds compiled in → no sync (returning null leaves the client
     // disconnected rather than throwing). Real JWT/JWKS auth is Phase 5.
-    if (powerSyncUrl.isEmpty || powerSyncToken.isEmpty) return null;
-    return PowerSyncCredentials(endpoint: powerSyncUrl, token: powerSyncToken);
+    if (powerSyncUrl.isEmpty || _token.isEmpty) return null;
+    return PowerSyncCredentials(endpoint: powerSyncUrl, token: _token);
   }
 
   @override
   Future<void> uploadData(PowerSyncDatabase database) async {
     final transaction = await database.getNextCrudTransaction();
     if (transaction == null) return;
+    await uploadCrudBatch(transaction.crud, transaction.complete);
+  }
 
-    if (supabaseFunctionUrl.isEmpty) {
+  /// Apply one CRUD transaction: POST the batch to the Edge Function and
+  /// [complete] it **only** on a 200. Any other outcome throws
+  /// [SyncUploadException] and leaves the transaction uncompleted, so the ops
+  /// stay queued and PowerSync retries with backoff (the Edge Function returns
+  /// 5xx only for retryable failures — it never 4xxs, which would wedge the
+  /// queue). Split out from [uploadData] so it is testable without a live
+  /// PowerSync database.
+  Future<void> uploadCrudBatch(
+    List<CrudEntry> crud,
+    Future<void> Function({String? writeCheckpoint}) complete,
+  ) async {
+    if (_functionUrl.isEmpty) {
       // Write endpoint not configured: keep the ops queued rather than dropping
-      // them. Throwing leaves the transaction uncompleted; PowerSync retries.
-      throw StateError(
+      // them (throwing leaves the transaction uncompleted → PowerSync retries).
+      throw SyncUploadException(
         'SUPABASE_FUNCTION_URL is not set: '
-        '${transaction.crud.length} local op(s) cannot be uploaded.',
+        '${crud.length} local op(s) cannot be uploaded.',
       );
     }
 
     final response = await _http.post(
-      Uri.parse(supabaseFunctionUrl),
+      Uri.parse(_functionUrl),
       headers: {
         'Content-Type': 'application/json',
         // The Edge Function decodes org_id from this token's `sub` claim.
-        'Authorization': 'Bearer $powerSyncToken',
+        'Authorization': 'Bearer $_token',
       },
-      body: jsonEncode({'batch': encodeCrudBatch(transaction.crud)}),
+      body: jsonEncode({'batch': encodeCrudBatch(crud)}),
     );
 
     if (response.statusCode != 200) {
-      // Non-200 → do NOT complete(): the ops stay in the local queue and
-      // PowerSync retries the whole transaction with backoff. The Edge Function
-      // only returns 5xx for retryable failures (never 4xx, which would wedge
-      // the queue), so a retry is the correct response to any non-200 here.
-      throw http.ClientException(
+      throw SyncUploadException(
         'upload-data returned ${response.statusCode}: ${response.body}',
-        Uri.parse(supabaseFunctionUrl),
+        statusCode: response.statusCode,
       );
     }
 
-    await transaction.complete();
+    await complete();
   }
 }
 
