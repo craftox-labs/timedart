@@ -1,0 +1,151 @@
+# Sync-trial builds (Phase 4, PRD #189) — NOT a release.
+#
+# Builds a sync-ENABLED variant (--dart-define=ENABLE_SYNC=true + the PowerSync /
+# Supabase endpoints) for the 2-device round-trip test, and drops the artifacts
+# into a single fixed DRAFT release tagged `sync-trial`. This is deliberately
+# separate from release.yml:
+#   * manual only (workflow_dispatch) — never fires on a tag push;
+#   * the tag `sync-trial` does NOT match release.yml's `v*` trigger and does NOT
+#     match the update-checker's `^v?\d+\.\d+\.\d+(-beta\.\d+)?$` regex, so no
+#     device ever offers it as an update and the beta numbering is untouched;
+#   * always draft + make_latest:false — it must never publish.
+#
+# The baked PowerSync token is a dashboard DEV token (~12h TTL). Refresh the
+# `POWERSYNC_TOKEN` secret and re-run this workflow for each test session:
+#   gh secret set POWERSYNC_TOKEN --repo craftox-labs/timedart
+#   gh workflow run sync-trial.yml --repo craftox-labs/timedart
+#
+# Required repo secrets:
+#   POWERSYNC_URL          https://<id>.powersync.journeyapps.com
+#   POWERSYNC_TOKEN        dashboard dev token, sub=timedart (≤12h old)
+#   SUPABASE_FUNCTION_URL  https://<ref>.supabase.co/functions/v1/upload-data
+# Android signing reuses the same secrets as release.yml so the trial APK is
+# upgrade-compatible with the installed beta (no signature-mismatch reinstall).
+#
+# RELEASE_TAG is intentionally NOT passed → the build reports as DevBuild and the
+# in-app update banner stays silent.
+
+name: Sync trial
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Linux: AppImage + tarball (Device A / desktop) ─────────────────────────
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - name: Build (sync-enabled)
+        run: |
+          flutter build linux --release \
+            --dart-define=ENABLE_SYNC=true \
+            --dart-define=POWERSYNC_URL="${{ secrets.POWERSYNC_URL }}" \
+            --dart-define=POWERSYNC_TOKEN="${{ secrets.POWERSYNC_TOKEN }}" \
+            --dart-define=SUPABASE_FUNCTION_URL="${{ secrets.SUPABASE_FUNCTION_URL }}"
+      - name: Tarball
+        run: |
+          tar -czf timedart-sync-linux-x86_64.tar.gz \
+            -C build/linux/x64/release/bundle .
+      - name: AppImage
+        run: |
+          set -eux
+          APPDIR=AppDir
+          mkdir -p "$APPDIR/usr/bin"
+          cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
+          cat > "$APPDIR/AppRun" <<'SH'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/timedart" "$@"
+          SH
+          chmod +x "$APPDIR/AppRun"
+          cat > "$APPDIR/timedart.desktop" <<'D'
+          [Desktop Entry]
+          Name=timedart (sync trial)
+          Exec=timedart
+          Icon=timedart
+          Type=Application
+          Categories=Office;Utility;
+          StartupWMClass=timedart
+          D
+          cp assets/logo/timedart_symbol.svg "$APPDIR/timedart.svg"
+          wget -q -O appimagetool \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
+            "$APPDIR" timedart-sync-linux-x86_64.AppImage
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: sync-trial
+          name: Sync trial (do not publish)
+          draft: true
+          make_latest: false
+          body: |
+            **Sync-enabled trial builds — not for release.**
+            Baked with a ~12h PowerSync dev token; rebuild via the `sync-trial`
+            workflow each test session. See the 2-device round-trip checklist.
+          files: |
+            timedart-sync-linux-x86_64.tar.gz
+            timedart-sync-linux-x86_64.AppImage
+
+  # ── Android: APK (Device B / phone) ────────────────────────────────────────
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - name: Configure release signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "No ANDROID_KEYSTORE_BASE64 secret — building debug-signed."
+            exit 0
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          echo "Release signing configured."
+      - name: Build (sync-enabled)
+        run: |
+          flutter build apk --release \
+            --dart-define=ENABLE_SYNC=true \
+            --dart-define=POWERSYNC_URL="${{ secrets.POWERSYNC_URL }}" \
+            --dart-define=POWERSYNC_TOKEN="${{ secrets.POWERSYNC_TOKEN }}" \
+            --dart-define=SUPABASE_FUNCTION_URL="${{ secrets.SUPABASE_FUNCTION_URL }}"
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk timedart-sync-android.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: sync-trial
+          name: Sync trial (do not publish)
+          draft: true
+          make_latest: false
+          files: timedart-sync-android.apk
