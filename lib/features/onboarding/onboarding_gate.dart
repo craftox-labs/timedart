@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/sync/sync_config.dart';
 import 'package:timedart/features/onboarding/onboarding_controller.dart';
 import 'package:timedart/features/onboarding/onboarding_flow.dart';
 import 'package:timedart/features/onboarding/onboarding_intro.dart';
@@ -41,17 +42,28 @@ class _RootGateState extends State<RootGate> {
   // Seed defaults first (so the default profile exists before the wizard can
   // edit it), then resolve the flag and try to advance.
   Future<void> _bootstrap() async {
-    await widget.db.ensureInvoiceDefaults();
-    // Seed the first-run example data (once, empty DB only), then open on its
-    // first project — or none, if a returning user has cleared everything.
-    await widget.db.seedFirstRunExampleData();
-    _defaultProjectId = await widget.db.firstProjectId();
-    // Mint the stable per-install id now (idempotent) so existing installs
-    // acquire one before the optional sync layer needs it (PRD #189, Phase 4).
-    await widget.db.installId();
-    final complete = await widget.db.isOnboardingComplete();
+    try {
+      await widget.db.ensureInvoiceDefaults();
+      // Seed the first-run example data (once, empty DB only), then open on its
+      // first project — or none, if a returning user has cleared everything.
+      // Skipped when sync is on: writing example data into the synced store
+      // pollutes the org and stalls startup against the live PowerSync
+      // connection. Real seeding is Phase 4d (seed-from-snapshot on enable).
+      if (!syncEnabled) {
+        await widget.db.seedFirstRunExampleData();
+      }
+      _defaultProjectId = await widget.db.firstProjectId();
+      // Mint the stable per-install id now (idempotent) so existing installs
+      // acquire one before the optional sync layer needs it (PRD #189, Phase 4).
+      await widget.db.installId();
+      _onboardingComplete = await widget.db.isOnboardingComplete();
+    } catch (e, st) {
+      // Sync is additive — a hiccup on the sync-backed connection must never
+      // strand the intro. Fall back to onboarding so the app still opens.
+      debugPrint('RootGate bootstrap error: $e\n$st');
+      _onboardingComplete = false;
+    }
     if (!mounted) return;
-    _onboardingComplete = complete;
     _advanceFromIntro();
   }
 
