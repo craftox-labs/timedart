@@ -528,6 +528,9 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     final result = sync.lastResult;
     if (sync.lastError != null) return 'Sync failed: ${sync.lastError}';
     if (result == null) return 'Sync did not run.';
+    if (result.needsSignIn) {
+      return 'Sign in to an account (Account…) to sync.';
+    }
     if (result.didSync) {
       return 'Synced — pushed ${result.pushed}, applied ${result.applied} of '
           '${result.pulled} pulled.';
@@ -648,24 +651,43 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           // Re-read on each rebuild so a completed sign-out flips the UI.
           final signedInEmail = auth.currentUserEmail;
 
-          void update(void Function() fn) => setDialogState(fn);
+          // setState only while the dialog is still mounted — an async submit
+          // can complete after the barrier/Esc/back has popped this route, and
+          // setState-after-dispose would crash.
+          void update(void Function() fn) {
+            if (dialogContext.mounted) setDialogState(fn);
+          }
 
-          // Run an auth action, then (on success) close and report. On the
-          // credential path a successful change also kicks a sync pass so the
-          // shared org resolves + new local rows push without a manual tap.
+          // Run an auth action, then (on success) close and report. Pop FIRST,
+          // then — for a sign-in/create ([syncAfter]) — kick a pass so the org
+          // resolves + local rows push. The pass is deferred to after the frame
+          // so its controller notifications never rebuild the settings panel
+          // while this dialog is being torn down (that ordering trips a
+          // framework `_dependents` assertion). Sign-out passes syncAfter:false
+          // — there's nothing to sync, and a no-account pass would skip anyway.
           Future<void> submit(
             Future<void> Function() action,
-            String okMessage,
-          ) async {
+            String okMessage, {
+            bool syncAfter = false,
+          }) async {
+            // Synchronous re-entrancy guard: `busy` is set inside setState's
+            // (synchronous) callback below, but the buttons only disable on the
+            // next rebuild, so a fast double-click could dispatch twice before
+            // that frame. Bail here on the second call.
+            if (busy) return;
             update(() {
               busy = true;
               error = null;
             });
             try {
               await action();
-              if (sync.enabled) sync.requestSync(SyncTrigger.foreground);
               if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               messenger.showSnackBar(SnackBar(content: Text(okMessage)));
+              if (syncAfter && sync.enabled) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) sync.requestSync(SyncTrigger.foreground);
+                });
+              }
             } catch (e) {
               update(() {
                 busy = false;
@@ -737,18 +759,23 @@ class _AdaptiveShellState extends State<AdaptiveShell>
               ),
             );
           } else {
-            final email = emailCtrl.text.trim();
+            // Read the fields live at click time — typing doesn't rebuild the
+            // dialog, so a value captured here at build time would be stale.
             actions.add(
               TextButton(
                 onPressed: busy
                     ? null
-                    : () => submit(
+                    : () {
+                        final email = emailCtrl.text.trim();
+                        submit(
                           () => auth.signUpWithPassword(
                             email: email,
                             password: passwordCtrl.text,
                           ),
                           'Account created — signed in as $email.',
-                        ),
+                          syncAfter: true,
+                        );
+                      },
                 child: const Text('Create account'),
               ),
             );
@@ -756,13 +783,17 @@ class _AdaptiveShellState extends State<AdaptiveShell>
               FilledButton(
                 onPressed: busy
                     ? null
-                    : () => submit(
+                    : () {
+                        final email = emailCtrl.text.trim();
+                        submit(
                           () => auth.signInWithPassword(
                             email: email,
                             password: passwordCtrl.text,
                           ),
                           'Signed in as $email.',
-                        ),
+                          syncAfter: true,
+                        );
+                      },
                 child: const Text('Sign in'),
               ),
             );

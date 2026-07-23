@@ -47,12 +47,17 @@ class SyncResult {
   /// reword).
   final bool notEntitled;
 
+  /// True when the pass was skipped because there's no account session (never
+  /// falls back to anonymous). Typed so the UI can prompt sign-in.
+  final bool needsSignIn;
+
   const SyncResult({
     this.pushed = 0,
     this.pulled = 0,
     this.applied = 0,
     this.skippedReason,
     this.notEntitled = false,
+    this.needsSignIn = false,
   });
 
   const SyncResult.skipped(String reason)
@@ -60,7 +65,17 @@ class SyncResult {
         pulled = 0,
         applied = 0,
         skippedReason = reason,
-        notEntitled = false;
+        notEntitled = false,
+        needsSignIn = false;
+
+  /// The pass was skipped because no account is signed in — sync requires one.
+  const SyncResult.notSignedIn()
+      : pushed = 0,
+        pulled = 0,
+        applied = 0,
+        skippedReason = 'not signed in',
+        notEntitled = false,
+        needsSignIn = true;
 
   /// The pass was skipped because the org isn't on a paid plan (free =
   /// local-only). Carries both the human message and the typed [notEntitled].
@@ -69,7 +84,8 @@ class SyncResult {
         pulled = 0,
         applied = 0,
         skippedReason = 'not entitled (org plan = free)',
-        notEntitled = true;
+        notEntitled = true,
+        needsSignIn = false;
 
   bool get didSync => skippedReason == null;
 
@@ -99,13 +115,22 @@ class DeltaSyncService {
   final SyncTransport _transport;
   final DeltaAuthService _auth;
 
-  /// The full pass: ensure a session + org (adopting orphan rows on first
-  /// sign-in), gate on entitlement, then push and pull all four content tables.
+  /// The full pass: require an account session, resolve the org + claim local
+  /// rows for it, gate on entitlement, then push and pull all four content
+  /// tables. Never signs in anonymously — no account, no sync.
   Future<SyncResult> syncAll() async {
-    await _auth.signInAndAdopt();
+    if (!_auth.isAccountSignedIn) {
+      return const SyncResult.notSignedIn();
+    }
+    // Gate on entitlement BEFORE adoption. Adoption re-stamps local rows'
+    // org_id + updatedAt and enqueues them; doing that for a free (unentitled)
+    // account would dirty local timestamps and grow the outbox for data that
+    // will never push. A free account resolves its org for the plan check but
+    // otherwise leaves local state untouched.
     if (!await _isEntitled()) {
       return const SyncResult.notEntitled();
     }
+    await _auth.resolveOrgAndAdopt();
 
     // Push (order is cosmetic — the server has no FKs). Each table's outbox is
     // the push set; cleared on ack.

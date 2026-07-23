@@ -6,30 +6,29 @@ import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/supabase_init.dart';
 import 'package:timedart/data/sync/delta/sync_queries.dart';
 
-// Phase 5a delta-sync (#294) — anonymous auth + org resolution + adoption.
+// Phase 5 delta-sync (#294) — account auth + org resolution + adoption.
 //
-// Anonymous-first (decision locked 2026-07-23): the first sign-in mints a
-// personal org-of-one via the `handle_new_user` trigger. The session persists
-// (supabase_flutter storage) and silent-refreshes across restarts, so this
-// signs in once, not every launch.
+// ACCOUNT-REQUIRED (decision 2026-07-23, superseding the earlier anon-first
+// call): sync is an account-based, paid feature, so this never signs in
+// anonymously. No session → sync skips (needs sign-in); it never mints an anon
+// identity or stamps a throwaway anon org onto local rows. That anon stamping
+// was a latent footgun — it forced cross-org re-homes and left orphaned server
+// rows — so it's gone. A signed-in account's session persists (supabase_flutter
+// storage) and silent-refreshes across restarts.
 //
-// Auth slice 1 (#310) adds email sign-in + sign-out on top of the anon base, so
-// a maintainer can prove a recoverable, server-backed identity and — signing in
-// with the SAME account on two devices — a real shared org (the 2-device goal).
-//
-// Two email methods, for two horizons:
+// Auth slice 1 (#310) adds email sign-in + sign-out. Two email methods, two
+// horizons:
 //   • Password (signUp/signInWithPassword): the path used NOW for personal
-//     testing. With Supabase "Confirm email" turned OFF it sends NO email, so it
-//     needs no SMTP and no deep-link plumbing — a direct API call that works
-//     identically on Linux and Android. The email is just an identifier.
+//     testing. With Supabase "Confirm email" OFF it sends NO email — a direct
+//     API call, no SMTP, no deep-link plumbing, identical on Linux and Android.
 //   • OTP code (sendEmailOtp/verifyEmailOtp): the passwordless path for the
 //     eventual PUBLIC launch. Dormant until SMTP is configured (deferred).
 //
-// Anon stays the default. NB email sign-in here starts a FRESH email session
-// (its own personal org) — it does NOT link onto the live anon user; that
-// zero-migration upgrade is slice 2 (#311). So identity state is cleared on
-// every account change to keep the org/cursor cache honest. To move existing
-// local data onto a shared account for now, use Export/Import.
+// Signing into a different account replaces the session; identity state is
+// cleared on every account change so the org/cursor cache stays honest, and
+// resolveOrgAndAdopt then claims all local rows for the signed-in account. To
+// carry data onto a shared account across devices, sign into the same account
+// (or Export/Import).
 
 class DeltaAuthService {
   DeltaAuthService(this._db, {SupabaseClient? client})
@@ -59,6 +58,12 @@ class DeltaAuthService {
   /// False when signed out (no user) or signed in with email.
   bool get isAnonymous => _client.auth.currentUser?.isAnonymous ?? false;
 
+  /// Whether there's a real, account-backed session (signed in AND not
+  /// anonymous). Sync requires this: without it, no org is resolved, no rows
+  /// are stamped, nothing is pushed. A leftover anonymous session from an older
+  /// build reads as false here, so it's ignored until the user signs in.
+  bool get isAccountSignedIn => isSignedIn && !isAnonymous;
+
   /// Create an email/password account and sign into it. With Supabase "Confirm
   /// email" OFF this returns a ready session with no email sent. Replaces any
   /// prior (anon) session rather than linking onto it, so the identity cache is
@@ -68,12 +73,18 @@ class DeltaAuthService {
     required String password,
   }) async {
     final res = await _client.auth.signUp(email: email, password: password);
-    final id = res.user?.id;
-    if (id == null) {
-      throw const DeltaSyncException('sign-up returned no user');
+    // gotrue returns a user but a NULL session when email confirmation is
+    // required — the account exists but isn't signed in, and there's no
+    // in-app way to confirm (no deep-link handling). Treat that as a failure
+    // rather than reporting a false "signed in" and clearing the cache.
+    if (res.session == null || res.user == null) {
+      throw const DeltaSyncException(
+        'account created but not signed in — email confirmation is required '
+        '(disable "Confirm email" for password sign-in)',
+      );
     }
     await _db.clearSyncIdentityState();
-    return id;
+    return res.user!.id;
   }
 
   /// Sign into an existing email/password account. The second device signs in
@@ -123,24 +134,21 @@ class DeltaAuthService {
 
   /// Sign out of the Supabase session. Does NOT wipe local data (local stays the
   /// source of truth) — only the identity cache is dropped so a later sign-in
-  /// re-resolves cleanly. The next enabled sync trigger will mint a fresh anon
-  /// session per [ensureSignedIn], the same anon-first default as a first launch.
+  /// re-resolves cleanly. After sign-out there is no session, so sync skips
+  /// (needs sign-in) until the user signs into an account again — it never falls
+  /// back to an anonymous session.
   Future<void> signOut() async {
-    await _client.auth.signOut();
-    await _db.clearSyncIdentityState();
-  }
-
-  /// Ensure there's an anonymous session, returning the user id. A no-op (just
-  /// returns the existing id) if a persisted session was restored on launch.
-  Future<String> ensureSignedIn() async {
-    final existing = currentUserId;
-    if (existing != null) return existing;
-    final res = await _client.auth.signInAnonymously();
-    final id = res.user?.id;
-    if (id == null) {
-      throw const DeltaSyncException('anonymous sign-in returned no user');
+    // gotrue clears the local session before the network revoke, so once we're
+    // here we're signed out locally regardless of the revoke's outcome. Swallow
+    // a network failure (offline) so the UI reports success, and clear the
+    // identity cache unconditionally so it can never outlive the session.
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // Local session already gone; the server token expires on its own.
+    } finally {
+      await _db.clearSyncIdentityState();
     }
-    return id;
   }
 
   /// Resolve this account's org_id, caching it in `app_settings`. Reads
@@ -162,13 +170,13 @@ class DeltaAuthService {
     return orgId;
   }
 
-  /// Sign in (if needed), resolve the org, and adopt any offline-created local
-  /// rows that carry no org_id — across all four content tables — stamping them
-  /// so they push on the next sync. Returns the org_id. This is the one-call
-  /// first-sign-in bootstrap and the mechanism by which pre-existing local data
-  /// seeds the outbox for its initial push.
-  Future<String> signInAndAdopt() async {
-    await ensureSignedIn();
+  /// Resolve the account's org and claim local rows for it — across all four
+  /// content tables — so pre-existing local data joins the account and pushes
+  /// on the next sync. Assumes an account session ([isAccountSignedIn]); the
+  /// caller (syncAll) checks that first and skips otherwise. Returns the org_id.
+  /// This is the mechanism by which a user who worked locally before subscribing
+  /// keeps their data, with no manual migration.
+  Future<String> resolveOrgAndAdopt() async {
     final orgId = await resolveOrgId();
     await _db.adoptOrphanClients(orgId);
     await _db.adoptOrphanProjects(orgId);

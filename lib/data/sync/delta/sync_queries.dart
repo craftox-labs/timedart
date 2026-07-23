@@ -123,12 +123,21 @@ extension DeltaSyncQueries on AppDatabase {
   Future<void> applyRemoteTimeEntry(RemoteTimeEntry remote) =>
       into(timeEntries).insertOnConflictUpdate(remote.toCompanion());
 
-  // ── Adoption (first sign-in) ────────────────────────────────────────────────
-  // Stamp [orgId] onto every local row that has none, bumping `updatedAt` and
-  // enqueuing it so offline-created data joins the account on the next push.
-  // Reads the null-org ids FIRST (so they can be enqueued), then updates, then
-  // marks them dirty. Non-destructive — only `org_id`/`updatedAt` change.
-  // Returns the number of rows adopted.
+  // ── Adoption / re-home (sign-in) ─────────────────────────────────────────────
+  // Claim local rows for [orgId]: stamp it onto every row that isn't already on
+  // it — both rows with NO org (used the app locally before subscribing) AND
+  // rows stamped to a DIFFERENT org (switched accounts, or used anon sync then
+  // signed into a real account). Bumps `updatedAt` and enqueues each so the data
+  // joins the signed-in account on the next push. This is the endgame contract:
+  // whatever account you sign into, your local data becomes that account's data
+  // and syncs — a local-only user who subscribes keeps their work, with zero
+  // migration. Without the "different org" arm, cross-org rows push under an org
+  // the account isn't a member of and RLS rejects the whole pass (42501).
+  // Non-destructive — only `org_id`/`updatedAt` change. Reads the ids FIRST (so
+  // they can be enqueued), then updates, then marks them dirty. Returns the
+  // number of rows claimed. (Safe under the personal-org-of-one model: a device
+  // holds one user's data. Revisit the "different org" arm if teams ever put
+  // multiple orgs' rows in one local store.)
 
   Future<int> adoptOrphanClients(String orgId) => _adoptOrphans(
       clients, clients.id, clients.orgId, orgId,
@@ -156,13 +165,15 @@ extension DeltaSyncQueries on AppDatabase {
     Insertable<R> Function(String orgId, DateTime now) companionFor,
   ) =>
       transaction(() async {
+        // Rows not already on this org: no org at all, or a different org.
+        final notOnOrg = orgCol.isNull() | orgCol.equals(orgId).not();
         final ids = await (selectOnly(table)
               ..addColumns([idCol])
-              ..where(orgCol.isNull()))
+              ..where(notOnOrg))
             .map((r) => r.read(idCol)!)
             .get();
         if (ids.isEmpty) return 0;
-        await (update(table)..where((_) => orgCol.isNull()))
+        await (update(table)..where((_) => notOnOrg))
             .write(companionFor(orgId, DateTime.now()));
         await markDirtyForSync(table.actualTableName, ids);
         return ids.length;

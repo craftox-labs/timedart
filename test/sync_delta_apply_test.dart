@@ -357,13 +357,15 @@ void main() {
     });
   });
 
-  group('adoption across all four tables', () {
-    test('stamps org_id on null-org rows, bumps updatedAt, and enqueues them',
+  group('adoption / re-home across all four tables', () {
+    test('claims null-org AND different-org rows, bumps updatedAt, enqueues',
         () async {
-      // Two clients: one orphan, one already scoped. A project chain (raw
-      // inserts, so nothing is pre-queued).
+      // Three clients: one with no org (local-only), one on a DIFFERENT org
+      // (used anon sync / another account), one already on the target org.
+      // A project chain (raw inserts, so nothing is pre-queued).
       await insertClient(id: 'c1', orgId: null, updatedAt: t0);
-      await insertClient(id: 'c2', orgId: 'existing', updatedAt: t0);
+      await insertClient(id: 'c2', orgId: 'other-org', updatedAt: t0);
+      await insertClient(id: 'c3', orgId: 'mine', updatedAt: t0);
       await db.into(db.projects).insert(ProjectsCompanion.insert(
             id: const Value('p1'),
             clientId: 'c1',
@@ -373,23 +375,27 @@ void main() {
             updatedAt: Value(t0),
           ));
 
-      expect(await db.adoptOrphanClients('mine'), 1);
+      // c1 (null) + c2 (other-org) are claimed; c3 (already mine) is not.
+      expect(await db.adoptOrphanClients('mine'), 2);
       expect(await db.adoptOrphanProjects('mine'), 1);
       expect(await db.adoptOrphanTasks('mine'), 0);
       expect(await db.adoptOrphanTimeEntries('mine'), 0);
 
       final c1 = await db.clientByIdIncludingDeleted('c1');
       final c2 = await db.clientByIdIncludingDeleted('c2');
+      final c3 = await db.clientByIdIncludingDeleted('c3');
       expect(c1!.orgId, 'mine');
-      expect(c2!.orgId, 'existing', reason: 'already-scoped rows untouched');
+      expect(c2!.orgId, 'mine', reason: 'different-org row re-homed to account');
+      expect(c3!.orgId, 'mine', reason: 'already on the org — untouched');
       expect(c1.updatedAt!.isAfter(t0), isTrue);
+      expect(c2.updatedAt!.isAfter(t0), isTrue);
 
-      // Adopted rows are queued for the first push.
-      expect(await db.outboxRowIds(kTableClients), ['c1']);
+      // Both claimed rows are queued for the push; the already-scoped one isn't.
+      expect(await db.outboxRowIds(kTableClients), unorderedEquals(['c1', 'c2']));
       expect(await db.outboxRowIds(kTableProjects), ['p1']);
     });
 
-    test('adoption is a no-op (0, no enqueue) when every row is scoped',
+    test('is a no-op (0, no enqueue) when every row is already on the org',
         () async {
       await insertClient(id: 'c1', orgId: 'mine', updatedAt: t0);
       expect(await db.adoptOrphanClients('mine'), 0);
