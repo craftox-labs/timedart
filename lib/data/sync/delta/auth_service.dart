@@ -13,14 +13,23 @@ import 'package:timedart/data/sync/delta/sync_queries.dart';
 // (supabase_flutter storage) and silent-refreshes across restarts, so this
 // signs in once, not every launch.
 //
-// Auth slice 1 (#310) adds passwordless email sign-in (OTP code) + sign-out on
-// top of the anon base, so a maintainer can prove a recoverable, server-backed
-// identity. Chosen OTP-code over magic-link: a link needs per-platform
-// deep-link plumbing; a 6-digit code is entered in-app, no URL scheme.
+// Auth slice 1 (#310) adds email sign-in + sign-out on top of the anon base, so
+// a maintainer can prove a recoverable, server-backed identity and — signing in
+// with the SAME account on two devices — a real shared org (the 2-device goal).
+//
+// Two email methods, for two horizons:
+//   • Password (signUp/signInWithPassword): the path used NOW for personal
+//     testing. With Supabase "Confirm email" turned OFF it sends NO email, so it
+//     needs no SMTP and no deep-link plumbing — a direct API call that works
+//     identically on Linux and Android. The email is just an identifier.
+//   • OTP code (sendEmailOtp/verifyEmailOtp): the passwordless path for the
+//     eventual PUBLIC launch. Dormant until SMTP is configured (deferred).
+//
 // Anon stays the default. NB email sign-in here starts a FRESH email session
 // (its own personal org) — it does NOT link onto the live anon user; that
 // zero-migration upgrade is slice 2 (#311). So identity state is cleared on
-// every account change to keep the org/cursor cache honest.
+// every account change to keep the org/cursor cache honest. To move existing
+// local data onto a shared account for now, use Export/Import.
 
 class DeltaAuthService {
   DeltaAuthService(this._db, {SupabaseClient? client})
@@ -40,6 +49,40 @@ class DeltaAuthService {
   /// Whether the current session is an anonymous one (vs an email account).
   /// False when signed out (no user) or signed in with email.
   bool get isAnonymous => _client.auth.currentUser?.isAnonymous ?? false;
+
+  /// Create an email/password account and sign into it. With Supabase "Confirm
+  /// email" OFF this returns a ready session with no email sent. Replaces any
+  /// prior (anon) session rather than linking onto it, so the identity cache is
+  /// dropped. Returns the user id.
+  Future<String> signUpWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    final res = await _client.auth.signUp(email: email, password: password);
+    final id = res.user?.id;
+    if (id == null) {
+      throw const DeltaSyncException('sign-up returned no user');
+    }
+    await _db.clearSyncIdentityState();
+    return id;
+  }
+
+  /// Sign into an existing email/password account. The second device signs in
+  /// with the SAME credentials as the first → same user → same org → shared
+  /// sync. Clears the identity cache (account change). Returns the user id.
+  Future<String> signInWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    final res = await _client.auth
+        .signInWithPassword(email: email, password: password);
+    final id = res.user?.id;
+    if (id == null) {
+      throw const DeltaSyncException('sign-in returned no user');
+    }
+    await _db.clearSyncIdentityState();
+    return id;
+  }
 
   /// Send a one-time passwordless sign-in code to [email]. Creates the user if
   /// they don't exist yet. The code arrives by email; the caller then passes it

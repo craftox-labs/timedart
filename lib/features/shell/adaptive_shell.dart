@@ -11,7 +11,6 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/data/backup.dart';
 import 'package:timedart/data/sync/delta/auth_service.dart';
 import 'package:timedart/data/sync/delta/delta_config.dart';
-import 'package:timedart/data/sync/delta/delta_exceptions.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/sync_controller.dart';
 import 'package:timedart/data/sync/delta/sync_queries.dart';
@@ -625,20 +624,21 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     );
   }
 
-  // Passwordless email sign-in / sign-out (Auth slice 1, #310). Maintainer-only,
-  // behind the delta gate. Email-signed-in → offer sign-out; otherwise a
-  // two-step OTP flow (enter email → send code → enter code → verify). Chosen
-  // OTP-code over magic-link so no per-platform deep-link handling is needed.
-  // NB this starts a fresh email session (its own org); it does NOT yet migrate
-  // anon local data onto the email account — that's the linking slice (#311).
+  // Email sign-in / sign-out (Auth slice 1, #310). Maintainer-only, behind the
+  // delta gate. Email/password so two devices signing into the SAME account
+  // share one org (the 2-device goal) with no SMTP and no deep-link plumbing —
+  // works identically on Linux and Android. Signed in → offer sign-out;
+  // otherwise email + password with Create-account / Sign-in. NB this starts a
+  // fresh email session (its own org); it does NOT migrate anon local data onto
+  // the account — use Export/Import for that until the linking slice (#311).
   Future<void> _showSyncAccount() async {
-    if (_sync == null) return;
+    final sync = _sync;
+    if (sync == null) return;
     final auth = DeltaAuthService(widget.db);
     final messenger = ScaffoldMessenger.of(context);
     final emailCtrl = TextEditingController(text: auth.currentUserEmail ?? '');
-    final codeCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
     // Hoisted out of the builder so they survive rebuilds (setDialogState).
-    var codeSent = false;
     String? error;
     var busy = false;
     await showDialog<void>(
@@ -650,17 +650,27 @@ class _AdaptiveShellState extends State<AdaptiveShell>
 
           void update(void Function() fn) => setDialogState(fn);
 
-          Future<void> run(Future<void> Function() action) async {
+          // Run an auth action, then (on success) close and report. On the
+          // credential path a successful change also kicks a sync pass so the
+          // shared org resolves + new local rows push without a manual tap.
+          Future<void> submit(
+            Future<void> Function() action,
+            String okMessage,
+          ) async {
             update(() {
               busy = true;
               error = null;
             });
             try {
               await action();
+              if (sync.enabled) sync.requestSync(SyncTrigger.foreground);
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              messenger.showSnackBar(SnackBar(content: Text(okMessage)));
             } catch (e) {
-              update(() => error = '$e');
-            } finally {
-              update(() => busy = false);
+              update(() {
+                busy = false;
+                error = '$e';
+              });
             }
           }
 
@@ -670,45 +680,40 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           } else {
             children.add(
               const Text(
-                'Sign in with an email to back up sync to a recoverable '
-                'account. A one-time code will be emailed to you.',
+                'Sign in with an email + password to share sync across your '
+                'devices — use the same account on each. Nothing is emailed.',
               ),
             );
             children.add(const SizedBox(height: 12));
             children.add(
               TextField(
                 controller: emailCtrl,
-                enabled: !busy && !codeSent,
+                enabled: !busy,
                 keyboardType: TextInputType.emailAddress,
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  hintText: 'you@example.com',
+                  hintText: 'you@timedart.app',
                 ),
               ),
             );
-            if (codeSent) {
-              children.add(const SizedBox(height: 12));
-              children.add(
-                TextField(
-                  controller: codeCtrl,
-                  enabled: !busy,
-                  keyboardType: TextInputType.number,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Code',
-                    hintText: 'from the email',
-                  ),
-                ),
-              );
-            }
+            children.add(const SizedBox(height: 12));
+            children.add(
+              TextField(
+                controller: passwordCtrl,
+                enabled: !busy,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Password'),
+              ),
+            );
           }
           if (error != null) {
             children.add(const SizedBox(height: 12));
             children.add(
               Text(
                 error!,
-                style: TextStyle(color: Theme.of(dialogContext).colorScheme.error),
+                style:
+                    TextStyle(color: Theme.of(dialogContext).colorScheme.error),
               ),
             );
           }
@@ -724,58 +729,41 @@ class _AdaptiveShellState extends State<AdaptiveShell>
               FilledButton(
                 onPressed: busy
                     ? null
-                    : () => run(() async {
-                          await auth.signOut();
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop();
-                          }
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Signed out — local data kept.'),
-                            ),
-                          );
-                        }),
+                    : () => submit(
+                          auth.signOut,
+                          'Signed out — local data kept.',
+                        ),
                 child: const Text('Sign out'),
               ),
             );
-          } else if (!codeSent) {
+          } else {
+            final email = emailCtrl.text.trim();
             actions.add(
-              FilledButton(
+              TextButton(
                 onPressed: busy
                     ? null
-                    : () => run(() async {
-                          final email = emailCtrl.text.trim();
-                          if (email.isEmpty) {
-                            throw const DeltaSyncException('Enter an email.');
-                          }
-                          await auth.sendEmailOtp(email);
-                          update(() => codeSent = true);
-                        }),
-                child: const Text('Send code'),
+                    : () => submit(
+                          () => auth.signUpWithPassword(
+                            email: email,
+                            password: passwordCtrl.text,
+                          ),
+                          'Account created — signed in as $email.',
+                        ),
+                child: const Text('Create account'),
               ),
             );
-          } else {
             actions.add(
               FilledButton(
                 onPressed: busy
                     ? null
-                    : () => run(() async {
-                          await auth.verifyEmailOtp(
-                            email: emailCtrl.text.trim(),
-                            token: codeCtrl.text.trim(),
-                          );
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop();
-                          }
-                          messenger.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Signed in as ${emailCtrl.text.trim()}.',
-                              ),
-                            ),
-                          );
-                        }),
-                child: const Text('Verify'),
+                    : () => submit(
+                          () => auth.signInWithPassword(
+                            email: email,
+                            password: passwordCtrl.text,
+                          ),
+                          'Signed in as $email.',
+                        ),
+                child: const Text('Sign in'),
               ),
             );
           }
@@ -796,7 +784,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       ),
     );
     emailCtrl.dispose();
-    codeCtrl.dispose();
+    passwordCtrl.dispose();
   }
 
   // Shared release dialog: the version + markdown notes, and a button that opens
