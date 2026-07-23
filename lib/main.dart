@@ -7,6 +7,8 @@ import 'package:timedart/features/onboarding/onboarding_gate.dart';
 import 'package:timedart/data/app_database_flutter.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/legacy_db_migration.dart';
+import 'package:timedart/data/sync/delta/delta_config.dart';
+import 'package:timedart/data/sync/delta/supabase_init.dart';
 import 'package:timedart/widgets/external_change_watcher.dart';
 
 void main() async {
@@ -26,6 +28,13 @@ void main() async {
   // build flag; identical to the old `openAppDatabase()` in every released
   // (sync-off) build (PRD #189, Phase 4c).
   final db = await openDatabaseForApp();
+  // Phase 5 delta-sync (#294): init the Supabase client before runApp, only in a
+  // maintainer's ENABLE_DELTA_SYNC build with keys set. A released build skips
+  // this entirely (deltaSyncConfigured == false) and is unchanged. Delta runs on
+  // the plain local drift store above — its gate is separate from PowerSync's.
+  if (deltaSyncConfigured) {
+    await initSupabase();
+  }
   runApp(MyApp(db: db));
 }
 

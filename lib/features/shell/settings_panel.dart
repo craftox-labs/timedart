@@ -33,6 +33,7 @@ class SettingsPanel extends StatefulWidget {
     this.onCheckForUpdates,
     this.onToggleSync,
     this.syncActive = false,
+    this.onSyncNow,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -85,6 +86,10 @@ class SettingsPanel extends StatefulWidget {
   // builds never show it. [syncActive] drives the label (Enable vs Disable).
   final Future<void> Function()? onToggleSync;
   final bool syncActive;
+  // Run one delta-sync pass now (Phase 5a, #294). Null hides the row — only ever
+  // wired in a maintainer's ENABLE_DELTA_SYNC build, so released builds never
+  // show it. Distinct from [onToggleSync] (the dormant PowerSync engine).
+  final Future<void> Function()? onSyncNow;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -295,6 +300,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
             : 'Enable sync (experimental)',
         icon: widget.syncActive ? Icons.sync_disabled : Icons.sync,
         onTap: () => widget.onToggleSync!(),
+      ),
+    if (widget.onSyncNow != null)
+      _ActionRow(
+        label: 'Sync now (delta)',
+        icon: Icons.cloud_sync_outlined,
+        onTap: () => widget.onSyncNow!(),
       ),
   ];
 

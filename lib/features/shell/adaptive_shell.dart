@@ -12,6 +12,8 @@ import 'package:timedart/data/backup.dart';
 import 'package:timedart/data/sync/sync_activation.dart';
 import 'package:timedart/data/sync/sync_config.dart';
 import 'package:timedart/data/sync/sync_token.dart';
+import 'package:timedart/data/sync/delta/delta_config.dart';
+import 'package:timedart/data/sync/delta/sync_service.dart';
 import 'package:timedart/util/save_file.dart';
 import 'package:timedart/util/pick_file.dart';
 import 'package:timedart/constants/tokens.dart';
@@ -568,6 +570,28 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     }
   }
 
+  // Run one delta-sync pass (Phase 5a, #294): push dirty clients, pull the
+  // other device's, apply LWW. Maintainer-only (ENABLE_DELTA_SYNC). A snackbar
+  // reports the outcome so the 2-device verify is observable in-app.
+  Future<void> _syncNow() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Syncing…')));
+    try {
+      final result = await DeltaSyncService(widget.db).syncAll();
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      final text = result.didSync
+          ? 'Synced — pushed ${result.pushed}, applied ${result.applied} of '
+                '${result.pulled} pulled.'
+          : 'Sync skipped — ${result.skippedReason}.';
+      messenger.showSnackBar(SnackBar(content: Text(text)));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+    }
+  }
+
   // Shared release dialog: the version + markdown notes, and a button that opens
   // the release page in the browser (Phase 1 hands the download off to the OS).
   Future<void> _showUpdateDialog(AppRelease release) => showDialog<void>(
@@ -834,6 +858,9 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           // so released builds never render the row (PRD #189, Phase 4d).
           onToggleSync: syncEnabled ? () async => run(_toggleSync) : null,
           syncActive: _syncActive,
+          // Maintainer-only "Sync now" — Phase 5a delta-sync (#294). Wired only
+          // in an ENABLE_DELTA_SYNC build with keys; released builds omit it.
+          onSyncNow: deltaSyncConfigured ? () async => run(_syncNow) : null,
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),

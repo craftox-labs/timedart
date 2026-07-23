@@ -53,6 +53,12 @@ dependencies:
   powersync: ^2.3.1
   drift_sqlite_async: ^0.3.1
 
+  # Phase 5 delta-sync (#294) — pivot off PowerSync to a hand-rolled
+  # timestamp-delta over Supabase (Auth + Postgres + RLS + PostgREST). Imported
+  # only by the app-only files under lib/data/sync/delta/, behind the
+  # ENABLE_DELTA_SYNC build flag, so the pure-Dart CLI stays Flutter-free.
+  supabase_flutter: ^2.8.0
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
