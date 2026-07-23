@@ -44,7 +44,16 @@ class DeltaAuthService {
   bool get isSignedIn => currentUserId != null;
 
   /// The signed-in user's email, or null for an anonymous / signed-out session.
-  String? get currentUserEmail => _client.auth.currentUser?.email;
+  /// Supabase reports an anonymous user's email as an EMPTY STRING (not null),
+  /// so normalise: anonymous or empty → null. Callers use `email != null` to
+  /// mean "signed in with a real email account", and an empty string would
+  /// otherwise wrongly read as one (hiding the sign-in form on an anon session).
+  String? get currentUserEmail {
+    final user = _client.auth.currentUser;
+    if (user == null || user.isAnonymous) return null;
+    final email = user.email;
+    return (email == null || email.isEmpty) ? null : email;
+  }
 
   /// Whether the current session is an anonymous one (vs an email account).
   /// False when signed out (no user) or signed in with email.
