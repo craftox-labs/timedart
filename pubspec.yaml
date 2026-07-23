@@ -45,18 +45,10 @@ dependencies:
   args: ^2.5.0
   sqlite3: ^3.3.0
 
-  # Optional sync layer (PRD #189, Phase 4). Imported ONLY by the app-only sync
-  # files under lib/data/sync/ (native, behind the ENABLE_SYNC build flag) — never
-  # by AppDatabase or the pure-Dart CLI, so `dart compile exe bin/timedart.dart`
-  # stays Flutter/native-hook free. powersync owns its own SQLite file; drift runs
-  # on top via drift_sqlite_async's SqliteAsyncDriftConnection.
-  powersync: ^2.3.1
-  drift_sqlite_async: ^0.3.1
-
-  # Phase 5 delta-sync (#294) — pivot off PowerSync to a hand-rolled
-  # timestamp-delta over Supabase (Auth + Postgres + RLS + PostgREST). Imported
-  # only by the app-only files under lib/data/sync/delta/, behind the
-  # ENABLE_DELTA_SYNC build flag, so the pure-Dart CLI stays Flutter-free.
+  # Optional sync layer (PRD #189, Phase 5) — a hand-rolled timestamp-delta over
+  # Supabase (Auth + Postgres + RLS + PostgREST). Imported only by the app-only
+  # files under lib/data/sync/delta/, behind the ENABLE_DELTA_SYNC build flag, so
+  # the pure-Dart CLI (`dart compile exe bin/timedart.dart`) stays Flutter-free.
   supabase_flutter: ^2.8.0
 
   # The following adds the Cupertino Icons font to your application.

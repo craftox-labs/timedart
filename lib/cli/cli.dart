@@ -24,7 +24,7 @@ import '../util/parse_rate.dart';
 // The CLI spine: a CommandRunner that owns the global flags (`--json`, `--db`),
 // dispatches verbs, and maps every outcome to the documented exit-code
 // contract (see exit_codes.dart). All writes go through AppDatabase/TimerStore
-// (never raw tables) so business rules — and later PowerSync CRUD capture —
+// (never raw tables) so business rules — and the delta-sync outbox capture —
 // come for free.
 
 /// Builds the top-level [CommandRunner] — the whole verb tree, wired once.

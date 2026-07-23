@@ -22,8 +22,8 @@ import 'package:timedart/widgets/tap_target.dart';
 /// repaints.
 class TimerController extends ChangeNotifier {
   TimerController(AppDatabase db) : _db = db, _store = TimerStore(db) {
-    // Reflect EXTERNAL active-timer writes (the companion CLI now, PowerSync
-    // later) live: watchActiveTimer re-emits on every commit — including those
+    // Reflect EXTERNAL active-timer writes (the companion CLI) live:
+    // watchActiveTimer re-emits on every commit — including those
     // the ExternalChangeWatcher surfaces from other connections — and reconcile
     // adopts/updates/clears the in-memory session accordingly (#274). The app's
     // own writes emit here too but reconcile treats them as no-ops.

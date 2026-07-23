@@ -9,9 +9,9 @@ import 'exit_codes.dart';
 
 // ── The CLI DB-open seam (pure Dart, the load-bearing module) ──────────────
 // A single, Flutter-free module that resolves *where* the app's database lives
-// and opens [AppDatabase] over it — the exact seam a future PowerSync-attached
-// executor (sync era, PRD #189) or a headless sync-daemon mode drops into
-// without touching any command code. It must NOT import path_provider (a
+// and opens [AppDatabase] over it — the exact seam a future headless
+// sync-daemon mode (PRD #189) drops into without touching any command code. It
+// must NOT import path_provider (a
 // Flutter platform channel unavailable under `dart compile exe`); the
 // per-platform data root is derived here from environment variables instead,
 // mirroring `data/legacy_db_migration_io.dart` so the CLI opens the *same*

@@ -9,8 +9,8 @@ import 'package:timedart/data/sync/delta/delta_config.dart';
 /// build (no keys) skips it entirely and is byte-for-byte the plain-local app.
 ///
 /// `supabase_flutter` persists the auth session to local storage and silently
-/// refreshes it, so an anonymous session survives restarts with no 12-hour wall
-/// (unlike the PowerSync dev-token trial).
+/// refreshes it, so an anonymous session survives restarts with no manual
+/// token minting.
 Future<void> initSupabase() async {
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
 }

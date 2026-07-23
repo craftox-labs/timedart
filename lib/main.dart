@@ -24,14 +24,13 @@ void main() async {
   // Rename any pre-1.0 `time_tracker.sqlite` to `timedart.sqlite` before the
   // database opens (no-op on web / fresh installs). Keeps existing users' data.
   await migrateLegacyDatabaseFile();
-  // Chooses the plain-local or PowerSync-backed connection by the ENABLE_SYNC
-  // build flag; identical to the old `openAppDatabase()` in every released
-  // (sync-off) build (PRD #189, Phase 4c).
-  final db = await openDatabaseForApp();
+  // The one local-first drift store. Delta sync (below) replicates it in the
+  // background; there is no separate synced database.
+  final db = openAppDatabase();
   // Phase 5 delta-sync (#294): init the Supabase client before runApp, only in a
   // maintainer's ENABLE_DELTA_SYNC build with keys set. A released build skips
   // this entirely (deltaSyncConfigured == false) and is unchanged. Delta runs on
-  // the plain local drift store above — its gate is separate from PowerSync's.
+  // the local drift store above.
   if (deltaSyncConfigured) {
     await initSupabase();
   }
@@ -58,7 +57,7 @@ class MyApp extends StatelessWidget {
       },
       title: 'timedart',
       theme: buildAppTheme(Brightness.dark),
-      // Reflect external DB writes (CLI now, PowerSync later) live — polls
+      // Reflect external DB writes (the companion CLI, delta-sync applies) live — polls
       // `data_version` while foregrounded and refreshes drift streams on an
       // external commit (PRD #270, slice #274).
       home: ExternalChangeWatcher(db: db, child: RootGate(db: db)),

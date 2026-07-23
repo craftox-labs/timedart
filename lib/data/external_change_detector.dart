@@ -5,7 +5,7 @@
 /// SQLite's `PRAGMA data_version` is bumped on a connection whenever ANY OTHER
 /// connection commits, and is stable across the connection's own writes — so it
 /// is a writer-agnostic "someone else changed the file" signal (the CLI now, a
-/// second CLI, or PowerSync applying remote changes later). This class owns only
+/// second CLI, or a delta-sync apply). This class owns only
 /// the last-seen bookkeeping; the timer/lifecycle/drift wiring is a thin shell
 /// around it (see the ExternalChangeWatcher widget), keeping the decision
 /// Flutter-free and exhaustively testable.
