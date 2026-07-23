@@ -354,6 +354,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     if (c == null) return '';
     if (c.phase == SyncPhase.syncing) return ' · syncing…';
     if (c.lastError != null) return ' · offline';
+    if (c.lastResult?.needsSignIn ?? false) return ' · sign in';
     if (c.lastResult?.notEntitled ?? false) return ' · free (local-only)';
     final at = c.lastSyncedAt;
     if (at == null) return ' · idle';

@@ -528,6 +528,9 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     final result = sync.lastResult;
     if (sync.lastError != null) return 'Sync failed: ${sync.lastError}';
     if (result == null) return 'Sync did not run.';
+    if (result.needsSignIn) {
+      return 'Sign in to an account (Account…) to sync.';
+    }
     if (result.didSync) {
       return 'Synced — pushed ${result.pushed}, applied ${result.applied} of '
           '${result.pulled} pulled.';
