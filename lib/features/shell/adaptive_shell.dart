@@ -651,7 +651,12 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           // Re-read on each rebuild so a completed sign-out flips the UI.
           final signedInEmail = auth.currentUserEmail;
 
-          void update(void Function() fn) => setDialogState(fn);
+          // setState only while the dialog is still mounted — an async submit
+          // can complete after the barrier/Esc/back has popped this route, and
+          // setState-after-dispose would crash.
+          void update(void Function() fn) {
+            if (dialogContext.mounted) setDialogState(fn);
+          }
 
           // Run an auth action, then (on success) close and report. Pop FIRST,
           // then — for a sign-in/create ([syncAfter]) — kick a pass so the org
@@ -665,6 +670,11 @@ class _AdaptiveShellState extends State<AdaptiveShell>
             String okMessage, {
             bool syncAfter = false,
           }) async {
+            // Synchronous re-entrancy guard: `busy` is set inside setState's
+            // (synchronous) callback below, but the buttons only disable on the
+            // next rebuild, so a fast double-click could dispatch twice before
+            // that frame. Bail here on the second call.
+            if (busy) return;
             update(() {
               busy = true;
               error = null;

@@ -122,10 +122,15 @@ class DeltaSyncService {
     if (!_auth.isAccountSignedIn) {
       return const SyncResult.notSignedIn();
     }
-    await _auth.resolveOrgAndAdopt();
+    // Gate on entitlement BEFORE adoption. Adoption re-stamps local rows'
+    // org_id + updatedAt and enqueues them; doing that for a free (unentitled)
+    // account would dirty local timestamps and grow the outbox for data that
+    // will never push. A free account resolves its org for the plan check but
+    // otherwise leaves local state untouched.
     if (!await _isEntitled()) {
       return const SyncResult.notEntitled();
     }
+    await _auth.resolveOrgAndAdopt();
 
     // Push (order is cosmetic — the server has no FKs). Each table's outbox is
     // the push set; cleared on ack.

@@ -73,12 +73,18 @@ class DeltaAuthService {
     required String password,
   }) async {
     final res = await _client.auth.signUp(email: email, password: password);
-    final id = res.user?.id;
-    if (id == null) {
-      throw const DeltaSyncException('sign-up returned no user');
+    // gotrue returns a user but a NULL session when email confirmation is
+    // required — the account exists but isn't signed in, and there's no
+    // in-app way to confirm (no deep-link handling). Treat that as a failure
+    // rather than reporting a false "signed in" and clearing the cache.
+    if (res.session == null || res.user == null) {
+      throw const DeltaSyncException(
+        'account created but not signed in — email confirmation is required '
+        '(disable "Confirm email" for password sign-in)',
+      );
     }
     await _db.clearSyncIdentityState();
-    return id;
+    return res.user!.id;
   }
 
   /// Sign into an existing email/password account. The second device signs in
@@ -132,8 +138,17 @@ class DeltaAuthService {
   /// (needs sign-in) until the user signs into an account again — it never falls
   /// back to an anonymous session.
   Future<void> signOut() async {
-    await _client.auth.signOut();
-    await _db.clearSyncIdentityState();
+    // gotrue clears the local session before the network revoke, so once we're
+    // here we're signed out locally regardless of the revoke's outcome. Swallow
+    // a network failure (offline) so the UI reports success, and clear the
+    // identity cache unconditionally so it can never outlive the session.
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // Local session already gone; the server token expires on its own.
+    } finally {
+      await _db.clearSyncIdentityState();
+    }
   }
 
   /// Resolve this account's org_id, caching it in `app_settings`. Reads
