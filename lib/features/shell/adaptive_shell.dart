@@ -13,7 +13,10 @@ import 'package:timedart/data/sync/sync_activation.dart';
 import 'package:timedart/data/sync/sync_config.dart';
 import 'package:timedart/data/sync/sync_token.dart';
 import 'package:timedart/data/sync/delta/delta_config.dart';
+import 'package:timedart/data/sync/delta/delta_keys.dart';
+import 'package:timedart/data/sync/delta/supabase_init.dart';
 import 'package:timedart/data/sync/delta/sync_controller.dart';
+import 'package:timedart/data/sync/delta/sync_queries.dart';
 import 'package:timedart/util/save_file.dart';
 import 'package:timedart/util/pick_file.dart';
 import 'package:timedart/constants/tokens.dart';
@@ -586,20 +589,104 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     await sync.syncNow();
     if (!mounted) return;
     messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(_syncResultText(sync))));
+  }
+
+  // Human-readable outcome of the controller's last pass, shared by "Sync now"
+  // and the enable flow.
+  String _syncResultText(SyncController sync) {
     final result = sync.lastResult;
-    final String text;
-    if (sync.lastError != null) {
-      text = 'Sync failed: ${sync.lastError}';
-    } else if (result == null) {
-      text = 'Sync did not run.';
-    } else if (result.didSync) {
-      text =
-          'Synced — pushed ${result.pushed}, applied ${result.applied} of '
+    if (sync.lastError != null) return 'Sync failed: ${sync.lastError}';
+    if (result == null) return 'Sync did not run.';
+    if (result.didSync) {
+      return 'Synced — pushed ${result.pushed}, applied ${result.applied} of '
           '${result.pulled} pulled.';
-    } else {
-      text = 'Sync skipped — ${result.skippedReason}.';
     }
-    messenger.showSnackBar(SnackBar(content: Text(text)));
+    return 'Sync skipped — ${result.skippedReason}.';
+  }
+
+  // Opt in / out of delta sync (Phase 5d, #294). Persists the flag, then flips
+  // the controller: enabling arms scheduling and kicks a first pass (sign-in +
+  // adoption of offline-created local rows); disabling stops future passes but
+  // keeps the session and all local data, so re-enabling resumes the same
+  // account. Maintainer-only.
+  Future<void> _toggleDeltaSync() async {
+    final sync = _sync;
+    if (sync == null) return;
+    final turnOn = !sync.enabled;
+    final messenger = ScaffoldMessenger.of(context);
+    await widget.db.setSyncSetting(kSyncEnabled, turnOn ? '1' : '0');
+    if (turnOn) {
+      messenger.showSnackBar(const SnackBar(content: Text('Enabling sync…')));
+      await sync.setEnabled(true);
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text(_syncResultText(sync))));
+    } else {
+      await sync.setEnabled(false);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Sync disabled — local data kept.')),
+      );
+    }
+  }
+
+  // A read-only account/status dialog (Phase 5d, #294) — the identity + org a
+  // device is on, plus the last pass. Maintainer-only; useful when bridging two
+  // devices by hand (it surfaces the anon user id + org_id the manual
+  // membership bridge needs).
+  Future<void> _showSyncDetails() async {
+    final sync = _sync;
+    if (sync == null) return;
+    final userId = supabase.auth.currentUser?.id;
+    final orgId = await widget.db.syncSetting(kSyncOrgId);
+    if (!mounted) return;
+    final lastSynced = sync.lastSyncedAt;
+    final rows = <(String, String)>[
+      ('Enabled', sync.enabled ? 'yes' : 'no'),
+      ('Signed in', userId == null ? 'no' : 'anonymous'),
+      ('User id', userId ?? '—'),
+      ('Org id', orgId ?? '—'),
+      ('Last synced', lastSynced == null ? 'never' : '$lastSynced'),
+      ('Last result', sync.lastResult?.toString() ?? '—'),
+      if (sync.lastError != null) ('Last error', '${sync.lastError}'),
+    ];
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sync details'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (label, value) in rows)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '$label: ',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextSpan(text: value),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   // Shared release dialog: the version + markdown notes, and a button that opens
@@ -692,17 +779,19 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     });
     widget.db.ensureInvoiceDefaults(); // seed timedart theme/profile/template
 
-    // Automatic delta-sync (Phase 5c, #294): stand up the controller, observe
-    // app lifecycle for a foreground trigger, kick a pass when a timer stops,
-    // and arm the periodic tick. Maintainer-only — inert without the build gate.
+    // Delta-sync (Phase 5c triggers + 5d opt-in, #294): stand up the controller
+    // and observe app lifecycle / timer-stop, but stay dormant until the
+    // maintainer has opted in. Restoring `sync.delta.enabled == '1'` arms the
+    // scheduler and kicks the first pass (sign-in + adoption). While off, every
+    // trigger is a no-op. Maintainer-only — inert without the build gate.
     if (deltaSyncConfigured) {
       final sync = SyncController(widget.db);
       _sync = sync;
       WidgetsBinding.instance.addObserver(this);
       _timer.onEntryCommitted = () => sync.requestSync(SyncTrigger.timerStop);
-      sync.start();
-      // A sync on launch pulls whatever the other device changed while away.
-      sync.requestSync(SyncTrigger.foreground);
+      widget.db.syncSetting(kSyncEnabled).then((v) {
+        if (mounted) sync.setEnabled(v == '1');
+      });
     }
 
     // Reflect the current sync state on the Settings toggle (PRD #189, Phase
@@ -897,8 +986,17 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           // in an ENABLE_DELTA_SYNC build with keys; released builds omit it.
           onSyncNow: deltaSyncConfigured ? () async => run(_syncNow) : null,
           // The 5c controller drives the Sync-now row's status suffix (idle /
-          // syncing / synced Xm ago / offline). Null in released builds.
+          // syncing / synced Xm ago / offline) and the 5d enable/disable state.
+          // Null in released builds.
           syncController: _sync,
+          // Maintainer-only delta opt-in + details (Phase 5d, #294). Wired only
+          // in an ENABLE_DELTA_SYNC build; released builds omit both rows.
+          onToggleDeltaSync: deltaSyncConfigured
+              ? () async => run(_toggleDeltaSync)
+              : null,
+          onSyncDetails: deltaSyncConfigured
+              ? () async => run(_showSyncDetails)
+              : null,
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),

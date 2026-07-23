@@ -43,6 +43,10 @@ enum SyncTrigger {
   /// The periodic safety-net tick (mainly to pull the other device's edits
   /// while this one sits open).
   periodic,
+
+  /// The maintainer just turned sync on — the first pass signs in and adopts
+  /// any offline-created local rows (Phase 5d).
+  enable,
 }
 
 /// Coarse state of the sync engine, surfaced to the maintainer status line.
@@ -74,7 +78,9 @@ class SyncController extends ChangeNotifier {
     this.enablePeriodic = true,
     this.periodicInterval = kPeriodicSyncInterval,
     this.syncTimeout = kSyncTimeout,
-  })  : _clock = clock ?? DateTime.now {
+    bool startEnabled = false,
+  })  : _clock = clock ?? DateTime.now,
+        _enabled = startEnabled {
     // Build the default service once (it flips `enableSyncOutbox` on and holds
     // a transport/auth). Tests inject a [runner] instead and skip this.
     _runner = runner ?? (() => (_service ??= DeltaSyncService(_db)).syncAll());
@@ -124,28 +130,42 @@ class SyncController extends ChangeNotifier {
   bool _rerunQueued = false;
   int _consecutiveFailures = 0;
   Timer? _periodicTimer;
-  bool _started = false;
+  bool _enabled;
   bool _disposed = false;
 
   /// True while a pass is in flight — exposed for tests and callers that want to
   /// avoid piling on.
   bool get isSyncing => _inFlight != null;
 
-  /// Begin automatic scheduling: arm the first periodic tick. Idempotent. The
-  /// shell calls this once after construction; foreground/timer-stop triggers
-  /// work whether or not this was called.
-  void start() {
-    if (_started || _disposed) return;
-    _started = true;
-    _armPeriodic();
+  /// Whether the maintainer has opted delta sync ON (Phase 5d). While off, every
+  /// trigger is a no-op — no sign-in, no network, no periodic tick — so a
+  /// local-only device has zero server footprint. The shell mirrors the
+  /// persisted `sync.delta.enabled` flag into this.
+  bool get enabled => _enabled;
+
+  /// Turn sync on or off. Turning ON arms the periodic tick and kicks a pass
+  /// (which signs in + adopts offline-created local rows). Turning OFF cancels
+  /// the tick and stops future triggers — it does NOT sign out or touch local
+  /// data, so re-enabling resumes the same account and nothing is lost. Returns
+  /// the enable pass's future (a no-op future when turning off or unchanged).
+  Future<void> setEnabled(bool value) {
+    if (_disposed || value == _enabled) return Future<void>.value();
+    _enabled = value;
+    notifyListeners();
+    if (value) {
+      _armPeriodic();
+      return requestSync(SyncTrigger.enable);
+    }
+    _periodicTimer?.cancel();
+    return Future<void>.value();
   }
 
   /// Request a sync. If one is already running, coalesce into a single re-run so
   /// the just-made change still goes out. Fire-and-forget safe: it never throws
   /// (errors land in [lastError]). Returns the in-flight future so [manual] can
-  /// await the outcome.
+  /// await the outcome. A no-op while sync is [enabled] == false.
   Future<void> requestSync(SyncTrigger trigger) {
-    if (_disposed) return Future<void>.value();
+    if (_disposed || !_enabled) return Future<void>.value();
     if (_inFlight != null) {
       _rerunQueued = true;
       return _inFlight!;
@@ -198,13 +218,13 @@ class SyncController extends ChangeNotifier {
     }
     if (!_disposed) notifyListeners();
     // Re-arm the periodic tick against the (possibly backed-off) interval.
-    if (_started) _armPeriodic();
+    if (_enabled) _armPeriodic();
   }
 
   // Periodic tick, re-armed as a single-shot Timer each time so the interval can
   // widen under backoff. `2^failures × base`, capped at [kMaxBackoff].
   void _armPeriodic() {
-    if (!enablePeriodic || _disposed) return;
+    if (!enablePeriodic || _disposed || !_enabled) return;
     _periodicTimer?.cancel();
     _periodicTimer = Timer(_nextInterval(), () {
       requestSync(SyncTrigger.periodic);

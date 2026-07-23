@@ -8,6 +8,14 @@ library;
 /// local rows during adoption and supplied as `org_id` on push.
 const String kSyncOrgId = 'sync.orgId';
 
+/// The opt-in switch (Phase 5d, #294): whether the maintainer has turned delta
+/// sync ON for this device. `'1'` = on, anything else (incl. absent) = off. Off
+/// is the default — local-only, no sign-in, no network. Device-local so each
+/// device opts in independently; kept in `app_settings` because delta sync runs
+/// on the one local drift store (unlike PowerSync 4d, there's no second store to
+/// split-brain, so no on-disk activation file is needed).
+const String kSyncEnabled = 'sync.delta.enabled';
+
 /// The four synced content-table names (== each drift table's `actualTableName`
 /// and its `public.<name>` Postgres table). The single source the outbox,
 /// transport, and cursor keys all agree on — a typo here would be a silent sync

@@ -24,6 +24,7 @@ void main() {
     Future<SyncResult> Function() runner, {
     DateTime Function()? clock,
     Duration? syncTimeout,
+    bool startEnabled = true,
   }) =>
       SyncController(
         db,
@@ -31,6 +32,7 @@ void main() {
         clock: clock ?? () => clockAt,
         enablePeriodic: false,
         syncTimeout: syncTimeout ?? kSyncTimeout,
+        startEnabled: startEnabled,
       );
 
   test('a successful pass moves phase idle→syncing→idle and stamps status',
@@ -126,6 +128,51 @@ void main() {
     // The abandoned pass completing late must not throw into the zone.
     hang.complete(const SyncResult(pushed: 1));
     await Future<void>.delayed(Duration.zero);
+  });
+
+  test('while disabled every trigger is a no-op (no sign-in, no run)',
+      () async {
+    var calls = 0;
+    final c = make(
+      () async {
+        calls++;
+        return const SyncResult(pushed: 1);
+      },
+      startEnabled: false,
+    );
+    expect(c.enabled, isFalse);
+    await c.requestSync(SyncTrigger.foreground);
+    await c.requestSync(SyncTrigger.periodic);
+    await c.syncNow();
+    expect(calls, 0);
+    expect(c.lastResult, isNull);
+  });
+
+  test('setEnabled(true) kicks a pass; disabling then stops future triggers',
+      () async {
+    var calls = 0;
+    final c = make(
+      () async {
+        calls++;
+        return const SyncResult(pushed: 1);
+      },
+      startEnabled: false,
+    );
+
+    await c.setEnabled(true); // enabling runs the sign-in/adopt pass
+    expect(c.enabled, isTrue);
+    expect(calls, 1);
+
+    await c.syncNow(); // enabled → runs
+    expect(calls, 2);
+
+    await c.setEnabled(false); // keeps session/data; just stops passes
+    expect(c.enabled, isFalse);
+    await c.syncNow();
+    expect(calls, 2); // unchanged — disabled no-ops
+
+    await c.setEnabled(false); // idempotent — no extra pass
+    expect(calls, 2);
   });
 
   test('requestSync after dispose is a no-op that does not run or notify',

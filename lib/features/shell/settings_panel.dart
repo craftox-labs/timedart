@@ -36,6 +36,8 @@ class SettingsPanel extends StatefulWidget {
     this.syncActive = false,
     this.onSyncNow,
     this.syncController,
+    this.onToggleDeltaSync,
+    this.onSyncDetails,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -97,6 +99,13 @@ class SettingsPanel extends StatefulWidget {
   // [onSyncNow] in a maintainer's ENABLE_DELTA_SYNC build; the panel rebuilds on
   // its notifications so background passes show without a tap.
   final SyncController? syncController;
+  // Opt delta sync in/out (Phase 5d, #294). Null hides the enable/disable row —
+  // only wired alongside [syncController] in a maintainer's ENABLE_DELTA_SYNC
+  // build. The row's label follows [SyncController.enabled].
+  final Future<void> Function()? onToggleDeltaSync;
+  // Open the read-only sync account/status dialog (Phase 5d). Null hides the
+  // row; only shown while sync is enabled.
+  final Future<void> Function()? onSyncDetails;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -311,22 +320,51 @@ class _SettingsPanelState extends State<SettingsPanel> {
         icon: widget.syncActive ? Icons.sync_disabled : Icons.sync,
         onTap: () => widget.onToggleSync!(),
       ),
-    if (widget.onSyncNow != null)
-      _ActionRow(
-        label: 'Sync now (delta)$_syncStatusSuffix',
-        icon: Icons.cloud_sync_outlined,
-        onTap: () => widget.onSyncNow!(),
-      ),
+    // Delta sync (Phase 5d, #294): an opt-in toggle, and — once on — the
+    // manual pass (with live status) and the account/status dialog. All gated
+    // on a controller being wired, so released builds show none of them.
+    ..._deltaSyncRows(),
   ];
 
+  List<_ActionRow> _deltaSyncRows() {
+    final sync = widget.syncController;
+    if (sync == null || widget.onToggleDeltaSync == null) return const [];
+    return [
+      _ActionRow(
+        label: sync.enabled ? 'Disable sync (delta)' : 'Enable sync (delta)',
+        icon: sync.enabled ? Icons.cloud_done_outlined : Icons.cloud_outlined,
+        onTap: () => widget.onToggleDeltaSync!(),
+      ),
+      if (sync.enabled && widget.onSyncNow != null)
+        _ActionRow(
+          label: 'Sync now (delta)$_syncStatusSuffix',
+          icon: Icons.cloud_sync_outlined,
+          onTap: () => widget.onSyncNow!(),
+        ),
+      if (sync.enabled && widget.onSyncDetails != null)
+        _ActionRow(
+          label: 'Sync details…',
+          icon: Icons.info_outline,
+          onTap: () => widget.onSyncDetails!(),
+        ),
+    ];
+  }
+
   // A short, live status appended to the "Sync now" row so background passes
-  // (foreground / post-timer / periodic) are observable without a tap. Empty
-  // when no controller is wired (released builds never reach this row anyway).
+  // (foreground / post-timer / periodic) are observable without a tap, and the
+  // paid-feature gate is visible instead of a silent skip. Empty when no
+  // controller is wired (released builds never reach this row anyway).
   String get _syncStatusSuffix {
     final c = widget.syncController;
     if (c == null) return '';
     if (c.phase == SyncPhase.syncing) return ' · syncing…';
     if (c.lastError != null) return ' · offline';
+    final r = c.lastResult;
+    if (r != null &&
+        !r.didSync &&
+        (r.skippedReason?.contains('entitled') ?? false)) {
+      return ' · free (local-only)';
+    }
     final at = c.lastSyncedAt;
     if (at == null) return ' · idle';
     return ' · synced ${_ago(DateTime.now().difference(at))}';
