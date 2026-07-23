@@ -38,11 +38,27 @@ extension DeltaSyncQueries on AppDatabase {
 
   /// Clear the outbox entries for [table]/[ids] after a successful push. Partial
   /// failure just leaves the rest queued for the next pass.
-  Future<void> clearOutbox(String table, Iterable<String> ids) async {
+  ///
+  /// [queuedBefore] guards a TOCTOU race: `_push` reads the ids, then awaits the
+  /// network, and a *concurrent local edit* during that await re-enqueues one of
+  /// those ids (bumping its `queuedAt`) — its new state hasn't been pushed. By
+  /// clearing only rows whose `queuedAt` is strictly before the pass's snapshot,
+  /// such a re-queued row survives the clear and pushes next pass, instead of
+  /// being silently dropped. Omit it to clear unconditionally (tests).
+  Future<void> clearOutbox(
+    String table,
+    Iterable<String> ids, {
+    DateTime? queuedBefore,
+  }) async {
     final list = ids.toList();
     if (list.isEmpty) return;
     await (delete(syncOutbox)
-          ..where((o) => o.targetTable.equals(table) & o.rowId.isIn(list)))
+          ..where((o) {
+            final base = o.targetTable.equals(table) & o.rowId.isIn(list);
+            return queuedBefore == null
+                ? base
+                : base & o.queuedAt.isSmallerThanValue(queuedBefore);
+          }))
         .go();
   }
 

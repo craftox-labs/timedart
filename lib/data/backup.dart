@@ -270,6 +270,23 @@ Future<SnapshotRepair> restoreBackup(AppDatabase db, Backup backup) async {
         for (final r in s.settings) r.toCompanion(false),
       ]);
     });
+    // Delta-sync (Phase 5b): a restore bulk-inserts straight into the tables,
+    // bypassing the per-write choke-point, so the restored content rows would
+    // never be enqueued for push — a silent sync hole. Enqueue them explicitly
+    // (no-op unless the outbox is active). NB: rows that exist on the SERVER but
+    // are absent from this snapshot are not tombstoned here — a full
+    // restore↔server reconciliation is deferred with the sync merge semantics;
+    // this only guarantees the restored data itself propagates.
+    if (db.enableSyncOutbox) {
+      await db.markDirtyForSync(
+          db.clients.actualTableName, [for (final r in s.clients) r.id]);
+      await db.markDirtyForSync(
+          db.projects.actualTableName, [for (final r in s.projects) r.id]);
+      await db.markDirtyForSync(
+          db.tasks.actualTableName, [for (final r in s.tasks) r.id]);
+      await db.markDirtyForSync(db.timeEntries.actualTableName,
+          [for (final r in s.timeEntries) r.id]);
+    }
   });
   return repair;
 }

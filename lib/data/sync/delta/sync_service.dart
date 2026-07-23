@@ -132,11 +132,15 @@ class DeltaSyncService {
     String table,
     Future<List<Map<String, dynamic>>> Function(List<String>) buildWire,
   ) async {
+    // Snapshot the pass start BEFORE reading the outbox, so a concurrent edit
+    // that re-queues one of these ids during the network round-trip (bumping its
+    // queuedAt past the snapshot) is NOT cleared — it pushes next pass.
+    final snapshot = DateTime.now();
     final ids = await _db.outboxRowIds(table);
     if (ids.isEmpty) return 0;
     final rows = await buildWire(ids);
     await _transport.pushRows(table, rows);
-    await _db.clearOutbox(table, ids);
+    await _db.clearOutbox(table, ids, queuedBefore: snapshot);
     return rows.length;
   }
 

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timedart/data/backup.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
@@ -174,6 +175,73 @@ void main() {
       final b = await db.addClient(name: 'B', defaultRate: 1);
       await db.clearOutbox(kTableClients, [a]);
       expect(await db.outboxRowIds(kTableClients), [b]);
+    });
+
+    test('queuedBefore guard: a row re-queued after the snapshot survives clear',
+        () async {
+      // Simulate the drain race: id 'a' queued during the pass (queuedAt = t2),
+      // AFTER the pass snapshot (t1). Clearing with queuedBefore: t1 must leave
+      // it — its new state hasn't been pushed yet.
+      await db.into(db.syncOutbox).insert(SyncOutboxCompanion.insert(
+            targetTable: kTableClients,
+            rowId: 'a',
+            queuedAt: Value(t2),
+          ));
+      await db.clearOutbox(kTableClients, ['a'], queuedBefore: t1);
+      expect(await db.outboxRowIds(kTableClients), ['a'],
+          reason: 're-queued-during-pass row must not be dropped');
+      // A snapshot in a strictly later second does clear it. (drift stores
+      // DateTime as unix SECONDS, so the guard's granularity is 1s — the
+      // conservative direction: a same-second concurrent enqueue is kept, never
+      // dropped.)
+      await db.clearOutbox(kTableClients, ['a'],
+          queuedBefore: DateTime.fromMillisecondsSinceEpoch(4000));
+      expect(await db.outboxRowIds(kTableClients), isEmpty);
+    });
+  });
+
+  group('restoreBackup enqueues restored content rows (no silent hole)', () {
+    test('restored clients/projects land in the outbox when sync is active',
+        () async {
+      // Build a snapshot on a sync-OFF source db (nothing pre-queued).
+      final src = AppDatabase(NativeDatabase.memory());
+      addTearDown(src.close);
+      final client = await src.addClient(name: 'Acme', defaultRate: 100);
+      final project =
+          await src.addProject(clientId: client, code: 'P1', title: 'Proj');
+      final snapshot = await readBackupSnapshot(src);
+
+      // Restore into the sync-ON db (setUp already set enableSyncOutbox = true).
+      await restoreBackup(
+        db,
+        Backup(
+          formatVersion: backupFormatVersion,
+          schemaVersion: db.schemaVersion,
+          exportedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          snapshot: snapshot,
+        ),
+      );
+
+      expect(await db.outboxRowIds(kTableClients), contains(client));
+      expect(await db.outboxRowIds(kTableProjects), contains(project));
+    });
+
+    test('restore into a sync-OFF db enqueues nothing', () async {
+      db.enableSyncOutbox = false;
+      final src = AppDatabase(NativeDatabase.memory());
+      addTearDown(src.close);
+      await src.addClient(name: 'Acme', defaultRate: 100);
+      final snapshot = await readBackupSnapshot(src);
+      await restoreBackup(
+        db,
+        Backup(
+          formatVersion: backupFormatVersion,
+          schemaVersion: db.schemaVersion,
+          exportedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          snapshot: snapshot,
+        ),
+      );
+      expect(await db.outboxRowIds(kTableClients), isEmpty);
     });
   });
 
