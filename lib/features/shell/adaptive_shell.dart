@@ -653,22 +653,31 @@ class _AdaptiveShellState extends State<AdaptiveShell>
 
           void update(void Function() fn) => setDialogState(fn);
 
-          // Run an auth action, then (on success) close and report. On the
-          // credential path a successful change also kicks a sync pass so the
-          // shared org resolves + new local rows push without a manual tap.
+          // Run an auth action, then (on success) close and report. Pop FIRST,
+          // then — for a sign-in/create ([syncAfter]) — kick a pass so the org
+          // resolves + local rows push. The pass is deferred to after the frame
+          // so its controller notifications never rebuild the settings panel
+          // while this dialog is being torn down (that ordering trips a
+          // framework `_dependents` assertion). Sign-out passes syncAfter:false
+          // — there's nothing to sync, and a no-account pass would skip anyway.
           Future<void> submit(
             Future<void> Function() action,
-            String okMessage,
-          ) async {
+            String okMessage, {
+            bool syncAfter = false,
+          }) async {
             update(() {
               busy = true;
               error = null;
             });
             try {
               await action();
-              if (sync.enabled) sync.requestSync(SyncTrigger.foreground);
               if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               messenger.showSnackBar(SnackBar(content: Text(okMessage)));
+              if (syncAfter && sync.enabled) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) sync.requestSync(SyncTrigger.foreground);
+                });
+              }
             } catch (e) {
               update(() {
                 busy = false;
@@ -751,6 +760,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                             password: passwordCtrl.text,
                           ),
                           'Account created — signed in as $email.',
+                          syncAfter: true,
                         ),
                 child: const Text('Create account'),
               ),
@@ -765,6 +775,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                             password: passwordCtrl.text,
                           ),
                           'Signed in as $email.',
+                          syncAfter: true,
                         ),
                 child: const Text('Sign in'),
               ),
