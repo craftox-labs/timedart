@@ -63,6 +63,15 @@ void main() {
     expect(c.lastError, isNull);
   });
 
+  test('a not-entitled skip carries the typed flag for the paid-gate UI',
+      () async {
+    final c = make(() async => const SyncResult.notEntitled());
+    await c.syncNow();
+    expect(c.lastResult?.notEntitled, isTrue);
+    expect(c.lastResult?.didSync, isFalse);
+    expect(c.lastSyncedAt, isNull);
+  });
+
   test('a request mid-pass coalesces into exactly one re-run', () async {
     var calls = 0;
     final gate = Completer<void>();

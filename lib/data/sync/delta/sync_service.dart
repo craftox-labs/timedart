@@ -41,18 +41,35 @@ class SyncResult {
   /// Non-null when the pass did no work: why (e.g. `not entitled`).
   final String? skippedReason;
 
+  /// True when the pass was skipped specifically because the org is on the free
+  /// plan. A typed signal so the UI can show the paid-feature gate without
+  /// matching on [skippedReason]'s prose (which is snackbar text, free to
+  /// reword).
+  final bool notEntitled;
+
   const SyncResult({
     this.pushed = 0,
     this.pulled = 0,
     this.applied = 0,
     this.skippedReason,
+    this.notEntitled = false,
   });
 
   const SyncResult.skipped(String reason)
       : pushed = 0,
         pulled = 0,
         applied = 0,
-        skippedReason = reason;
+        skippedReason = reason,
+        notEntitled = false;
+
+  /// The pass was skipped because the org isn't on a paid plan (free =
+  /// local-only). Carries both the human message and the typed [notEntitled].
+  const SyncResult.notEntitled()
+      : pushed = 0,
+        pulled = 0,
+        applied = 0,
+        skippedReason = 'not entitled (org plan = free)',
+        notEntitled = true;
 
   bool get didSync => skippedReason == null;
 
@@ -87,7 +104,7 @@ class DeltaSyncService {
   Future<SyncResult> syncAll() async {
     await _auth.signInAndAdopt();
     if (!await _isEntitled()) {
-      return const SyncResult.skipped('not entitled (org plan = free)');
+      return const SyncResult.notEntitled();
     }
 
     // Push (order is cosmetic — the server has no FKs). Each table's outbox is

@@ -359,12 +359,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     if (c == null) return '';
     if (c.phase == SyncPhase.syncing) return ' · syncing…';
     if (c.lastError != null) return ' · offline';
-    final r = c.lastResult;
-    if (r != null &&
-        !r.didSync &&
-        (r.skippedReason?.contains('entitled') ?? false)) {
-      return ' · free (local-only)';
-    }
+    if (c.lastResult?.notEntitled ?? false) return ' · free (local-only)';
     final at = c.lastSyncedAt;
     if (at == null) return ' · idle';
     return ' · synced ${_ago(DateTime.now().difference(at))}';

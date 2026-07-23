@@ -12,9 +12,9 @@ import 'package:timedart/data/backup.dart';
 import 'package:timedart/data/sync/sync_activation.dart';
 import 'package:timedart/data/sync/sync_config.dart';
 import 'package:timedart/data/sync/sync_token.dart';
+import 'package:timedart/data/sync/delta/auth_service.dart';
 import 'package:timedart/data/sync/delta/delta_config.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
-import 'package:timedart/data/sync/delta/supabase_init.dart';
 import 'package:timedart/data/sync/delta/sync_controller.dart';
 import 'package:timedart/data/sync/delta/sync_queries.dart';
 import 'package:timedart/util/save_file.dart';
@@ -638,7 +638,9 @@ class _AdaptiveShellState extends State<AdaptiveShell>
   Future<void> _showSyncDetails() async {
     final sync = _sync;
     if (sync == null) return;
-    final userId = supabase.auth.currentUser?.id;
+    // Through DeltaAuthService — the single seam onto Supabase auth — not the
+    // raw client, so this stays correct if auth semantics change (email login).
+    final userId = DeltaAuthService(widget.db).currentUserId;
     final orgId = await widget.db.syncSetting(kSyncOrgId);
     if (!mounted) return;
     final lastSynced = sync.lastSyncedAt;
