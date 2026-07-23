@@ -53,10 +53,10 @@ class Projects extends Table {
   TextColumn get code => text().unique()(); // human project number
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides client default
-  // NB: this SQL default does NOT fire on the PowerSync sync path (the table is
-  // a view there), so addProject stamps status/createdAt in Dart. Any new insert
-  // path for projects must do the same or the row uploads NULL and Postgres
-  // rejects it (#210).
+  // addProject also stamps status/createdAt in Dart (not leaning on this SQL
+  // default) so every row is explicitly complete at the insert choke-point —
+  // mirrors updatedAt, and keeps the delta-sync push independent of column
+  // defaults. Any new insert path for projects should do the same (#299).
   TextColumn get status => text().withDefault(const Constant('active'))();
   // User-facing "archive": hide a finished project from the active UI while
   // keeping it (and its history) for invoicing. Reversible; NULL = active.
@@ -79,8 +79,8 @@ class Tasks extends Table {
   TextColumn get projectId => text().references(Projects, #id)();
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides project.rate
-  // See Projects.status: SQL defaults don't fire on the PowerSync view, so
-  // addTask stamps status/createdAt in Dart (#210).
+  // See Projects.status: addTask stamps status/createdAt in Dart so the row is
+  // explicitly complete for the delta-sync push (#299).
   TextColumn get status => text().withDefault(const Constant('active'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt =>
@@ -330,21 +330,7 @@ class AppDatabase extends _$AppDatabase {
   // constructible from any [QueryExecutor] is what lets the non-Flutter CLI
   // (compiled with `dart compile exe`) import this file without pulling in
   // path_provider — a Flutter platform channel unavailable outside the app.
-  AppDatabase(super.executor) : _managedBySync = false;
-
-  /// Opens over a **PowerSync-backed** connection (the optional sync layer,
-  /// PRD #189 Phase 4c). PowerSync owns the schema of the four synced tables
-  /// (clients/projects/tasks/time_entries — as views over its own store), so
-  /// drift must NOT create or migrate them. In this mode the migration creates
-  /// only the four device-local tables and skips the upgrade ladder entirely
-  /// (see [migration]). Everything else about [AppDatabase] is identical, so
-  /// every DAO works unchanged over either connection.
-  AppDatabase.synced(super.executor) : _managedBySync = true;
-
-  /// Whether this database runs over a PowerSync connection (see
-  /// [AppDatabase.synced]) — gates the migration strategy so drift leaves
-  /// PowerSync's managed (synced) tables alone.
-  final bool _managedBySync;
+  AppDatabase(super.executor);
 
   /// Whether content-table writes enqueue a dirty-tracker row into [SyncOutbox]
   /// (PRD #189, Phase 5b). Defaults to [deltaSyncConfigured] — a build-time
@@ -388,25 +374,9 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
-      // PowerSync path (Phase 4c): PowerSync already created the four synced
-      // tables as views over its store, so createAll() would collide with them.
-      // Create ONLY the four device-local tables here (invoice branding stays
-      // device-local for the trial; app_settings/active_timers are device-local
-      // by design). See AppDatabase.synced.
-      if (_managedBySync) {
-        await m.createTable(templates);
-        await m.createTable(profiles);
-        await m.createTable(appSettings);
-        await m.createTable(activeTimers);
-        return;
-      }
       await m.createAll();
     },
     onUpgrade: (m, from, to) async {
-      // PowerSync path: the store is created fresh on each enable and its synced
-      // tables are managed by PowerSync — there is no drift upgrade ladder to
-      // run (the device-local tables are made once, in onCreate).
-      if (_managedBySync) return;
       // v1 → v2: introduce Tasks between Project and TimeEntry. Create the table,
       // add the (nullable) taskId column, then fold each distinct
       // (project, task-string) into one Task and repoint its entries. The old
@@ -1003,13 +973,6 @@ class AppDatabase extends _$AppDatabase {
       }
     },
     beforeOpen: (details) async {
-      // PowerSync path: the synced tables are VIEWS over PowerSync's store, and
-      // SQLite can't enforce a foreign key against a view — so a device-local
-      // table referencing one (e.g. active_timers→projects) would error with FK
-      // enforcement on. Leave it off; PowerSync owns the synced side's
-      // consistency and the plain-local path is where the referential guards
-      // matter.
-      if (_managedBySync) return;
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
@@ -1185,9 +1148,9 @@ class AppDatabase extends _$AppDatabase {
           title: title,
           rate: rate == null ? const Value.absent() : Value(rate),
           // Stamp status/createdAt in Dart rather than leaning on the columns'
-          // SQL defaults: on the PowerSync sync path these tables are views, so
-          // the CREATE TABLE defaults never fire and an omitted column uploads
-          // as NULL — which the NOT NULL source Postgres rejects (#210).
+          // SQL defaults, so the row is explicitly complete at the insert
+          // choke-point and the delta-sync push never sends a NULL for a
+          // NOT NULL server column (#299).
           status: const Value('active'),
           createdAt: Value(DateTime.now()),
         ),
@@ -1302,8 +1265,8 @@ class AppDatabase extends _$AppDatabase {
           projectId: projectId,
           title: title,
           rate: rate == null ? const Value.absent() : Value(rate),
-          // See addProject: stamp in Dart so status/createdAt survive the
-          // PowerSync view insert (SQL defaults don't fire on views) (#210).
+          // See addProject: stamp in Dart so status/createdAt are explicitly
+          // set for the delta-sync push (#299).
           status: const Value('active'),
           createdAt: Value(DateTime.now()),
         ),
@@ -1856,7 +1819,7 @@ class AppDatabase extends _$AppDatabase {
 
   // ── External-change detection (live GUI refresh; PRD #270, slice #274) ─────
   // SQLite bumps `data_version` on this connection whenever ANOTHER connection
-  // commits (the CLI now, PowerSync later); it is unchanged by this
+  // commits (the companion CLI, or a delta-sync apply); it is unchanged by this
   // connection's own writes. The ExternalChangeWatcher polls [dataVersion] and,
   // on a detected external commit, calls [refreshAllStreams] so every open
   // `watch()` re-emits — no per-screen wiring.

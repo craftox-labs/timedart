@@ -6,7 +6,7 @@ import '../data/database.dart';
 import '../data/external_change_detector.dart';
 
 /// Keeps the running GUI in step with *external* database writes — the
-/// companion CLI today, PowerSync-applied remote changes later — with no manual
+/// companion CLI, or a delta-sync apply — with no manual
 /// refresh (PRD #270, slice #274).
 ///
 /// It is a thin lifecycle/timer shell around the pure [ExternalChangeDetector]:

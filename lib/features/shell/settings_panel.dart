@@ -32,8 +32,6 @@ class SettingsPanel extends StatefulWidget {
     this.onExportData,
     this.onImportData,
     this.onCheckForUpdates,
-    this.onToggleSync,
-    this.syncActive = false,
     this.onSyncNow,
     this.syncController,
     this.onToggleDeltaSync,
@@ -85,14 +83,9 @@ class SettingsPanel extends StatefulWidget {
   // Check GitHub Releases for a newer build (Phase 1 update check); null hides
   // the row (e.g. on web, which is always the deployed latest).
   final Future<void> Function()? onCheckForUpdates;
-  // Toggle the optional sync layer (PRD #189, Phase 4d). Null hides the row —
-  // and it is only ever wired in a maintainer's ENABLE_SYNC build, so released
-  // builds never show it. [syncActive] drives the label (Enable vs Disable).
-  final Future<void> Function()? onToggleSync;
-  final bool syncActive;
   // Run one delta-sync pass now (Phase 5a, #294). Null hides the row — only ever
   // wired in a maintainer's ENABLE_DELTA_SYNC build, so released builds never
-  // show it. Distinct from [onToggleSync] (the dormant PowerSync engine).
+  // show it.
   final Future<void> Function()? onSyncNow;
   // Drives the live status suffix on the "Sync now" row (Phase 5c, #294) —
   // idle / syncing / synced Xm ago / offline. Non-null only alongside
@@ -311,14 +304,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
         label: 'Re-run setup',
         icon: Icons.replay,
         onTap: () => widget.onRerunOnboarding!(),
-      ),
-    if (widget.onToggleSync != null)
-      _ActionRow(
-        label: widget.syncActive
-            ? 'Disable sync (experimental)'
-            : 'Enable sync (experimental)',
-        icon: widget.syncActive ? Icons.sync_disabled : Icons.sync,
-        onTap: () => widget.onToggleSync!(),
       ),
     // Delta sync (Phase 5d, #294): an opt-in toggle, and — once on — the
     // manual pass (with live status) and the account/status dialog. All gated

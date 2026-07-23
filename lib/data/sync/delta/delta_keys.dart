@@ -12,8 +12,8 @@ const String kSyncOrgId = 'sync.orgId';
 /// sync ON for this device. `'1'` = on, anything else (incl. absent) = off. Off
 /// is the default — local-only, no sign-in, no network. Device-local so each
 /// device opts in independently; kept in `app_settings` because delta sync runs
-/// on the one local drift store (unlike PowerSync 4d, there's no second store to
-/// split-brain, so no on-disk activation file is needed).
+/// on the one local drift store — there's no second store to split-brain, so no
+/// on-disk activation file is needed.
 const String kSyncEnabled = 'sync.delta.enabled';
 
 /// The four synced content-table names (== each drift table's `actualTableName`

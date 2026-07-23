@@ -1,31 +1,20 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Phase 5 (delta-sync) — 5a backend setup for Supabase  (PRD #189 / #294)
--- Prepared 2026-07-23. REVIEW then run in the Supabase SQL editor (as the
--- postgres/service role). Idempotent-ish (IF NOT EXISTS / CREATE OR REPLACE)
--- where practical, but read it before running — it adds RLS policies that gate
--- the four content tables to org members.
+-- Delta-sync — backend setup for Supabase  (PRD #189 / #294)
+-- The from-zero backend for the app's sync layer. REVIEW then run in the Supabase
+-- SQL editor (as the postgres/service role). Idempotent-ish (IF NOT EXISTS /
+-- CREATE OR REPLACE) where practical, but read it before running — it adds RLS
+-- policies that gate the four content tables to org members.
 --
--- Leaves the existing `powersync_role` (BYPASSRLS) + its publication UNTOUCHED,
--- so the dormant PowerSync trial still works as a fallback until we strip it.
---
--- Runs FROM ZERO on a fresh Supabase project (section 0 creates the content
--- tables), and is also safe against the old trial project (IF NOT EXISTS / add-
--- column-if-not-exists). RECOMMENDED: a brand-new project — the old one carries
--- PowerSync cruft (powersync_role, publication, upload-data Edge Fn, dev-token
--- rows org_id='timedart') that isn't wanted here.
+-- Runs FROM ZERO on a fresh Supabase project: section 0 creates the four content
+-- tables (clients/projects/tasks/time_entries), then tenancy (orgs + memberships
+-- + the personal-org trigger), the RLS policies, and the pull-cursor sequence.
 --
 -- Manual dashboard steps this SQL can't do: enable ANONYMOUS sign-ins
 -- (Authentication → Providers → Anonymous); after your first sign-in, unlock the
 -- entitlement gate on your own org (see the bottom of section 6).
--- ─────────────────────────────────────────────────────────────────────────────
 --
--- ⚠️ MAINTENANCE (revisit at Phase 5e — PowerSync strip): the comments above and
--- in sections 0/6 are written from the *trial* vantage point — they reference
--- the dormant PowerSync fallback (powersync_role, publication, dev-token
--- org_id='timedart'). Once 5e removes PowerSync (delete-forward, keeping org_id
--- v17), those caveats are stale and this file should be reworded as the plain,
--- from-zero production backend setup. No secrets live here (pure DDL — no keys,
--- project ref, or connection strings; the app's URL + anon key are dart-defines).
+-- No secrets live here (pure DDL — no keys, project ref, or connection strings;
+-- the app's URL + anon key are dart-defines).
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- 0. Content tables (the FOUR synced tracking tables only — templates/profiles
@@ -95,7 +84,7 @@ create table if not exists public.orgs (
   name       text not null default 'Personal',
   owner_id   uuid references auth.users (id) on delete set null,
   -- entitlement: 'free' = local-only (client simply won't sync); a paid plan
-  -- unlocks sync. Enforced app-side for the trial; can be RLS-enforced later.
+  -- unlocks sync. Enforced app-side for now; can be RLS-enforced later.
   plan       text not null default 'free',
   created_at timestamptz not null default now()
 );

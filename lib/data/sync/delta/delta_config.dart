@@ -1,9 +1,9 @@
 /// Build-time configuration for the Phase 5 **delta-sync** layer (#294).
 ///
 /// Delta-sync (hand-rolled timestamp-delta over Supabase Auth + Postgres + RLS)
-/// is the pivot off PowerSync. It has its OWN compile gate, separate from the
-/// dormant PowerSync `ENABLE_SYNC` flag, so the two engines never co-activate —
-/// released builds omit both. A maintainer trials it with:
+/// is the app's sync layer. It is compile-gated so released builds omit it
+/// entirely — "sync off == today's behaviour" holds for every shipped binary. A
+/// maintainer trials it with:
 /// ```
 /// flutter run -d linux \
 ///   --dart-define=ENABLE_DELTA_SYNC=true \

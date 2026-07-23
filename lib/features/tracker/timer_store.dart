@@ -74,7 +74,7 @@ class TimerStore {
 
   /// Reconcile the in-memory session to the single live active-timer [row] (or
   /// null when none is live), so an *external* write to `active_timer` — the
-  /// companion CLI now, PowerSync later — is reflected in the running GUI. Meant
+  /// companion CLI — is reflected in the running GUI. Meant
   /// to be driven by [AppDatabase.watchActiveTimer] emissions.
   ///
   /// Returns a [TimerReconcile] telling the caller how the session changed so it
