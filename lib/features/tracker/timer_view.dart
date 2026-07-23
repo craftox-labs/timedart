@@ -46,6 +46,11 @@ class TimerController extends ChangeNotifier {
   // Null when no tracker is on screen.
   VoidCallback? primary;
 
+  // Fired after a finished span is committed as a TimeEntry (delta-sync 5c,
+  // #294): the shell hooks this to kick a background sync so a just-stopped
+  // timer travels to the other device promptly. Null when sync isn't active.
+  VoidCallback? onEntryCommitted;
+
   int get elapsed => _store.session.elapsed;
   bool get isRunning => _store.session.isRunning;
   bool get hasSession => _store.session.hasSession;
@@ -135,6 +140,10 @@ class TimerController extends ChangeNotifier {
     final result = await _store.finish(now: DateTime.now(), description: _note);
     description.clear();
     notifyListeners();
+    // A new entry landed in the local store — nudge a background sync (no-op
+    // when sync isn't wired). Kept off the return path so a sync concern never
+    // affects the finish result.
+    if (result != null) onEntryCommitted?.call();
     return result;
   }
 

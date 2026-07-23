@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:timedart/constants/text_styles.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/sync/delta/sync_controller.dart';
 import 'package:timedart/features/shell/keymap.dart';
 import 'package:timedart/features/shell/side_panel.dart';
 import 'package:timedart/widgets/focus_ring.dart';
@@ -34,6 +35,7 @@ class SettingsPanel extends StatefulWidget {
     this.onToggleSync,
     this.syncActive = false,
     this.onSyncNow,
+    this.syncController,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -90,6 +92,11 @@ class SettingsPanel extends StatefulWidget {
   // wired in a maintainer's ENABLE_DELTA_SYNC build, so released builds never
   // show it. Distinct from [onToggleSync] (the dormant PowerSync engine).
   final Future<void> Function()? onSyncNow;
+  // Drives the live status suffix on the "Sync now" row (Phase 5c, #294) —
+  // idle / syncing / synced Xm ago / offline. Non-null only alongside
+  // [onSyncNow] in a maintainer's ENABLE_DELTA_SYNC build; the panel rebuilds on
+  // its notifications so background passes show without a tap.
+  final SyncController? syncController;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -200,6 +207,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
     // Select-all whenever the search field gains focus, so typing replaces a
     // stale query (matches SidePanel).
     _searchFocus.addListener(_onSearchFocusChanged);
+    // Rebuild the Sync-now status suffix as passes come and go (5c, #294).
+    widget.syncController?.addListener(_repaint);
   }
 
   void _onSearchFocusChanged() {
@@ -230,6 +239,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   @override
   void dispose() {
     _cursorNode.removeListener(_repaint);
+    widget.syncController?.removeListener(_repaint);
     _internalCursor?.dispose();
     _searchFocus.removeListener(_onSearchFocusChanged);
     _internalSearch?.dispose();
@@ -303,11 +313,32 @@ class _SettingsPanelState extends State<SettingsPanel> {
       ),
     if (widget.onSyncNow != null)
       _ActionRow(
-        label: 'Sync now (delta)',
+        label: 'Sync now (delta)$_syncStatusSuffix',
         icon: Icons.cloud_sync_outlined,
         onTap: () => widget.onSyncNow!(),
       ),
   ];
+
+  // A short, live status appended to the "Sync now" row so background passes
+  // (foreground / post-timer / periodic) are observable without a tap. Empty
+  // when no controller is wired (released builds never reach this row anyway).
+  String get _syncStatusSuffix {
+    final c = widget.syncController;
+    if (c == null) return '';
+    if (c.phase == SyncPhase.syncing) return ' · syncing…';
+    if (c.lastError != null) return ' · offline';
+    final at = c.lastSyncedAt;
+    if (at == null) return ' · idle';
+    return ' · synced ${_ago(DateTime.now().difference(at))}';
+  }
+
+  // Compact relative age: "just now", "3m ago", "2h ago", "4d ago".
+  static String _ago(Duration d) {
+    if (d.inMinutes < 1) return 'just now';
+    if (d.inHours < 1) return '${d.inMinutes}m ago';
+    if (d.inDays < 1) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
 
   void _edit(_Section s, String id, {bool startEditing = false}) {
     switch (s) {

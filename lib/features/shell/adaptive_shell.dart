@@ -13,7 +13,7 @@ import 'package:timedart/data/sync/sync_activation.dart';
 import 'package:timedart/data/sync/sync_config.dart';
 import 'package:timedart/data/sync/sync_token.dart';
 import 'package:timedart/data/sync/delta/delta_config.dart';
-import 'package:timedart/data/sync/delta/sync_service.dart';
+import 'package:timedart/data/sync/delta/sync_controller.dart';
 import 'package:timedart/util/save_file.dart';
 import 'package:timedart/util/pick_file.dart';
 import 'package:timedart/constants/tokens.dart';
@@ -90,7 +90,7 @@ class AdaptiveShell extends StatefulWidget {
 }
 
 class _AdaptiveShellState extends State<AdaptiveShell>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   String? _selectedProjectId; // the project the timer records against
   _Detail _detail = const _Tracker();
   // Narrow layout only: whether the project/settings list overlay is open. The
@@ -155,6 +155,10 @@ class _AdaptiveShellState extends State<AdaptiveShell>
   // Lets a global Space toggle the timer from any pane while it's in view.
   // DB-backed (Phase 3) — constructed with the db and recovered in initState.
   late final TimerController _timer;
+  // Automatic delta-sync scheduling + status (Phase 5c, #294). Non-null only in
+  // a maintainer's ENABLE_DELTA_SYNC build; released builds leave it null and
+  // never observe lifecycle or schedule a tick.
+  SyncController? _sync;
   // Chord state for global sequences (the Ctrl-w window motion) when focus is
   // on a pane that bubbles them here (e.g. the content editors). The list panes
   // own their own detectors and forward focusTracker/focusPanel via callbacks.
@@ -570,26 +574,32 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     }
   }
 
-  // Run one delta-sync pass (Phase 5a, #294): push dirty clients, pull the
-  // other device's, apply LWW. Maintainer-only (ENABLE_DELTA_SYNC). A snackbar
-  // reports the outcome so the 2-device verify is observable in-app.
+  // Run one delta-sync pass on demand (Phase 5a, #294; routed through the 5c
+  // controller so it coalesces with any background pass in flight). Maintainer-
+  // only (ENABLE_DELTA_SYNC). Unlike the background triggers this one reports —
+  // a snackbar makes the 2-device verify observable in-app.
   Future<void> _syncNow() async {
+    final sync = _sync;
+    if (sync == null) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(const SnackBar(content: Text('Syncing…')));
-    try {
-      final result = await DeltaSyncService(widget.db).syncAll();
-      if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      final text = result.didSync
-          ? 'Synced — pushed ${result.pushed}, applied ${result.applied} of '
-                '${result.pulled} pulled.'
-          : 'Sync skipped — ${result.skippedReason}.';
-      messenger.showSnackBar(SnackBar(content: Text(text)));
-    } catch (e) {
-      if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+    await sync.syncNow();
+    if (!mounted) return;
+    messenger.hideCurrentSnackBar();
+    final result = sync.lastResult;
+    final String text;
+    if (sync.lastError != null) {
+      text = 'Sync failed: ${sync.lastError}';
+    } else if (result == null) {
+      text = 'Sync did not run.';
+    } else if (result.didSync) {
+      text =
+          'Synced — pushed ${result.pushed}, applied ${result.applied} of '
+          '${result.pulled} pulled.';
+    } else {
+      text = 'Sync skipped — ${result.skippedReason}.';
     }
+    messenger.showSnackBar(SnackBar(content: Text(text)));
   }
 
   // Shared release dialog: the version + markdown notes, and a button that opens
@@ -682,6 +692,19 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     });
     widget.db.ensureInvoiceDefaults(); // seed timedart theme/profile/template
 
+    // Automatic delta-sync (Phase 5c, #294): stand up the controller, observe
+    // app lifecycle for a foreground trigger, kick a pass when a timer stops,
+    // and arm the periodic tick. Maintainer-only — inert without the build gate.
+    if (deltaSyncConfigured) {
+      final sync = SyncController(widget.db);
+      _sync = sync;
+      WidgetsBinding.instance.addObserver(this);
+      _timer.onEntryCommitted = () => sync.requestSync(SyncTrigger.timerStop);
+      sync.start();
+      // A sync on launch pulls whatever the other device changed while away.
+      sync.requestSync(SyncTrigger.foreground);
+    }
+
     // Reflect the current sync state on the Settings toggle (PRD #189, Phase
     // 4d). Const-false and dead-code-eliminated in every released build.
     if (syncEnabled) {
@@ -713,6 +736,8 @@ class _AdaptiveShellState extends State<AdaptiveShell>
 
   @override
   void dispose() {
+    if (_sync != null) WidgetsBinding.instance.removeObserver(this);
+    _sync?.dispose();
     _projectsSub?.cancel();
     _panelCursor.dispose();
     _settingsCursor.dispose();
@@ -723,6 +748,16 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     _sheetCtrl.dispose();
     _timer.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Sync on return-to-foreground so the other device's edits land promptly.
+    // Silent (no snackbar) — the status line reflects it. Only registered as an
+    // observer when sync is active, so `_sync` is non-null here.
+    if (state == AppLifecycleState.resumed) {
+      _sync?.requestSync(SyncTrigger.foreground);
+    }
   }
 
   @override
@@ -861,6 +896,9 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           // Maintainer-only "Sync now" — Phase 5a delta-sync (#294). Wired only
           // in an ENABLE_DELTA_SYNC build with keys; released builds omit it.
           onSyncNow: deltaSyncConfigured ? () async => run(_syncNow) : null,
+          // The 5c controller drives the Sync-now row's status suffix (idle /
+          // syncing / synced Xm ago / offline). Null in released builds.
+          syncController: _sync,
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,
           onOpenSettings: () => run(_openSettings),
