@@ -23,12 +23,14 @@ void main() {
   SyncController make(
     Future<SyncResult> Function() runner, {
     DateTime Function()? clock,
+    Duration? syncTimeout,
   }) =>
       SyncController(
         db,
         runner: runner,
         clock: clock ?? () => clockAt,
         enablePeriodic: false,
+        syncTimeout: syncTimeout ?? kSyncTimeout,
       );
 
   test('a successful pass moves phase idle→syncing→idle and stamps status',
@@ -106,6 +108,24 @@ void main() {
     await c.syncNow();
     expect(c.lastError, isNull);
     expect(c.lastSyncedAt, clockAt);
+  });
+
+  test('a pass that hangs past the timeout fails to offline, not stuck syncing',
+      () async {
+    // A network call that never resolves (device went offline mid-request).
+    final hang = Completer<SyncResult>();
+    final c = make(
+      () => hang.future,
+      syncTimeout: const Duration(milliseconds: 30),
+    );
+
+    await c.syncNow();
+    expect(c.phase, SyncPhase.idle); // settled — not stuck on syncing…
+    expect(c.lastError, isA<TimeoutException>());
+    expect(c.lastSyncedAt, isNull);
+    // The abandoned pass completing late must not throw into the zone.
+    hang.complete(const SyncResult(pushed: 1));
+    await Future<void>.delayed(Duration.zero);
   });
 
   test('requestSync after dispose is a no-op that does not run or notify',

@@ -55,6 +55,15 @@ const Duration kPeriodicSyncInterval = Duration(minutes: 5);
 /// offline device settles to one retry every [kMaxBackoff] instead of hammering.
 const Duration kMaxBackoff = Duration(minutes: 30);
 
+/// How long a single pass may run before it's treated as failed. Without this a
+/// pass whose network call hangs (the device went offline mid-request) sits in
+/// [SyncPhase.syncing] until the OS socket timeout finally fires — which in
+/// practice only resolves when connectivity returns. A generous bound: a
+/// healthy pass over this app's tiny dataset finishes in well under a second,
+/// so 15s won't false-trip on a slow-but-working link, yet a dead network
+/// surfaces as `offline` within it.
+const Duration kSyncTimeout = Duration(seconds: 15);
+
 /// Owns automatic sync scheduling and the observable sync status. A
 /// [ChangeNotifier] so a status widget can rebuild on every transition.
 class SyncController extends ChangeNotifier {
@@ -64,6 +73,7 @@ class SyncController extends ChangeNotifier {
     DateTime Function()? clock,
     this.enablePeriodic = true,
     this.periodicInterval = kPeriodicSyncInterval,
+    this.syncTimeout = kSyncTimeout,
   })  : _clock = clock ?? DateTime.now {
     // Build the default service once (it flips `enableSyncOutbox` on and holds
     // a transport/auth). Tests inject a [runner] instead and skip this.
@@ -79,6 +89,10 @@ class SyncController extends ChangeNotifier {
 
   /// The healthy gap between periodic ticks (widened by backoff on failure).
   final Duration periodicInterval;
+
+  /// The per-pass deadline: a pass exceeding this is failed as offline instead
+  /// of hanging on a dead socket (see [kSyncTimeout]).
+  final Duration syncTimeout;
   late final Future<SyncResult> Function() _runner;
   DeltaSyncService? _service;
 
@@ -163,15 +177,22 @@ class SyncController extends ChangeNotifier {
 
   Future<void> _runOnce() async {
     try {
-      final result = await _runner();
+      // Bound the pass: a hung network call (device went offline mid-request)
+      // otherwise leaves us in `syncing` until the OS socket timeout, which in
+      // practice only resolves when connectivity returns. On timeout the
+      // abandoned pass keeps running to completion in the background; Dart's
+      // Future.timeout silently discards its late result/error, so nothing
+      // leaks. The outbox stays dirty, so nothing is lost — it re-pushes next
+      // pass.
+      final result = await _runner().timeout(syncTimeout);
       _lastResult = result;
       _lastError = null;
       if (result.didSync) _lastSyncedAt = _clock();
       _consecutiveFailures = 0;
     } catch (e) {
-      // Offline / server error: keep the outbox dirty (the service already
-      // left it so on a throw), record the error, and let backoff widen the
-      // next periodic retry. Never rethrow — triggers are fire-and-forget.
+      // Offline / timeout / server error: keep the outbox dirty (the service
+      // already left it so on a throw), record the error, and let backoff widen
+      // the next periodic retry. Never rethrow — triggers are fire-and-forget.
       _lastError = e;
       _consecutiveFailures++;
     }
