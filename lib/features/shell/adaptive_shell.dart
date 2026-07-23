@@ -749,19 +749,23 @@ class _AdaptiveShellState extends State<AdaptiveShell>
               ),
             );
           } else {
-            final email = emailCtrl.text.trim();
+            // Read the fields live at click time — typing doesn't rebuild the
+            // dialog, so a value captured here at build time would be stale.
             actions.add(
               TextButton(
                 onPressed: busy
                     ? null
-                    : () => submit(
+                    : () {
+                        final email = emailCtrl.text.trim();
+                        submit(
                           () => auth.signUpWithPassword(
                             email: email,
                             password: passwordCtrl.text,
                           ),
                           'Account created — signed in as $email.',
                           syncAfter: true,
-                        ),
+                        );
+                      },
                 child: const Text('Create account'),
               ),
             );
@@ -769,14 +773,17 @@ class _AdaptiveShellState extends State<AdaptiveShell>
               FilledButton(
                 onPressed: busy
                     ? null
-                    : () => submit(
+                    : () {
+                        final email = emailCtrl.text.trim();
+                        submit(
                           () => auth.signInWithPassword(
                             email: email,
                             password: passwordCtrl.text,
                           ),
                           'Signed in as $email.',
                           syncAfter: true,
-                        ),
+                        );
+                      },
                 child: const Text('Sign in'),
               ),
             );
