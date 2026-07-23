@@ -1,5 +1,8 @@
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
+import 'package:timedart/data/sync/delta/project_wire.dart';
+import 'package:timedart/data/sync/delta/task_wire.dart';
+import 'package:timedart/data/sync/delta/time_entry_wire.dart';
 
 // Phase 5a delta-sync (#294) — the pure conflict rule for applying a pulled row.
 //
@@ -32,7 +35,7 @@ enum MergeAction {
 /// - Otherwise apply iff the remote clock is **strictly after** the local one.
 ///   Equal → skip: idempotent, and the reason a just-pushed row echoing back is
 ///   a no-op.
-MergeAction decideClientMerge({
+MergeAction decideMerge({
   required DateTime? localUpdatedAt,
   required DateTime? remoteUpdatedAt,
 }) {
@@ -43,10 +46,38 @@ MergeAction decideClientMerge({
       : MergeAction.skip;
 }
 
-/// Convenience over [decideClientMerge] for a whole row against its local match
-/// (or null when there's no local row with that id).
+/// The 5a name, kept as an alias — the rule is table-agnostic (it compares two
+/// clocks), so all four tables share [decideMerge].
+MergeAction decideClientMerge({
+  required DateTime? localUpdatedAt,
+  required DateTime? remoteUpdatedAt,
+}) => decideMerge(
+      localUpdatedAt: localUpdatedAt,
+      remoteUpdatedAt: remoteUpdatedAt,
+    );
+
+// Per-table conveniences: a whole row against its local match (or null when
+// there's no local row with that id). All delegate to the one rule above.
+
 MergeAction decideClientMergeFor(Client? local, RemoteClient remote) =>
-    decideClientMerge(
+    decideMerge(
+      localUpdatedAt: local?.updatedAt,
+      remoteUpdatedAt: remote.updatedAt,
+    );
+
+MergeAction decideProjectMergeFor(Project? local, RemoteProject remote) =>
+    decideMerge(
+      localUpdatedAt: local?.updatedAt,
+      remoteUpdatedAt: remote.updatedAt,
+    );
+
+MergeAction decideTaskMergeFor(Task? local, RemoteTask remote) => decideMerge(
+      localUpdatedAt: local?.updatedAt,
+      remoteUpdatedAt: remote.updatedAt,
+    );
+
+MergeAction decideTimeEntryMergeFor(TimeEntry? local, RemoteTimeEntry remote) =>
+    decideMerge(
       localUpdatedAt: local?.updatedAt,
       remoteUpdatedAt: remote.updatedAt,
     );

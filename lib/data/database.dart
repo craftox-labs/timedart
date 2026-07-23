@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'id.dart';
+import 'sync/delta/delta_config.dart';
 
 part 'database.g.dart'; // generated — doesn't exist until you run build_runner
 
@@ -211,6 +212,31 @@ class Profiles extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Local dirty-tracker for delta-sync (PRD #189, Phase 5b, schema v18). One row
+/// per locally-mutated content row that still needs pushing: `(tableName,
+/// rowId)` names it, `queuedAt` is when it was marked (diagnostic only —
+/// ordering isn't relied on). Rows are enqueued at the AppDatabase write
+/// choke-point (see [AppDatabase.markDirtyForSync]) and cleared on push-ack.
+///
+/// This REPLACES the 5a `updatedAt`-watermark dirty test, whose flaw was that a
+/// row *pulled* from another device carried that device's clock (usually above
+/// the local watermark) and got re-pushed once. A structural per-row flag has no
+/// such echo: pulled rows are applied via the `fromRemote` path, which does NOT
+/// enqueue. **Device-local — it carries no `org_id` and never syncs**, like
+/// [AppSettings]/[ActiveTimers]. Enqueuing is gated on [enableSyncOutbox] so the
+/// pure-local (sync-off) path never writes to it and it can't grow unbounded.
+class SyncOutbox extends Table {
+  // Named `targetTable` (not `tableName`) because drift reserves the getter
+  // `tableName` on Table for overriding the SQL table name. Column is
+  // `target_table`.
+  TextColumn get targetTable => text()();
+  TextColumn get rowId => text()();
+  DateTimeColumn get queuedAt =>
+      dateTime().clientDefault(() => DateTime.now())();
+  @override
+  Set<Column> get primaryKey => {targetTable, rowId};
+}
+
 /// App-level key-value preferences (PRD #133, schema v10). The single home for
 /// flags that are app *state* rather than Profile *data* — first use is the
 /// onboarding-complete flag + the stable per-install id; future app prefs
@@ -292,6 +318,7 @@ class DeleteImpact {
     Profiles,
     AppSettings,
     ActiveTimers,
+    SyncOutbox,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -319,10 +346,38 @@ class AppDatabase extends _$AppDatabase {
   /// PowerSync's managed (synced) tables alone.
   final bool _managedBySync;
 
+  /// Whether content-table writes enqueue a dirty-tracker row into [SyncOutbox]
+  /// (PRD #189, Phase 5b). Defaults to [deltaSyncConfigured] — a build-time
+  /// constant, so a released (sync-off) build never touches the outbox and it
+  /// cannot grow unbounded (the branch tree-shakes away). Mutable so a delta
+  /// build's startup can force it on, and tests can exercise the enqueue path
+  /// without the `--dart-define` flags.
+  bool enableSyncOutbox = deltaSyncConfigured;
+
+  /// Mark content rows dirty for the next delta-sync push (Phase 5b). Called at
+  /// every AppDatabase write choke-point for the four synced content tables,
+  /// inside the same transaction as the mutation so a row can't commit unqueued.
+  /// A no-op unless [enableSyncOutbox] is set. The `fromRemote` apply path
+  /// (`applyRemote*` in sync_queries) deliberately does NOT call this — that is
+  /// the structural echo guard that replaced 5a's clock watermark.
+  Future<void> markDirtyForSync(String tableName, Iterable<String> ids) async {
+    if (!enableSyncOutbox) return;
+    final rows = [
+      for (final id in ids)
+        SyncOutboxCompanion(
+          targetTable: Value(tableName),
+          rowId: Value(id),
+          queuedAt: Value(DateTime.now()),
+        ),
+    ];
+    if (rows.isEmpty) return;
+    await batch((b) => b.insertAllOnConflictUpdate(syncOutbox, rows));
+  }
+
   /// The schema version this build ships with. The single source of truth for
   /// both drift's migration ladder and the CLI's schema-version guard (which
   /// refuses to open a DB whose on-disk `user_version` differs from this).
-  static const int latestSchemaVersion = 17;
+  static const int latestSchemaVersion = 18;
 
   @override
   int get schemaVersion => latestSchemaVersion;
@@ -935,6 +990,17 @@ class AppDatabase extends _$AppDatabase {
         await addOrgId(templates, templates.orgId);
         await addOrgId(profiles, profiles.orgId);
       }
+      // v17 → v18: delta-sync local dirty-tracker (PRD #189, Phase 5b). A brand
+      // new device-local table (`sync_outbox`) — no existing table is touched,
+      // so this is a plain create-if-missing (guarded so a rebuild path that
+      // already made it doesn't collide). See [SyncOutbox].
+      if (from < 18) {
+        final exists = (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(syncOutbox.actualTableName)],
+        ).get()).isNotEmpty;
+        if (!exists) await m.createTable(syncOutbox);
+      }
     },
     beforeOpen: (details) async {
       // PowerSync path: the synced tables are VIEWS over PowerSync's store, and
@@ -1047,16 +1113,23 @@ class AppDatabase extends _$AppDatabase {
     required DateTime startedAt,
     required DateTime endedAt,
     required int seconds,
-  }) => into(timeEntries).insert(
-    TimeEntriesCompanion.insert(
-      projectId: projectId,
-      taskId: Value(taskId),
-      description: Value(description),
-      startedAt: startedAt,
-      endedAt: endedAt,
-      seconds: seconds,
-    ),
-  );
+  }) => transaction(() async {
+    // Generate the id up-front (rather than leaning on the clientDefault) so it
+    // can be enqueued into the sync outbox in the same transaction.
+    final id = idGen.newId();
+    await into(timeEntries).insert(
+      TimeEntriesCompanion.insert(
+        id: Value(id),
+        projectId: projectId,
+        taskId: Value(taskId),
+        description: Value(description),
+        startedAt: startedAt,
+        endedAt: endedAt,
+        seconds: seconds,
+      ),
+    );
+    await markDirtyForSync(timeEntries.actualTableName, [id]);
+  });
 
   // [projectId] is required (not optional) so every caller states the entry's
   // owning project explicitly — this is how the CLI's `entry edit` keeps
@@ -1071,26 +1144,30 @@ class AppDatabase extends _$AppDatabase {
     required DateTime startedAt,
     required DateTime endedAt,
     required int seconds,
-  }) => (update(timeEntries)..where((t) => t.id.equals(id))).write(
-    TimeEntriesCompanion(
-      projectId: Value(projectId),
-      taskId: Value(taskId),
-      description: Value(description),
-      startedAt: Value(startedAt),
-      endedAt: Value(endedAt),
-      seconds: Value(seconds),
-      updatedAt: Value(DateTime.now()),
-    ),
-  );
+  }) => transaction(() async {
+    await (update(timeEntries)..where((t) => t.id.equals(id))).write(
+      TimeEntriesCompanion(
+        projectId: Value(projectId),
+        taskId: Value(taskId),
+        description: Value(description),
+        startedAt: Value(startedAt),
+        endedAt: Value(endedAt),
+        seconds: Value(seconds),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await markDirtyForSync(timeEntries.actualTableName, [id]);
+  });
 
   // Soft-delete (sync tombstone): set deletedAt + bump updatedAt instead of a
   // hard DELETE, so the removal propagates across devices. Reads filter it out.
-  Future<void> deleteEntry(String id) {
+  Future<void> deleteEntry(String id) => transaction(() async {
     final now = DateTime.now();
-    return (update(timeEntries)..where((t) => t.id.equals(id))).write(
+    await (update(timeEntries)..where((t) => t.id.equals(id))).write(
       TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
-  }
+    await markDirtyForSync(timeEntries.actualTableName, [id]);
+  });
 
   Future<String> addProject({
     required String clientId,
@@ -1099,23 +1176,25 @@ class AppDatabase extends _$AppDatabase {
     double? rate,
   }) {
     final id = idGen.newId();
-    return into(projects)
-        .insert(
-          ProjectsCompanion.insert(
-            id: Value(id),
-            clientId: clientId,
-            code: code,
-            title: title,
-            rate: rate == null ? const Value.absent() : Value(rate),
-            // Stamp status/createdAt in Dart rather than leaning on the columns'
-            // SQL defaults: on the PowerSync sync path these tables are views, so
-            // the CREATE TABLE defaults never fire and an omitted column uploads
-            // as NULL — which the NOT NULL source Postgres rejects (#210).
-            status: const Value('active'),
-            createdAt: Value(DateTime.now()),
-          ),
-        )
-        .then((_) => id);
+    return transaction(() async {
+      await into(projects).insert(
+        ProjectsCompanion.insert(
+          id: Value(id),
+          clientId: clientId,
+          code: code,
+          title: title,
+          rate: rate == null ? const Value.absent() : Value(rate),
+          // Stamp status/createdAt in Dart rather than leaning on the columns'
+          // SQL defaults: on the PowerSync sync path these tables are views, so
+          // the CREATE TABLE defaults never fire and an omitted column uploads
+          // as NULL — which the NOT NULL source Postgres rejects (#210).
+          status: const Value('active'),
+          createdAt: Value(DateTime.now()),
+        ),
+      );
+      await markDirtyForSync(projects.actualTableName, [id]);
+      return id;
+    });
   }
 
   Future<void> updateProject({
@@ -1124,15 +1203,18 @@ class AppDatabase extends _$AppDatabase {
     required String code,
     required String title,
     double? rate,
-  }) => (update(projects)..where((p) => p.id.equals(id))).write(
-    ProjectsCompanion(
-      clientId: Value(clientId),
-      code: Value(code),
-      title: Value(title),
-      rate: Value(rate),
-      updatedAt: Value(DateTime.now()),
-    ),
-  );
+  }) => transaction(() async {
+    await (update(projects)..where((p) => p.id.equals(id))).write(
+      ProjectsCompanion(
+        clientId: Value(clientId),
+        code: Value(code),
+        title: Value(title),
+        rate: Value(rate),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await markDirtyForSync(projects.actualTableName, [id]);
+  });
 
   // Blocked while the project still has tasks or time entries (both FK-reference
   // it). Pre-checked in a transaction — portable and deterministic across the
@@ -1157,6 +1239,7 @@ class AppDatabase extends _$AppDatabase {
     await (update(projects)..where((p) => p.id.equals(id))).write(
       ProjectsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
+    await markDirtyForSync(projects.actualTableName, [id]);
   });
 
   // Joins clients so an archived (or deleted) client hides its projects too —
@@ -1212,33 +1295,38 @@ class AppDatabase extends _$AppDatabase {
     double? rate,
   }) {
     final id = idGen.newId();
-    return into(tasks)
-        .insert(
-          TasksCompanion.insert(
-            id: Value(id),
-            projectId: projectId,
-            title: title,
-            rate: rate == null ? const Value.absent() : Value(rate),
-            // See addProject: stamp in Dart so status/createdAt survive the
-            // PowerSync view insert (SQL defaults don't fire on views) (#210).
-            status: const Value('active'),
-            createdAt: Value(DateTime.now()),
-          ),
-        )
-        .then((_) => id);
+    return transaction(() async {
+      await into(tasks).insert(
+        TasksCompanion.insert(
+          id: Value(id),
+          projectId: projectId,
+          title: title,
+          rate: rate == null ? const Value.absent() : Value(rate),
+          // See addProject: stamp in Dart so status/createdAt survive the
+          // PowerSync view insert (SQL defaults don't fire on views) (#210).
+          status: const Value('active'),
+          createdAt: Value(DateTime.now()),
+        ),
+      );
+      await markDirtyForSync(tasks.actualTableName, [id]);
+      return id;
+    });
   }
 
   Future<void> updateTask({
     required String id,
     required String title,
     double? rate,
-  }) => (update(tasks)..where((t) => t.id.equals(id))).write(
-    TasksCompanion(
-      title: Value(title),
-      rate: Value(rate),
-      updatedAt: Value(DateTime.now()),
-    ),
-  );
+  }) => transaction(() async {
+    await (update(tasks)..where((t) => t.id.equals(id))).write(
+      TasksCompanion(
+        title: Value(title),
+        rate: Value(rate),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await markDirtyForSync(tasks.actualTableName, [id]);
+  });
 
   // Blocked while the task still has time entries (they FK-reference it) —
   // matching how projects/clients guard their children. The caller surfaces
@@ -1255,6 +1343,7 @@ class AppDatabase extends _$AppDatabase {
     await (update(tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
+    await markDirtyForSync(tasks.actualTableName, [id]);
   });
 
   // [includeArchived] false (the default) hides archived clients — the active
@@ -1283,20 +1372,22 @@ class AppDatabase extends _$AppDatabase {
     required double defaultRate,
   }) {
     final id = idGen.newId();
-    return into(clients)
-        .insert(
-          ClientsCompanion.insert(
-            id: Value(id),
-            name: name,
-            contactName: Value(contactName),
-            email: email == null ? const Value.absent() : Value(email),
-            phone: Value(phone),
-            address: Value(address),
-            abn: Value(abn),
-            defaultRate: defaultRate,
-          ),
-        )
-        .then((_) => id);
+    return transaction(() async {
+      await into(clients).insert(
+        ClientsCompanion.insert(
+          id: Value(id),
+          name: name,
+          contactName: Value(contactName),
+          email: email == null ? const Value.absent() : Value(email),
+          phone: Value(phone),
+          address: Value(address),
+          abn: Value(abn),
+          defaultRate: defaultRate,
+        ),
+      );
+      await markDirtyForSync(clients.actualTableName, [id]);
+      return id;
+    });
   }
 
   Future<void> updateClient({
@@ -1308,18 +1399,21 @@ class AppDatabase extends _$AppDatabase {
     String? address,
     String? abn,
     required double defaultRate,
-  }) => (update(clients)..where((c) => c.id.equals(id))).write(
-    ClientsCompanion(
-      name: Value(name),
-      contactName: Value(contactName),
-      email: Value(email),
-      phone: Value(phone),
-      address: Value(address),
-      abn: Value(abn),
-      defaultRate: Value(defaultRate),
-      updatedAt: Value(DateTime.now()),
-    ),
-  );
+  }) => transaction(() async {
+    await (update(clients)..where((c) => c.id.equals(id))).write(
+      ClientsCompanion(
+        name: Value(name),
+        contactName: Value(contactName),
+        email: Value(email),
+        phone: Value(phone),
+        address: Value(address),
+        abn: Value(abn),
+        defaultRate: Value(defaultRate),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await markDirtyForSync(clients.actualTableName, [id]);
+  });
 
   // Blocked while the client still has projects (they FK-reference it).
   Future<void> deleteClient(String id) => transaction(() async {
@@ -1334,6 +1428,7 @@ class AppDatabase extends _$AppDatabase {
     await (update(clients)..where((c) => c.id.equals(id))).write(
       ClientsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
+    await markDirtyForSync(clients.actualTableName, [id]);
   });
 
   // ── Active-timer guard (#248) ─────────────────────────────────────────────
@@ -1391,6 +1486,19 @@ class AppDatabase extends _$AppDatabase {
         .getSingle();
   }
 
+  // Ids of the LIVE rows a cascade is about to tombstone — read before the bulk
+  // update (while `deletedAt IS NULL` still matches) so each can be enqueued
+  // into the sync outbox. Only called when [enableSyncOutbox] is set.
+  Future<List<String>> _liveIds<T extends HasResultSet, R>(
+    ResultSetImplementation<T, R> table,
+    GeneratedColumn<String> idCol,
+    Expression<bool> filter,
+  ) => (selectOnly(table)
+        ..addColumns([idCol])
+        ..where(filter))
+      .map((row) => row.read(idCol)!)
+      .get();
+
   /// Live descendant counts under a client (projects, tasks, entries).
   Future<DeleteImpact> clientDeleteImpact(String id) async {
     final projectCount = await _countLive(
@@ -1436,6 +1544,21 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteClientCascade(String id) => transaction(() async {
     final now = DateTime.now();
+    // Snapshot the live descendants BEFORE tombstoning them, so every cascaded
+    // soft-delete is enqueued for sync (each is a normal tombstone upsert). Only
+    // when the outbox is active — the pure-local path skips the extra reads.
+    final entryIds = enableSyncOutbox
+        ? await _liveIds(timeEntries, timeEntries.id,
+            _underClient(timeEntries.projectId, id) & timeEntries.deletedAt.isNull())
+        : const <String>[];
+    final taskIds = enableSyncOutbox
+        ? await _liveIds(tasks, tasks.id,
+            _underClient(tasks.projectId, id) & tasks.deletedAt.isNull())
+        : const <String>[];
+    final projectIds = enableSyncOutbox
+        ? await _liveIds(projects, projects.id,
+            projects.clientId.equals(id) & projects.deletedAt.isNull())
+        : const <String>[];
     await (update(timeEntries)
           ..where((e) => _underClient(e.projectId, id) & e.deletedAt.isNull()))
         .write(TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)));
@@ -1448,10 +1571,22 @@ class AppDatabase extends _$AppDatabase {
     await (update(clients)..where((c) => c.id.equals(id))).write(
       ClientsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
+    await markDirtyForSync(timeEntries.actualTableName, entryIds);
+    await markDirtyForSync(tasks.actualTableName, taskIds);
+    await markDirtyForSync(projects.actualTableName, projectIds);
+    await markDirtyForSync(clients.actualTableName, [id]);
   });
 
   Future<void> deleteProjectCascade(String id) => transaction(() async {
     final now = DateTime.now();
+    final entryIds = enableSyncOutbox
+        ? await _liveIds(timeEntries, timeEntries.id,
+            timeEntries.projectId.equals(id) & timeEntries.deletedAt.isNull())
+        : const <String>[];
+    final taskIds = enableSyncOutbox
+        ? await _liveIds(tasks, tasks.id,
+            tasks.projectId.equals(id) & tasks.deletedAt.isNull())
+        : const <String>[];
     await (update(timeEntries)
           ..where((e) => e.projectId.equals(id) & e.deletedAt.isNull()))
         .write(TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)));
@@ -1461,16 +1596,25 @@ class AppDatabase extends _$AppDatabase {
     await (update(projects)..where((p) => p.id.equals(id))).write(
       ProjectsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
+    await markDirtyForSync(timeEntries.actualTableName, entryIds);
+    await markDirtyForSync(tasks.actualTableName, taskIds);
+    await markDirtyForSync(projects.actualTableName, [id]);
   });
 
   Future<void> deleteTaskCascade(String id) => transaction(() async {
     final now = DateTime.now();
+    final entryIds = enableSyncOutbox
+        ? await _liveIds(timeEntries, timeEntries.id,
+            timeEntries.taskId.equals(id) & timeEntries.deletedAt.isNull())
+        : const <String>[];
     await (update(timeEntries)
           ..where((e) => e.taskId.equals(id) & e.deletedAt.isNull()))
         .write(TimeEntriesCompanion(deletedAt: Value(now), updatedAt: Value(now)));
     await (update(tasks)..where((t) => t.id.equals(id))).write(
       TasksCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
+    await markDirtyForSync(timeEntries.actualTableName, entryIds);
+    await markDirtyForSync(tasks.actualTableName, [id]);
   });
 
   // ── Archive (reversible hide-from-UI) (#246) ─────────────────────────────
@@ -1480,18 +1624,22 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> archiveClient(String id) => _setClientArchived(id, DateTime.now());
   Future<void> unarchiveClient(String id) => _setClientArchived(id, null);
-  Future<void> _setClientArchived(String id, DateTime? at) =>
-      (update(clients)..where((c) => c.id.equals(id))).write(
-        ClientsCompanion(archivedAt: Value(at), updatedAt: Value(DateTime.now())),
-      );
+  Future<void> _setClientArchived(String id, DateTime? at) => transaction(() async {
+    await (update(clients)..where((c) => c.id.equals(id))).write(
+      ClientsCompanion(archivedAt: Value(at), updatedAt: Value(DateTime.now())),
+    );
+    await markDirtyForSync(clients.actualTableName, [id]);
+  });
 
   Future<void> archiveProject(String id) =>
       _setProjectArchived(id, DateTime.now());
   Future<void> unarchiveProject(String id) => _setProjectArchived(id, null);
-  Future<void> _setProjectArchived(String id, DateTime? at) =>
-      (update(projects)..where((p) => p.id.equals(id))).write(
-        ProjectsCompanion(archivedAt: Value(at), updatedAt: Value(DateTime.now())),
-      );
+  Future<void> _setProjectArchived(String id, DateTime? at) => transaction(() async {
+    await (update(projects)..where((p) => p.id.equals(id))).write(
+      ProjectsCompanion(archivedAt: Value(at), updatedAt: Value(DateTime.now())),
+    );
+    await markDirtyForSync(projects.actualTableName, [id]);
+  });
 
   // ── Invoice branding: seed + DAOs (PRD #79) ──────────────────────────────
 

@@ -5,21 +5,29 @@ import 'package:timedart/data/sync/delta/auth_service.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/merge.dart';
+import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/supabase_init.dart';
 import 'package:timedart/data/sync/delta/sync_queries.dart';
 import 'package:timedart/data/sync/delta/sync_transport.dart';
+import 'package:timedart/data/sync/delta/task_wire.dart';
+import 'package:timedart/data/sync/delta/time_entry_wire.dart';
 
-// Phase 5a delta-sync (#294) — the orchestrator. One table (`clients`) end to
-// end: push dirty rows (watermark) → pull rows past the cursor → apply LWW.
+// Phase 5 delta-sync (#294) — the orchestrator. Phase 5b takes it from one table
+// to all four content tables, and swaps the 5a `updatedAt` push watermark for a
+// real dirty-tracker (the `sync_outbox`, read via DeltaSyncQueries).
 //
-// Ordering is push-then-pull. Cursor and watermark are device-local
-// (`app_settings`) so each device tracks its own progress. Sync is gated on
-// entitlement (`orgs.plan != 'free'`): a free org never touches the network.
+// A pass is push-then-pull. Push set = the outbox ids per table (cleared on
+// ack). Pull advances a per-table `server_seq` cursor (device-local
+// `app_settings`). Pull+apply runs parent-first (clients → projects → tasks →
+// time_entries) so the local DB's foreign keys hold as children are inserted
+// (the backend itself has no FKs by design). Sync is gated on entitlement
+// (`orgs.plan != 'free'`): a free org never touches the network.
 
 /// The free (local-only) plan value in `orgs.plan`; anything else is entitled.
 const String kFreePlan = 'free';
 
-/// What one sync pass did — surfaced to the "Sync now" UI and logs.
+/// What one sync pass did — surfaced to the "Sync now" UI and logs. Counts are
+/// aggregated across all four tables.
 class SyncResult {
   /// Rows pushed to the server this pass.
   final int pushed;
@@ -62,7 +70,12 @@ class DeltaSyncService {
     DeltaAuthService? auth,
   })  : _client = client ?? supabase,
         _transport = transport ?? SyncTransport(client: client),
-        _auth = auth ?? DeltaAuthService(_db, client: client);
+        _auth = auth ?? DeltaAuthService(_db, client: client) {
+    // Constructing the service means sync is active for this session, so make
+    // sure content-table writes enqueue into the outbox (idempotent — in a
+    // delta build it's already on from startup; this also flips it on for tests).
+    _db.enableSyncOutbox = true;
+  }
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -70,13 +83,36 @@ class DeltaSyncService {
   final DeltaAuthService _auth;
 
   /// The full pass: ensure a session + org (adopting orphan rows on first
-  /// sign-in), gate on entitlement, then sync each table. 5a = `clients` only.
+  /// sign-in), gate on entitlement, then push and pull all four content tables.
   Future<SyncResult> syncAll() async {
     await _auth.signInAndAdopt();
     if (!await _isEntitled()) {
       return const SyncResult.skipped('not entitled (org plan = free)');
     }
-    return _syncClients();
+
+    // Push (order is cosmetic — the server has no FKs). Each table's outbox is
+    // the push set; cleared on ack.
+    var pushed = 0;
+    pushed += await _push(kTableClients, _wireClients);
+    pushed += await _push(kTableProjects, _wireProjects);
+    pushed += await _push(kTableTasks, _wireTasks);
+    pushed += await _push(kTableTimeEntries, _wireTimeEntries);
+
+    // Pull + apply parent-first so the local FK constraints hold on insert.
+    var pulled = 0;
+    var applied = 0;
+    for (final entry in <(String, Future<bool> Function(Map<String, dynamic>))>[
+      (kTableClients, _applyClient),
+      (kTableProjects, _applyProject),
+      (kTableTasks, _applyTask),
+      (kTableTimeEntries, _applyTimeEntry),
+    ]) {
+      final (pulled: p, applied: a) = await _pull(entry.$1, entry.$2);
+      pulled += p;
+      applied += a;
+    }
+
+    return SyncResult(pushed: pushed, pulled: pulled, applied: applied);
   }
 
   /// Whether the account's org is on a paid plan. RLS scopes `orgs` to the
@@ -87,79 +123,98 @@ class DeltaSyncService {
     return rows.first['plan'] != kFreePlan;
   }
 
-  Future<SyncResult> _syncClients() async {
-    final pushed = await _pushClients();
-    final (:pulled, :applied) = await _pullClients();
-    return SyncResult(pushed: pushed, pulled: pulled, applied: applied);
+  // ── Push ────────────────────────────────────────────────────────────────
+  // Read the table's outbox → fetch the current state of those rows (tombstones
+  // included) → upsert → clear the outbox for exactly the ids read. Partial
+  // failure throws before the clear, so nothing is lost — it re-pushes next pass.
+
+  Future<int> _push(
+    String table,
+    Future<List<Map<String, dynamic>>> Function(List<String>) buildWire,
+  ) async {
+    final ids = await _db.outboxRowIds(table);
+    if (ids.isEmpty) return 0;
+    final rows = await buildWire(ids);
+    await _transport.pushRows(table, rows);
+    await _db.clearOutbox(table, ids);
+    return rows.length;
   }
 
-  /// Push dirty clients (updatedAt past the watermark), then advance the
-  /// watermark to the newest row pushed. Tombstones ride through as upserts.
-  ///
-  /// Watermark-model caveat (5a shortcut): a row just *pulled* from another
-  /// device carries that device's clock, which is often above this device's
-  /// push watermark — so it gets re-selected here and re-pushed ONCE. That costs
-  /// a spurious upsert + `server_seq` bump + re-pull, but it converges (the
-  /// re-pull LWW-skips on equal `updatedAt`) and is idempotent, so it's benign
-  /// at this data scale. The obvious "fix" — advancing the watermark to the max
-  /// *applied* `updatedAt` after a pull — is UNSAFE: it would strand a local
-  /// edit whose `updatedAt` is below a pulled row's clock (that edit would never
-  /// push = a lost update). The real fix is a per-row dirty flag / `sync_outbox`
-  /// table, deferred to 5b; the watermark is deliberately the 5a stand-in.
-  Future<int> _pushClients() async {
-    final since = await _readWatermark();
-    final dirty = await _db.clientsToPush(since);
-    if (dirty.isEmpty) return 0;
+  Future<List<Map<String, dynamic>>> _wireClients(List<String> ids) async =>
+      [for (final c in await _db.clientsByIds(ids)) clientToWire(c)];
 
-    await _transport.pushRows('clients', [
-      for (final c in dirty) clientToWire(c),
-    ]);
+  Future<List<Map<String, dynamic>>> _wireProjects(List<String> ids) async =>
+      [for (final p in await _db.projectsByIds(ids)) projectToWire(p)];
 
-    // Advance the watermark to the max updatedAt actually pushed (not now()),
-    // so a row edited during the pass still lands next round.
-    var maxMs = since?.millisecondsSinceEpoch ?? 0;
-    for (final c in dirty) {
-      final ms = c.updatedAt?.millisecondsSinceEpoch ?? 0;
-      if (ms > maxMs) maxMs = ms;
-    }
-    await _db.setSyncSetting(kSyncLastPushedClients, '$maxMs');
-    return dirty.length;
-  }
+  Future<List<Map<String, dynamic>>> _wireTasks(List<String> ids) async =>
+      [for (final t in await _db.tasksByIds(ids)) taskToWire(t)];
 
-  /// Pull clients past the cursor and apply each under LWW, then advance the
-  /// cursor to the last server_seq seen (whether applied or skipped — both are
-  /// processed).
-  Future<({int pulled, int applied})> _pullClients() async {
-    final cursor = await _readCursor();
-    final rows = await _transport.pullSince('clients', cursor);
+  Future<List<Map<String, dynamic>>> _wireTimeEntries(List<String> ids) async =>
+      [for (final e in await _db.timeEntriesByIds(ids)) timeEntryToWire(e)];
+
+  // ── Pull ────────────────────────────────────────────────────────────────
+  // Rows past the cursor, applied under LWW, cursor advanced to the last
+  // server_seq seen (whether applied or skipped — both are processed).
+
+  Future<({int pulled, int applied})> _pull(
+    String table,
+    Future<bool> Function(Map<String, dynamic>) applyIfNewer,
+  ) async {
+    final cursor = await _readCursor(table);
+    final rows = await _transport.pullSince(table, cursor);
     if (rows.isEmpty) return (pulled: 0, applied: 0);
 
     var applied = 0;
     var maxSeq = cursor;
     for (final raw in rows) {
-      final remote = RemoteClient.fromWire(raw);
-      final local = await _db.clientByIdIncludingDeleted(remote.id);
-      if (decideClientMergeFor(local, remote) == MergeAction.apply) {
-        await _db.applyRemoteClient(remote);
-        applied++;
-      }
-      final seq = remote.serverSeq;
+      if (await applyIfNewer(raw)) applied++;
+      final seq = (raw['server_seq'] as num?)?.toInt();
       if (seq != null && seq > maxSeq) maxSeq = seq;
     }
     if (maxSeq > cursor) {
-      await _db.setSyncSetting(kSyncCursorClients, '$maxSeq');
+      await _db.setSyncSetting(syncCursorKey(table), '$maxSeq');
     }
     return (pulled: rows.length, applied: applied);
   }
 
-  Future<DateTime?> _readWatermark() async {
-    final raw = await _db.syncSetting(kSyncLastPushedClients);
-    final ms = int.tryParse(raw ?? '');
-    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  // Per-table LWW-apply: decode → find local match (tombstones included) →
+  // apply via the fromRemote path iff the remote clock wins. Returns whether it
+  // applied (for the count).
+
+  Future<bool> _applyClient(Map<String, dynamic> raw) async {
+    final r = RemoteClient.fromWire(raw);
+    final local = await _db.clientByIdIncludingDeleted(r.id);
+    if (decideClientMergeFor(local, r) != MergeAction.apply) return false;
+    await _db.applyRemoteClient(r);
+    return true;
   }
 
-  Future<int> _readCursor() async {
-    final raw = await _db.syncSetting(kSyncCursorClients);
+  Future<bool> _applyProject(Map<String, dynamic> raw) async {
+    final r = RemoteProject.fromWire(raw);
+    final local = await _db.projectByIdIncludingDeleted(r.id);
+    if (decideProjectMergeFor(local, r) != MergeAction.apply) return false;
+    await _db.applyRemoteProject(r);
+    return true;
+  }
+
+  Future<bool> _applyTask(Map<String, dynamic> raw) async {
+    final r = RemoteTask.fromWire(raw);
+    final local = await _db.taskByIdIncludingDeleted(r.id);
+    if (decideTaskMergeFor(local, r) != MergeAction.apply) return false;
+    await _db.applyRemoteTask(r);
+    return true;
+  }
+
+  Future<bool> _applyTimeEntry(Map<String, dynamic> raw) async {
+    final r = RemoteTimeEntry.fromWire(raw);
+    final local = await _db.timeEntryByIdIncludingDeleted(r.id);
+    if (decideTimeEntryMergeFor(local, r) != MergeAction.apply) return false;
+    await _db.applyRemoteTimeEntry(r);
+    return true;
+  }
+
+  Future<int> _readCursor(String table) async {
+    final raw = await _db.syncSetting(syncCursorKey(table));
     return int.tryParse(raw ?? '') ?? 0;
   }
 }

@@ -2,57 +2,154 @@ import 'package:drift/drift.dart';
 
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
+import 'package:timedart/data/sync/delta/project_wire.dart';
+import 'package:timedart/data/sync/delta/task_wire.dart';
+import 'package:timedart/data/sync/delta/time_entry_wire.dart';
 
-// Phase 5a delta-sync (#294) — the database seam for sync, kept OUT of the
-// giant database.dart as an extension so all delta code stays under
-// lib/data/sync/delta/. These are the three DB operations sync needs that the
-// normal CRUD surface doesn't expose:
+// Phase 5 delta-sync (#294) — the database seam for sync, kept OUT of the giant
+// database.dart as an extension so all delta code stays under
+// lib/data/sync/delta/. These are the DB operations sync needs that the normal
+// CRUD surface doesn't expose, now spanning all four content tables (5b):
 //
-//   • clientsToPush   — read dirty rows INCLUDING tombstones (every app read
-//                       filters `deletedAt IS NULL`; push must see deletes).
-//   • applyRemoteClient — the `fromRemote` write path: upsert a pulled row
-//                       WITHOUT re-stamping `updatedAt`, so the applied row is a
-//                       fixed point (no push↔pull echo). The normal
-//                       updateClient/deleteClient always bump `updatedAt`.
-//   • adoptOrphanClients — stamp org_id on offline-created rows at first
-//                       sign-in, bumping `updatedAt` so the watermark pushes them.
+//   • outboxRowIds / clearOutbox — the dirty-tracker read/ack. The push set is
+//                       the ids queued in `sync_outbox` for a table (marked at
+//                       the write choke-point via AppDatabase.markDirtyForSync);
+//                       cleared on push-ack. Replaces 5a's `updatedAt` watermark.
+//   • {clients,projects,tasks,timeEntries}ByIds — fetch the CURRENT state (incl.
+//                       tombstones) of the queued rows to build the push payload.
+//   • xByIdIncludingDeleted — the local match for a pulled id, tombstones
+//                       included, for the LWW comparison.
+//   • applyRemoteX — the `fromRemote` write path: upsert a pulled row WITHOUT
+//                       re-stamping `updatedAt` (echo-free) AND without enqueuing
+//                       into the outbox (the structural echo guard). The normal
+//                       CRUD always bumps updatedAt + enqueues.
+//   • adoptOrphanX — stamp org_id on offline-created rows at first sign-in,
+//                       bumping updatedAt and enqueuing them so they push.
 
-extension DeltaSyncClientQueries on AppDatabase {
-  /// Dirty `clients` for push: every row (live AND tombstoned) whose
-  /// `updatedAt` is strictly after [since] (the last-pushed watermark). Rows
-  /// with a null `updatedAt` are excluded — they carry no clock to compare and
-  /// predate sync. A null [since] returns everything (first push after sign-in).
-  Future<List<Client>> clientsToPush(DateTime? since) {
-    final q = select(clients);
-    if (since != null) {
-      q.where((c) => c.updatedAt.isBiggerThanValue(since));
-    } else {
-      q.where((c) => c.updatedAt.isNotNull());
-    }
-    return q.get();
+extension DeltaSyncQueries on AppDatabase {
+  // ── Outbox (dirty-tracker) ─────────────────────────────────────────────────
+
+  /// The row ids queued for [table] in the outbox — the push set for this table.
+  Future<List<String>> outboxRowIds(String table) => (selectOnly(syncOutbox)
+        ..addColumns([syncOutbox.rowId])
+        ..where(syncOutbox.targetTable.equals(table)))
+      .map((r) => r.read(syncOutbox.rowId)!)
+      .get();
+
+  /// Clear the outbox entries for [table]/[ids] after a successful push. Partial
+  /// failure just leaves the rest queued for the next pass.
+  Future<void> clearOutbox(String table, Iterable<String> ids) async {
+    final list = ids.toList();
+    if (list.isEmpty) return;
+    await (delete(syncOutbox)
+          ..where((o) => o.targetTable.equals(table) & o.rowId.isIn(list)))
+        .go();
   }
 
-  /// The local match for a pulled id, or null. Unlike [getClient] this does NOT
-  /// filter tombstones — LWW must compare against a locally-deleted row too, so
-  /// a remote un-delete (or a staler remote delete) resolves correctly.
+  // ── Push reads: current state of queued rows (tombstones included) ──────────
+
+  Future<List<Client>> clientsByIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value(const []);
+    return (select(clients)..where((c) => c.id.isIn(list))).get();
+  }
+
+  Future<List<Project>> projectsByIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value(const []);
+    return (select(projects)..where((p) => p.id.isIn(list))).get();
+  }
+
+  Future<List<Task>> tasksByIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value(const []);
+    return (select(tasks)..where((t) => t.id.isIn(list))).get();
+  }
+
+  Future<List<TimeEntry>> timeEntriesByIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value(const []);
+    return (select(timeEntries)..where((e) => e.id.isIn(list))).get();
+  }
+
+  // ── Pull: local match for LWW (tombstones NOT filtered) ─────────────────────
+  // Unlike the app's getters these do NOT filter `deletedAt IS NULL` — LWW must
+  // compare against a locally-deleted row too, so a remote un-delete (or a
+  // staler remote delete) resolves correctly.
+
   Future<Client?> clientByIdIncludingDeleted(String id) =>
       (select(clients)..where((c) => c.id.equals(id))).getSingleOrNull();
 
-  /// Apply a pulled row via the `fromRemote` path: a full-row upsert keyed by
-  /// `id` that writes the remote's `updatedAt` verbatim (never `DateTime.now()`).
-  /// Idempotent (upsert by PK) and echo-free (equal `updatedAt` round-trips to a
-  /// LWW no-op). Callers gate on [decideClientMerge] first; this just writes.
+  Future<Project?> projectByIdIncludingDeleted(String id) =>
+      (select(projects)..where((p) => p.id.equals(id))).getSingleOrNull();
+
+  Future<Task?> taskByIdIncludingDeleted(String id) =>
+      (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Future<TimeEntry?> timeEntryByIdIncludingDeleted(String id) =>
+      (select(timeEntries)..where((e) => e.id.equals(id))).getSingleOrNull();
+
+  // ── Apply (fromRemote): full-row upsert keyed by `id`, remote clock verbatim ─
+  // Idempotent (upsert by PK) and echo-free (equal `updatedAt` round-trips to a
+  // LWW no-op). Crucially these do NOT enqueue into the outbox — that is the
+  // structural echo guard. Callers gate on decide*MergeFor first; these write.
+
   Future<void> applyRemoteClient(RemoteClient remote) =>
       into(clients).insertOnConflictUpdate(remote.toCompanion());
 
-  /// Adoption (first sign-in): stamp [orgId] onto every local client that has
-  /// none, bumping `updatedAt` to now so the push watermark picks them up.
-  /// Non-destructive — only `org_id` and `updatedAt` change. Returns the number
-  /// of rows adopted.
-  Future<int> adoptOrphanClients(String orgId) =>
-      (update(clients)..where((c) => c.orgId.isNull())).write(
-        ClientsCompanion(orgId: Value(orgId), updatedAt: Value(DateTime.now())),
-      );
+  Future<void> applyRemoteProject(RemoteProject remote) =>
+      into(projects).insertOnConflictUpdate(remote.toCompanion());
+
+  Future<void> applyRemoteTask(RemoteTask remote) =>
+      into(tasks).insertOnConflictUpdate(remote.toCompanion());
+
+  Future<void> applyRemoteTimeEntry(RemoteTimeEntry remote) =>
+      into(timeEntries).insertOnConflictUpdate(remote.toCompanion());
+
+  // ── Adoption (first sign-in) ────────────────────────────────────────────────
+  // Stamp [orgId] onto every local row that has none, bumping `updatedAt` and
+  // enqueuing it so offline-created data joins the account on the next push.
+  // Reads the null-org ids FIRST (so they can be enqueued), then updates, then
+  // marks them dirty. Non-destructive — only `org_id`/`updatedAt` change.
+  // Returns the number of rows adopted.
+
+  Future<int> adoptOrphanClients(String orgId) => _adoptOrphans(
+      clients, clients.id, clients.orgId, orgId,
+      (o, now) => ClientsCompanion(orgId: Value(o), updatedAt: Value(now)));
+
+  Future<int> adoptOrphanProjects(String orgId) => _adoptOrphans(
+      projects, projects.id, projects.orgId, orgId,
+      (o, now) => ProjectsCompanion(orgId: Value(o), updatedAt: Value(now)));
+
+  Future<int> adoptOrphanTasks(String orgId) => _adoptOrphans(
+      tasks, tasks.id, tasks.orgId, orgId,
+      (o, now) => TasksCompanion(orgId: Value(o), updatedAt: Value(now)));
+
+  Future<int> adoptOrphanTimeEntries(String orgId) => _adoptOrphans(
+      timeEntries, timeEntries.id, timeEntries.orgId, orgId,
+      (o, now) => TimeEntriesCompanion(orgId: Value(o), updatedAt: Value(now)));
+
+  /// Shared adoption body. [companionFor] builds the table's companion from the
+  /// (orgId, now) pair — the one per-table bit the generic can't express.
+  Future<int> _adoptOrphans<T extends Table, R>(
+    TableInfo<T, R> table,
+    GeneratedColumn<String> idCol,
+    GeneratedColumn<String> orgCol,
+    String orgId,
+    Insertable<R> Function(String orgId, DateTime now) companionFor,
+  ) =>
+      transaction(() async {
+        final ids = await (selectOnly(table)
+              ..addColumns([idCol])
+              ..where(orgCol.isNull()))
+            .map((r) => r.read(idCol)!)
+            .get();
+        if (ids.isEmpty) return 0;
+        await (update(table)..where((_) => orgCol.isNull()))
+            .write(companionFor(orgId, DateTime.now()));
+        await markDirtyForSync(table.actualTableName, ids);
+        return ids.length;
+      });
 
   // ── Sync-local key/value (device-local `app_settings`, never synced) ──
   // Own accessors rather than database.dart's private _getSetting/_setSetting,
@@ -60,8 +157,7 @@ extension DeltaSyncClientQueries on AppDatabase {
 
   /// Read a `sync.`-namespaced setting, or null if unset.
   Future<String?> syncSetting(String key) async =>
-      (await (select(appSettings)
-                ..where((s) => s.key.equals(key)))
+      (await (select(appSettings)..where((s) => s.key.equals(key)))
               .getSingleOrNull())
           ?.value;
 

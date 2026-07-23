@@ -8,10 +8,19 @@ library;
 /// local rows during adoption and supplied as `org_id` on push.
 const String kSyncOrgId = 'sync.orgId';
 
-/// Push watermark for `clients`: the max `updatedAt` (epoch-ms) already pushed.
-/// Next push sends rows strictly newer than this.
-const String kSyncLastPushedClients = 'sync.lastPushed.clients';
+/// The four synced content-table names (== each drift table's `actualTableName`
+/// and its `public.<name>` Postgres table). The single source the outbox,
+/// transport, and cursor keys all agree on — a typo here would be a silent sync
+/// hole, so it's named once. Sync applies them parent-first (FK-safe on local
+/// apply); the backend has no FKs.
+const String kTableClients = 'clients';
+const String kTableProjects = 'projects';
+const String kTableTasks = 'tasks';
+const String kTableTimeEntries = 'time_entries';
 
-/// Pull cursor for `clients`: the max server-authored `server_seq` already
-/// applied. Next pull requests rows with `server_seq` strictly greater.
-const String kSyncCursorClients = 'sync.cursor.clients';
+/// Pull cursor for a table: the max server-authored `server_seq` already
+/// applied. Next pull requests rows with `server_seq` strictly greater. Keyed
+/// per table so each advances independently. (Phase 5b replaced the 5a push
+/// *watermark* with the [SyncOutbox] dirty-tracker, so there is no lastPushed
+/// key any more — the outbox IS the push set.)
+String syncCursorKey(String table) => 'sync.cursor.$table';

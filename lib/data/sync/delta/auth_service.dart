@@ -58,12 +58,17 @@ class DeltaAuthService {
   }
 
   /// Sign in (if needed), resolve the org, and adopt any offline-created local
-  /// clients that carry no org_id — stamping them so they push on the next sync.
-  /// Returns the org_id. This is the one-call first-sign-in bootstrap.
+  /// rows that carry no org_id — across all four content tables — stamping them
+  /// so they push on the next sync. Returns the org_id. This is the one-call
+  /// first-sign-in bootstrap and the mechanism by which pre-existing local data
+  /// seeds the outbox for its initial push.
   Future<String> signInAndAdopt() async {
     await ensureSignedIn();
     final orgId = await resolveOrgId();
     await _db.adoptOrphanClients(orgId);
+    await _db.adoptOrphanProjects(orgId);
+    await _db.adoptOrphanTasks(orgId);
+    await _db.adoptOrphanTimeEntries(orgId);
     return orgId;
   }
 }

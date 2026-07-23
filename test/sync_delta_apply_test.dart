@@ -3,12 +3,17 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
+import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/merge.dart';
+import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/sync_queries.dart';
+import 'package:timedart/data/sync/delta/task_wire.dart';
+import 'package:timedart/data/sync/delta/time_entry_wire.dart';
 
-// Phase 5a delta-sync (#294): the DB seam against a real (in-memory) drift DB —
-// the push-read (tombstones included), the fromRemote apply path (no re-stamp /
-// no echo), LWW at the DB boundary, and adoption.
+// Phase 5b delta-sync (#294): the DB seam against a real (in-memory) drift DB —
+// the sync_outbox dirty-tracker enqueued at the write choke-points, the
+// fromRemote apply path (no re-stamp, no echo, no enqueue), LWW at the DB
+// boundary for all four tables, adoption across all four, and outbox read/clear.
 
 void main() {
   late AppDatabase db;
@@ -16,11 +21,15 @@ void main() {
   final t1 = DateTime.fromMillisecondsSinceEpoch(2000);
   final t2 = DateTime.fromMillisecondsSinceEpoch(3000);
 
-  setUp(() => db = AppDatabase(NativeDatabase.memory()));
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+    // Simulate a delta build: content-table writes enqueue into the outbox.
+    db.enableSyncOutbox = true;
+  });
   tearDown(() => db.close());
 
-  /// Insert a client row with fully explicit fields (bypasses addClient so
-  /// timestamps are controlled).
+  // Raw inserts (bypass the choke-points → no auto-enqueue) so timestamps and
+  // org are fully controlled and the outbox starts empty for a test.
   Future<void> insertClient({
     required String id,
     String name = 'Acme',
@@ -28,136 +37,295 @@ void main() {
     double rate = 100,
     DateTime? updatedAt,
     DateTime? deletedAt,
-  }) => db.into(db.clients).insert(
-    ClientsCompanion.insert(
-      id: Value(id),
-      name: name,
-      defaultRate: rate,
-      orgId: Value(orgId),
-      updatedAt: Value(updatedAt),
-      deletedAt: Value(deletedAt),
-    ),
-  );
+  }) => db.into(db.clients).insert(ClientsCompanion.insert(
+        id: Value(id),
+        name: name,
+        defaultRate: rate,
+        orgId: Value(orgId),
+        updatedAt: Value(updatedAt),
+        deletedAt: Value(deletedAt),
+      ));
 
-  RemoteClient remote({
+  RemoteClient remoteClient({
     required String id,
     String name = 'Acme',
     String? orgId = 'org1',
-    double rate = 100,
     DateTime? updatedAt,
     DateTime? deletedAt,
     int serverSeq = 1,
   }) => RemoteClient(
-    id: id,
-    orgId: orgId,
-    name: name,
-    contactName: null,
-    email: null,
-    phone: null,
-    address: null,
-    abn: null,
-    defaultRate: rate,
-    archivedAt: null,
-    createdAt: null,
-    updatedAt: updatedAt,
-    deletedAt: deletedAt,
-    serverSeq: serverSeq,
-  );
+        id: id,
+        orgId: orgId,
+        name: name,
+        contactName: null,
+        email: null,
+        phone: null,
+        address: null,
+        abn: null,
+        defaultRate: 100,
+        archivedAt: null,
+        createdAt: null,
+        updatedAt: updatedAt,
+        deletedAt: deletedAt,
+        serverSeq: serverSeq,
+      );
 
-  /// Apply a remote row exactly as sync_service would: LWW-gate, then write.
-  Future<MergeAction> applyIfNewer(RemoteClient r) async {
-    final local = await db.clientByIdIncludingDeleted(r.id);
-    final action = decideClientMergeFor(local, r);
-    if (action == MergeAction.apply) await db.applyRemoteClient(r);
-    return action;
-  }
+  group('outbox enqueue at the write choke-points', () {
+    test('addClient / updateClient / deleteClient each enqueue the row',
+        () async {
+      final id = await db.addClient(name: 'Acme', defaultRate: 100);
+      expect(await db.outboxRowIds(kTableClients), [id]);
 
-  group('clientsToPush', () {
-    test('null watermark returns all clocked rows including tombstones',
+      await db.clearOutbox(kTableClients, [id]);
+      await db.updateClient(id: id, name: 'Renamed', defaultRate: 120);
+      expect(await db.outboxRowIds(kTableClients), [id]);
+
+      await db.clearOutbox(kTableClients, [id]);
+      await db.deleteClient(id);
+      expect(await db.outboxRowIds(kTableClients), [id]);
+    });
+
+    test('archiveClient enqueues', () async {
+      final id = await db.addClient(name: 'Acme', defaultRate: 100);
+      await db.clearOutbox(kTableClients, [id]);
+      await db.archiveClient(id);
+      expect(await db.outboxRowIds(kTableClients), [id]);
+    });
+
+    test('the full project/task/entry add-chain enqueues each table', () async {
+      final client = await db.addClient(name: 'Acme', defaultRate: 100);
+      final project =
+          await db.addProject(clientId: client, code: 'P1', title: 'Proj');
+      final task = await db.addTask(projectId: project, title: 'Task');
+      await db.addEntry(
+        projectId: project,
+        taskId: task,
+        startedAt: t0,
+        endedAt: t1,
+        seconds: 60,
+      );
+      expect(await db.outboxRowIds(kTableClients), [client]);
+      expect(await db.outboxRowIds(kTableProjects), [project]);
+      expect(await db.outboxRowIds(kTableTasks), [task]);
+      expect((await db.outboxRowIds(kTableTimeEntries)).length, 1);
+    });
+
+    test('deleteClientCascade enqueues the parent AND every live descendant',
+        () async {
+      final client = await db.addClient(name: 'Acme', defaultRate: 100);
+      final project =
+          await db.addProject(clientId: client, code: 'P1', title: 'Proj');
+      final task = await db.addTask(projectId: project, title: 'Task');
+      await db.addEntry(
+        projectId: project,
+        taskId: task,
+        startedAt: t0,
+        endedAt: t1,
+        seconds: 60,
+      );
+      // Clear the adds so we observe only the cascade's enqueues.
+      await db.clearOutbox(kTableClients, [client]);
+      await db.clearOutbox(kTableProjects, [project]);
+      await db.clearOutbox(kTableTasks, [task]);
+      await db.clearOutbox(
+          kTableTimeEntries, await db.outboxRowIds(kTableTimeEntries));
+
+      await db.deleteClientCascade(client);
+      expect(await db.outboxRowIds(kTableClients), [client]);
+      expect(await db.outboxRowIds(kTableProjects), [project]);
+      expect(await db.outboxRowIds(kTableTasks), [task]);
+      expect((await db.outboxRowIds(kTableTimeEntries)).length, 1);
+    });
+
+    test('with enableSyncOutbox off (released path) nothing is enqueued',
+        () async {
+      db.enableSyncOutbox = false;
+      final id = await db.addClient(name: 'Acme', defaultRate: 100);
+      await db.updateClient(id: id, name: 'X', defaultRate: 1);
+      await db.deleteClient(id);
+      expect(await db.outboxRowIds(kTableClients), isEmpty);
+    });
+
+    test('the fromRemote apply path does NOT enqueue (structural echo guard)',
+        () async {
+      await db.applyRemoteClient(remoteClient(id: 'a', updatedAt: t1));
+      expect(await db.outboxRowIds(kTableClients), isEmpty,
+          reason: 'applying a pulled row must never re-queue it for push');
+    });
+  });
+
+  group('push reads (byIds include tombstones)', () {
+    test('clientsByIds returns live and tombstoned rows, skips unknown ids',
         () async {
       await insertClient(id: 'a', updatedAt: t0);
-      await insertClient(id: 'b', updatedAt: t1, deletedAt: t1); // tombstoned
-      final rows = await db.clientsToPush(null);
+      await insertClient(id: 'b', updatedAt: t1, deletedAt: t1);
+      final rows = await db.clientsByIds(['a', 'b', 'ghost']);
       expect(rows.map((c) => c.id).toSet(), {'a', 'b'});
     });
 
-    test('watermark excludes rows at or before it', () async {
-      await insertClient(id: 'a', updatedAt: t0);
-      await insertClient(id: 'b', updatedAt: t2);
-      final rows = await db.clientsToPush(t1);
-      expect(rows.map((c) => c.id), ['b']);
+    test('empty id list short-circuits to no rows', () async {
+      expect(await db.clientsByIds(const []), isEmpty);
     });
+  });
 
-    test('rows with null updatedAt are never pushed', () async {
-      await insertClient(id: 'a', updatedAt: null);
-      expect(await db.clientsToPush(null), isEmpty);
+  group('outbox clear', () {
+    test('clearOutbox removes only the named ids for that table', () async {
+      final a = await db.addClient(name: 'A', defaultRate: 1);
+      final b = await db.addClient(name: 'B', defaultRate: 1);
+      await db.clearOutbox(kTableClients, [a]);
+      expect(await db.outboxRowIds(kTableClients), [b]);
     });
   });
 
   group('applyRemoteClient via LWW gate', () {
-    test('local absent → row is inserted', () async {
-      final action = await applyIfNewer(remote(id: 'a', updatedAt: t1));
-      expect(action, MergeAction.apply);
+    Future<MergeAction> applyIfNewer(RemoteClient r) async {
+      final local = await db.clientByIdIncludingDeleted(r.id);
+      final action = decideClientMergeFor(local, r);
+      if (action == MergeAction.apply) await db.applyRemoteClient(r);
+      return action;
+    }
+
+    test('local absent → inserted, remote clock kept', () async {
+      expect(await applyIfNewer(remoteClient(id: 'a', updatedAt: t1)),
+          MergeAction.apply);
       final row = await db.clientByIdIncludingDeleted('a');
       expect(row!.orgId, 'org1');
       expect(row.updatedAt, t1);
     });
 
-    test('newer remote overwrites and preserves the remote updatedAt (no '
-        're-stamp → echo-free)', () async {
-      await insertClient(id: 'a', name: 'Old', updatedAt: t0);
-      await applyIfNewer(remote(id: 'a', name: 'New', updatedAt: t1));
-      final row = await db.clientByIdIncludingDeleted('a');
-      expect(row!.name, 'New');
-      expect(row.updatedAt, t1, reason: 'must keep remote clock, not now()');
-    });
-
-    test('re-applying the same row is a no-op (idempotent, no echo)', () async {
+    test('equal clock re-apply is a skip (idempotent, echo-free)', () async {
       await insertClient(id: 'a', updatedAt: t1);
-      final second = await applyIfNewer(remote(id: 'a', updatedAt: t1));
-      expect(second, MergeAction.skip);
+      expect(await applyIfNewer(remoteClient(id: 'a', updatedAt: t1)),
+          MergeAction.skip);
     });
 
-    test('older remote does not clobber a newer local edit', () async {
+    test('older remote does not clobber newer local', () async {
       await insertClient(id: 'a', name: 'LocalNew', updatedAt: t2);
-      final action = await applyIfNewer(remote(id: 'a', name: 'Stale', updatedAt: t0));
-      expect(action, MergeAction.skip);
-      final row = await db.clientByIdIncludingDeleted('a');
-      expect(row!.name, 'LocalNew');
+      expect(await applyIfNewer(remoteClient(id: 'a', updatedAt: t0)),
+          MergeAction.skip);
+      expect((await db.clientByIdIncludingDeleted('a'))!.name, 'LocalNew');
     });
 
     test('remote tombstone applies as a local soft-delete', () async {
       await insertClient(id: 'a', updatedAt: t0);
-      await applyIfNewer(remote(id: 'a', updatedAt: t1, deletedAt: t1));
-      final row = await db.clientByIdIncludingDeleted('a');
-      expect(row!.deletedAt, t1);
-      // and it drops out of the normal (deletedAt IS NULL) read
-      final live = await db.watchClients(includeArchived: true).first;
-      expect(live.where((c) => c.id == 'a'), isEmpty);
+      await applyIfNewer(remoteClient(id: 'a', updatedAt: t1, deletedAt: t1));
+      expect((await db.clientByIdIncludingDeleted('a'))!.deletedAt, t1);
     });
   });
 
-  group('adoptOrphanClients', () {
-    test('stamps org_id on null-org rows and bumps updatedAt into the push set',
+  group('applyRemote for projects / tasks / time_entries (LWW + apply)', () {
+    // A minimal parent chain so FK-enforced child applies succeed.
+    Future<void> seedTree() async {
+      await insertClient(id: 'c1', orgId: 'org1', updatedAt: t0);
+      await db.applyRemoteProject(RemoteProject(
+        id: 'p1',
+        orgId: 'org1',
+        clientId: 'c1',
+        code: 'P1',
+        title: 'Proj',
+        rate: null,
+        status: 'active',
+        archivedAt: null,
+        createdAt: t0,
+        updatedAt: t0,
+        deletedAt: null,
+        serverSeq: 1,
+      ));
+      await db.applyRemoteTask(RemoteTask(
+        id: 't1',
+        orgId: 'org1',
+        projectId: 'p1',
+        title: 'Task',
+        rate: null,
+        status: 'active',
+        createdAt: t0,
+        updatedAt: t0,
+        deletedAt: null,
+        serverSeq: 2,
+      ));
+    }
+
+    test('project applies and keeps the remote updatedAt', () async {
+      await seedTree();
+      final local = await db.projectByIdIncludingDeleted('p1');
+      expect(local, isNot(null));
+      expect(local!.updatedAt, t0);
+      expect(local.clientId, 'c1');
+    });
+
+    test('task applies under its project', () async {
+      await seedTree();
+      final t = await db.taskByIdIncludingDeleted('t1');
+      expect(t!.projectId, 'p1');
+    });
+
+    test('time entry applies under project + task, seconds preserved',
         () async {
-      await insertClient(id: 'a', orgId: null, updatedAt: t0);
-      await insertClient(id: 'b', orgId: 'existing', updatedAt: t0);
+      await seedTree();
+      await db.applyRemoteTimeEntry(RemoteTimeEntry(
+        id: 'e1',
+        orgId: 'org1',
+        projectId: 'p1',
+        taskId: 't1',
+        description: 'note',
+        startedAt: t0,
+        endedAt: t1,
+        seconds: 90,
+        createdAt: t0,
+        updatedAt: t1,
+        deletedAt: null,
+        serverSeq: 3,
+      ));
+      final e = await db.timeEntryByIdIncludingDeleted('e1');
+      expect(e!.seconds, 90);
+      expect(e.updatedAt, t1);
+    });
 
-      final count = await db.adoptOrphanClients('mine');
-      expect(count, 1);
+    test('applying children does NOT enqueue them (echo guard, all tables)',
+        () async {
+      await seedTree();
+      expect(await db.outboxRowIds(kTableProjects), isEmpty);
+      expect(await db.outboxRowIds(kTableTasks), isEmpty);
+    });
+  });
 
-      final a = await db.clientByIdIncludingDeleted('a');
-      final b = await db.clientByIdIncludingDeleted('b');
-      expect(a!.orgId, 'mine');
-      expect(b!.orgId, 'existing', reason: 'already-scoped rows untouched');
-      expect(
-        a.updatedAt!.isAfter(t0),
-        isTrue,
-        reason: 'bumped so the watermark picks it up for push',
-      );
-      // the freshly-adopted row is now dirty relative to an old watermark
-      final toPush = await db.clientsToPush(t0);
-      expect(toPush.map((c) => c.id), contains('a'));
+  group('adoption across all four tables', () {
+    test('stamps org_id on null-org rows, bumps updatedAt, and enqueues them',
+        () async {
+      // Two clients: one orphan, one already scoped. A project chain (raw
+      // inserts, so nothing is pre-queued).
+      await insertClient(id: 'c1', orgId: null, updatedAt: t0);
+      await insertClient(id: 'c2', orgId: 'existing', updatedAt: t0);
+      await db.into(db.projects).insert(ProjectsCompanion.insert(
+            id: const Value('p1'),
+            clientId: 'c1',
+            code: 'P1',
+            title: 'Proj',
+            createdAt: Value(t0),
+            updatedAt: Value(t0),
+          ));
+
+      expect(await db.adoptOrphanClients('mine'), 1);
+      expect(await db.adoptOrphanProjects('mine'), 1);
+      expect(await db.adoptOrphanTasks('mine'), 0);
+      expect(await db.adoptOrphanTimeEntries('mine'), 0);
+
+      final c1 = await db.clientByIdIncludingDeleted('c1');
+      final c2 = await db.clientByIdIncludingDeleted('c2');
+      expect(c1!.orgId, 'mine');
+      expect(c2!.orgId, 'existing', reason: 'already-scoped rows untouched');
+      expect(c1.updatedAt!.isAfter(t0), isTrue);
+
+      // Adopted rows are queued for the first push.
+      expect(await db.outboxRowIds(kTableClients), ['c1']);
+      expect(await db.outboxRowIds(kTableProjects), ['p1']);
+    });
+
+    test('adoption is a no-op (0, no enqueue) when every row is scoped',
+        () async {
+      await insertClient(id: 'c1', orgId: 'mine', updatedAt: t0);
+      expect(await db.adoptOrphanClients('mine'), 0);
+      expect(await db.outboxRowIds(kTableClients), isEmpty);
     });
   });
 }
