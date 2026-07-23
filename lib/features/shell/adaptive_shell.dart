@@ -570,13 +570,16 @@ class _AdaptiveShellState extends State<AdaptiveShell>
     if (sync == null) return;
     // Through DeltaAuthService — the single seam onto Supabase auth — not the
     // raw client, so this stays correct if auth semantics change (email login).
-    final userId = DeltaAuthService(widget.db).currentUserId;
+    final auth = DeltaAuthService(widget.db);
+    final userId = auth.currentUserId;
+    final email = auth.currentUserEmail;
     final orgId = await widget.db.syncSetting(kSyncOrgId);
     if (!mounted) return;
     final lastSynced = sync.lastSyncedAt;
+    final identity = userId == null ? 'no' : (email ?? 'anonymous');
     final rows = <(String, String)>[
       ('Enabled', sync.enabled ? 'yes' : 'no'),
-      ('Signed in', userId == null ? 'no' : 'anonymous'),
+      ('Signed in', identity),
       ('User id', userId ?? '—'),
       ('Org id', orgId ?? '—'),
       ('Last synced', lastSynced == null ? 'never' : '$lastSynced'),
@@ -619,6 +622,169 @@ class _AdaptiveShellState extends State<AdaptiveShell>
         ],
       ),
     );
+  }
+
+  // Email sign-in / sign-out (Auth slice 1, #310). Maintainer-only, behind the
+  // delta gate. Email/password so two devices signing into the SAME account
+  // share one org (the 2-device goal) with no SMTP and no deep-link plumbing —
+  // works identically on Linux and Android. Signed in → offer sign-out;
+  // otherwise email + password with Create-account / Sign-in. NB this starts a
+  // fresh email session (its own org); it does NOT migrate anon local data onto
+  // the account — use Export/Import for that until the linking slice (#311).
+  Future<void> _showSyncAccount() async {
+    final sync = _sync;
+    if (sync == null) return;
+    final auth = DeltaAuthService(widget.db);
+    final messenger = ScaffoldMessenger.of(context);
+    final emailCtrl = TextEditingController(text: auth.currentUserEmail ?? '');
+    final passwordCtrl = TextEditingController();
+    // Hoisted out of the builder so they survive rebuilds (setDialogState).
+    String? error;
+    var busy = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          // Re-read on each rebuild so a completed sign-out flips the UI.
+          final signedInEmail = auth.currentUserEmail;
+
+          void update(void Function() fn) => setDialogState(fn);
+
+          // Run an auth action, then (on success) close and report. On the
+          // credential path a successful change also kicks a sync pass so the
+          // shared org resolves + new local rows push without a manual tap.
+          Future<void> submit(
+            Future<void> Function() action,
+            String okMessage,
+          ) async {
+            update(() {
+              busy = true;
+              error = null;
+            });
+            try {
+              await action();
+              if (sync.enabled) sync.requestSync(SyncTrigger.foreground);
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              messenger.showSnackBar(SnackBar(content: Text(okMessage)));
+            } catch (e) {
+              update(() {
+                busy = false;
+                error = '$e';
+              });
+            }
+          }
+
+          final children = <Widget>[];
+          if (signedInEmail != null) {
+            children.add(Text('Signed in as $signedInEmail.'));
+          } else {
+            children.add(
+              const Text(
+                'Sign in with an email + password to share sync across your '
+                'devices — use the same account on each. Nothing is emailed.',
+              ),
+            );
+            children.add(const SizedBox(height: 12));
+            children.add(
+              TextField(
+                controller: emailCtrl,
+                enabled: !busy,
+                keyboardType: TextInputType.emailAddress,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'you@timedart.app',
+                ),
+              ),
+            );
+            children.add(const SizedBox(height: 12));
+            children.add(
+              TextField(
+                controller: passwordCtrl,
+                enabled: !busy,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Password'),
+              ),
+            );
+          }
+          if (error != null) {
+            children.add(const SizedBox(height: 12));
+            children.add(
+              Text(
+                error!,
+                style:
+                    TextStyle(color: Theme.of(dialogContext).colorScheme.error),
+              ),
+            );
+          }
+
+          final actions = <Widget>[
+            TextButton(
+              onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ];
+          if (signedInEmail != null) {
+            actions.add(
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () => submit(
+                          auth.signOut,
+                          'Signed out — local data kept.',
+                        ),
+                child: const Text('Sign out'),
+              ),
+            );
+          } else {
+            final email = emailCtrl.text.trim();
+            actions.add(
+              TextButton(
+                onPressed: busy
+                    ? null
+                    : () => submit(
+                          () => auth.signUpWithPassword(
+                            email: email,
+                            password: passwordCtrl.text,
+                          ),
+                          'Account created — signed in as $email.',
+                        ),
+                child: const Text('Create account'),
+              ),
+            );
+            actions.add(
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () => submit(
+                          () => auth.signInWithPassword(
+                            email: email,
+                            password: passwordCtrl.text,
+                          ),
+                          'Signed in as $email.',
+                        ),
+                child: const Text('Sign in'),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            title: const Text('Sync account'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            ),
+            actions: actions,
+          );
+        },
+      ),
+    );
+    emailCtrl.dispose();
+    passwordCtrl.dispose();
   }
 
   // Shared release dialog: the version + markdown notes, and a button that opens
@@ -916,6 +1082,10 @@ class _AdaptiveShellState extends State<AdaptiveShell>
               : null,
           onSyncDetails: deltaSyncConfigured
               ? () async => run(_showSyncDetails)
+              : null,
+          // Maintainer-only email sign-in / sign-out (Auth slice 1, #310).
+          onSyncAccount: deltaSyncConfigured
+              ? () async => run(_showSyncAccount)
               : null,
           // Same footer as the normal panel; Shortcuts only where keys are live.
           onShowHelp: keyboardNav ? () => showShortcutsHelp(context) : null,

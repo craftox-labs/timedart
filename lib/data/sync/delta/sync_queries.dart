@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
+import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/task_wire.dart';
 import 'package:timedart/data/sync/delta/time_entry_wire.dart';
@@ -186,4 +187,23 @@ extension DeltaSyncQueries on AppDatabase {
           updatedAt: Value(DateTime.now()),
         ),
       );
+
+  /// Drop the identity-scoped sync state: the cached `org_id` and every table's
+  /// pull cursor. Called on any account change (email sign-in, sign-out) — the
+  /// next pass then re-resolves the org from `memberships` and re-pulls from
+  /// seq 0. Without this a new account would inherit the previous org's cached
+  /// id and its high-water cursor, so it would push under the wrong org and skip
+  /// its own lower-seq rows. Leaves `kSyncEnabled` (a device opt-in, not
+  /// identity) and local content rows (no wipe on sign-out) untouched.
+  Future<void> clearSyncIdentityState() => transaction(() async {
+        for (final key in [
+          kSyncOrgId,
+          syncCursorKey(kTableClients),
+          syncCursorKey(kTableProjects),
+          syncCursorKey(kTableTasks),
+          syncCursorKey(kTableTimeEntries),
+        ]) {
+          await (delete(appSettings)..where((s) => s.key.equals(key))).go();
+        }
+      });
 }

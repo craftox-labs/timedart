@@ -36,6 +36,7 @@ class SettingsPanel extends StatefulWidget {
     this.syncController,
     this.onToggleDeltaSync,
     this.onSyncDetails,
+    this.onSyncAccount,
     this.onShowHelp,
     this.onOpenSettings,
     this.onOpenTracker,
@@ -99,6 +100,9 @@ class SettingsPanel extends StatefulWidget {
   // Open the read-only sync account/status dialog (Phase 5d). Null hides the
   // row; only shown while sync is enabled.
   final Future<void> Function()? onSyncDetails;
+  // Open the email sign-in / sign-out dialog (Auth slice 1, #310). Null hides
+  // the row; only shown while sync is enabled.
+  final Future<void> Function()? onSyncAccount;
   // Footer callbacks, matching the normal panel's base row.
   final VoidCallback? onShowHelp;
   final VoidCallback? onOpenSettings;
@@ -325,6 +329,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
           label: 'Sync now (delta)$_syncStatusSuffix',
           icon: Icons.cloud_sync_outlined,
           onTap: () => widget.onSyncNow!(),
+        ),
+      if (sync.enabled && widget.onSyncAccount != null)
+        _ActionRow(
+          label: 'Account…',
+          icon: Icons.person_outline,
+          onTap: () => widget.onSyncAccount!(),
         ),
       if (sync.enabled && widget.onSyncDetails != null)
         _ActionRow(
