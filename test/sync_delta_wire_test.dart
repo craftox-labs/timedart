@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/merge.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/task_wire.dart';
@@ -155,6 +156,110 @@ void main() {
       expect(r.seconds, 90);
       expect(r.serverSeq, 9);
       expect(r.toCompanion().updatedAt.value, t1);
+    });
+  });
+
+  group('active timer wire codec (#300)', () {
+    final timer = ActiveTimer(
+      id: 'a1',
+      orgId: 'org1',
+      projectId: 'p1',
+      taskId: 't1',
+      description: 'note',
+      startedAt: t0,
+      accumulatedSeconds: 42,
+      runningSince: t1,
+      createdAt: t0,
+      updatedAt: t1,
+      deletedAt: null,
+    );
+
+    test('activeTimerToWire → snake_case, epoch-ms, no server_seq', () {
+      expect(activeTimerToWire(timer), {
+        'id': 'a1',
+        'org_id': 'org1',
+        'project_id': 'p1',
+        'task_id': 't1',
+        'description': 'note',
+        'started_at': 1000,
+        'accumulated_seconds': 42,
+        'running_since': 2000,
+        'created_at': 1000,
+        'updated_at': 2000,
+        'deleted_at': null,
+      });
+      expect(activeTimerToWire(timer).containsKey('server_seq'), isFalse);
+    });
+
+    test('fromWire round-trips; paused (running_since null) + unbound decode', () {
+      final r = RemoteActiveTimer.fromWire({
+        ...activeTimerToWire(timer),
+        'project_id': null,
+        'task_id': null,
+        'running_since': null,
+        'server_seq': 5,
+      });
+      expect(r.projectId, isNull); // unbound timer syncs fine
+      expect(r.taskId, isNull);
+      expect(r.runningSince, isNull); // paused
+      expect(r.accumulatedSeconds, 42);
+      expect(r.startedAt, t0);
+      expect(r.serverSeq, 5);
+      expect(r.toCompanion().updatedAt.value, t1); // remote clock verbatim
+    });
+
+    test('a tombstone (finished/discarded timer) decodes with deletedAt', () {
+      final r = RemoteActiveTimer.fromWire({
+        ...activeTimerToWire(timer),
+        'deleted_at': 3000,
+        'updated_at': 3000,
+        'server_seq': 1,
+      });
+      expect(r.deletedAt, DateTime.fromMillisecondsSinceEpoch(3000));
+    });
+
+    test('accumulated_seconds missing/null defaults to 0', () {
+      final r = RemoteActiveTimer.fromWire({
+        ...activeTimerToWire(timer),
+        'accumulated_seconds': null,
+        'server_seq': 1,
+      });
+      expect(r.accumulatedSeconds, 0);
+    });
+
+    test('decideActiveTimerMergeFor: newer remote applies, older skips', () {
+      ActiveTimer local(DateTime u) => ActiveTimer(
+            id: 'a1',
+            orgId: 'org1',
+            projectId: 'p1',
+            taskId: 't1',
+            description: 'note',
+            startedAt: t0,
+            accumulatedSeconds: 42,
+            runningSince: t1,
+            createdAt: t0,
+            updatedAt: u,
+            deletedAt: null,
+          );
+      RemoteActiveTimer rt(DateTime u) => RemoteActiveTimer(
+            id: 'a1',
+            orgId: 'org1',
+            projectId: 'p1',
+            taskId: 't1',
+            description: 'note',
+            startedAt: t0,
+            accumulatedSeconds: 42,
+            runningSince: t1,
+            createdAt: t0,
+            updatedAt: u,
+            deletedAt: null,
+            serverSeq: 1,
+          );
+      expect(decideActiveTimerMergeFor(local(t0), rt(t1)), MergeAction.apply);
+      expect(decideActiveTimerMergeFor(local(t1), rt(t0)), MergeAction.skip);
+      // Two devices, DIFFERENT work → different ids → no local match → apply
+      // (the row coexists rather than clobbering the other's timer).
+      expect(decideActiveTimerMergeFor(null, rt(t0)), MergeAction.apply);
     });
   });
 

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
@@ -89,6 +90,12 @@ extension DeltaSyncQueries on AppDatabase {
     return (select(timeEntries)..where((e) => e.id.isIn(list))).get();
   }
 
+  Future<List<ActiveTimer>> activeTimersByIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value(const []);
+    return (select(activeTimers)..where((t) => t.id.isIn(list))).get();
+  }
+
   // ── Pull: local match for LWW (tombstones NOT filtered) ─────────────────────
   // Unlike the app's getters these do NOT filter `deletedAt IS NULL` — LWW must
   // compare against a locally-deleted row too, so a remote un-delete (or a
@@ -106,6 +113,9 @@ extension DeltaSyncQueries on AppDatabase {
   Future<TimeEntry?> timeEntryByIdIncludingDeleted(String id) =>
       (select(timeEntries)..where((e) => e.id.equals(id))).getSingleOrNull();
 
+  Future<ActiveTimer?> activeTimerByIdIncludingDeleted(String id) =>
+      (select(activeTimers)..where((t) => t.id.equals(id))).getSingleOrNull();
+
   // ── Apply (fromRemote): full-row upsert keyed by `id`, remote clock verbatim ─
   // Idempotent (upsert by PK) and echo-free (equal `updatedAt` round-trips to a
   // LWW no-op). Crucially these do NOT enqueue into the outbox — that is the
@@ -122,6 +132,9 @@ extension DeltaSyncQueries on AppDatabase {
 
   Future<void> applyRemoteTimeEntry(RemoteTimeEntry remote) =>
       into(timeEntries).insertOnConflictUpdate(remote.toCompanion());
+
+  Future<void> applyRemoteActiveTimer(RemoteActiveTimer remote) =>
+      into(activeTimers).insertOnConflictUpdate(remote.toCompanion());
 
   // ── Adoption / re-home (sign-in) ─────────────────────────────────────────────
   // Claim local rows for [orgId]: stamp it onto every row that isn't already on
@@ -154,6 +167,10 @@ extension DeltaSyncQueries on AppDatabase {
   Future<int> adoptOrphanTimeEntries(String orgId) => _adoptOrphans(
       timeEntries, timeEntries.id, timeEntries.orgId, orgId,
       (o, now) => TimeEntriesCompanion(orgId: Value(o), updatedAt: Value(now)));
+
+  Future<int> adoptOrphanActiveTimers(String orgId) => _adoptOrphans(
+      activeTimers, activeTimers.id, activeTimers.orgId, orgId,
+      (o, now) => ActiveTimersCompanion(orgId: Value(o), updatedAt: Value(now)));
 
   /// Shared adoption body. [companionFor] builds the table's companion from the
   /// (orgId, now) pair — the one per-table bit the generic can't express.
@@ -213,6 +230,7 @@ extension DeltaSyncQueries on AppDatabase {
           syncCursorKey(kTableProjects),
           syncCursorKey(kTableTasks),
           syncCursorKey(kTableTimeEntries),
+          syncCursorKey(kTableActiveTimers),
         ]) {
           await (delete(appSettings)..where((s) => s.key.equals(key))).go();
         }

@@ -40,6 +40,10 @@ enum SyncTrigger {
   /// A running timer was just stopped and its entry committed.
   timerStop,
 
+  /// A running-timer state change (start/pause) that records no entry (#300) —
+  /// pushes the live timer so it shows as running/paused on the other device.
+  timerChanged,
+
   /// The periodic safety-net tick (mainly to pull the other device's edits
   /// while this one sits open).
   periodic,

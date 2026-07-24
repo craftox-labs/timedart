@@ -26,6 +26,11 @@ const String kTableProjects = 'projects';
 const String kTableTasks = 'tasks';
 const String kTableTimeEntries = 'time_entries';
 
+/// The live running timer (issue #300). Synced like the content tables but
+/// applied LAST on pull (it FK-references projects/tasks locally, so its parents
+/// must land first). A normal LWW row keyed by `id`.
+const String kTableActiveTimers = 'active_timers';
+
 /// Pull cursor for a table: the max server-authored `server_seq` already
 /// applied. Next pull requests rows with `server_seq` strictly greater. Keyed
 /// per table so each advances independently. (Phase 5b replaced the 5a push

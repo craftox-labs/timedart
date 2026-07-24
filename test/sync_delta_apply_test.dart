@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/data/backup.dart';
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/merge.dart';
@@ -400,6 +401,83 @@ void main() {
       await insertClient(id: 'c1', orgId: 'mine', updatedAt: t0);
       expect(await db.adoptOrphanClients('mine'), 0);
       expect(await db.outboxRowIds(kTableClients), isEmpty);
+    });
+
+    test('active timers are adopted too (#300)', () async {
+      // An unbound timer created offline (raw insert → not pre-queued).
+      await db.into(db.activeTimers).insert(ActiveTimersCompanion.insert(
+            id: const Value('a1'),
+            updatedAt: Value(t0),
+          ));
+      expect(await db.adoptOrphanActiveTimers('mine'), 1);
+      final row = await db.activeTimerByIdIncludingDeleted('a1');
+      expect(row!.orgId, 'mine');
+      expect(row.updatedAt!.isAfter(t0), isTrue);
+      expect(await db.outboxRowIds(kTableActiveTimers), ['a1']);
+    });
+  });
+
+  group('active timer sync (#300)', () {
+    test('saveActiveTimer enqueues; tombstoneActiveTimer enqueues', () async {
+      await db.saveActiveTimer(
+        ActiveTimersCompanion.insert(id: const Value('a1')),
+      );
+      expect(await db.outboxRowIds(kTableActiveTimers), ['a1']);
+
+      await db.clearOutbox(kTableActiveTimers, ['a1']);
+      await db.tombstoneActiveTimer('a1');
+      expect(await db.outboxRowIds(kTableActiveTimers), ['a1']);
+    });
+
+    test('sync-OFF path (enableSyncOutbox false) enqueues nothing', () async {
+      db.enableSyncOutbox = false;
+      await db.saveActiveTimer(
+        ActiveTimersCompanion.insert(id: const Value('a1')),
+      );
+      await db.tombstoneActiveTimer('a1');
+      expect(await db.outboxRowIds(kTableActiveTimers), isEmpty);
+    });
+
+    test('the fromRemote apply path does NOT enqueue (echo guard)', () async {
+      await db.applyRemoteActiveTimer(RemoteActiveTimer(
+        id: 'a1',
+        orgId: 'org1',
+        projectId: null,
+        taskId: null,
+        description: null,
+        startedAt: t0,
+        accumulatedSeconds: 0,
+        runningSince: t0,
+        createdAt: t0,
+        updatedAt: t1,
+        deletedAt: null,
+        serverSeq: 1,
+      ));
+      expect(await db.outboxRowIds(kTableActiveTimers), isEmpty);
+      final row = await db.activeTimerByIdIncludingDeleted('a1');
+      expect(row!.updatedAt, t1, reason: 'remote clock kept verbatim');
+    });
+
+    test('LWW: newer remote applies, older is skipped', () async {
+      await db.applyRemoteActiveTimer(RemoteActiveTimer(
+        id: 'a1', orgId: 'o', projectId: null, taskId: null, description: null,
+        startedAt: t0, accumulatedSeconds: 5, runningSince: null,
+        createdAt: t0, updatedAt: t1, deletedAt: null, serverSeq: 1,
+      ));
+      final local = await db.activeTimerByIdIncludingDeleted('a1');
+      // Older remote → skip (would clobber).
+      expect(
+        decideActiveTimerMergeFor(
+          local,
+          RemoteActiveTimer(
+            id: 'a1', orgId: 'o', projectId: null, taskId: null,
+            description: null, startedAt: t0, accumulatedSeconds: 99,
+            runningSince: t0, createdAt: t0, updatedAt: t0, deletedAt: null,
+            serverSeq: 2,
+          ),
+        ),
+        MergeAction.skip,
+      );
     });
   });
 }

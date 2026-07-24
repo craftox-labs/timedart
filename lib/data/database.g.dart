@@ -5819,6 +5819,15 @@ class $ActiveTimersTable extends ActiveTimers
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _orgIdMeta = const VerificationMeta('orgId');
+  @override
+  late final GeneratedColumn<String> orgId = GeneratedColumn<String>(
+    'org_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5831,6 +5840,7 @@ class $ActiveTimersTable extends ActiveTimers
     createdAt,
     updatedAt,
     deletedAt,
+    orgId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5910,6 +5920,12 @@ class $ActiveTimersTable extends ActiveTimers
         deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
       );
     }
+    if (data.containsKey('org_id')) {
+      context.handle(
+        _orgIdMeta,
+        orgId.isAcceptableOrUnknown(data['org_id']!, _orgIdMeta),
+      );
+    }
     return context;
   }
 
@@ -5959,6 +5975,10 @@ class $ActiveTimersTable extends ActiveTimers
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
       ),
+      orgId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}org_id'],
+      ),
     );
   }
 
@@ -5979,6 +5999,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? deletedAt;
+  final String? orgId;
   const ActiveTimer({
     required this.id,
     this.projectId,
@@ -5990,6 +6011,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
+    this.orgId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6019,6 +6041,9 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     }
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || orgId != null) {
+      map['org_id'] = Variable<String>(orgId);
     }
     return map;
   }
@@ -6051,6 +6076,9 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
+      orgId: orgId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(orgId),
     );
   }
 
@@ -6070,6 +6098,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      orgId: serializer.fromJson<String?>(json['orgId']),
     );
   }
   @override
@@ -6086,6 +6115,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       'createdAt': serializer.toJson<DateTime?>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'orgId': serializer.toJson<String?>(orgId),
     };
   }
 
@@ -6100,6 +6130,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     Value<DateTime?> createdAt = const Value.absent(),
     Value<DateTime?> updatedAt = const Value.absent(),
     Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> orgId = const Value.absent(),
   }) => ActiveTimer(
     id: id ?? this.id,
     projectId: projectId.present ? projectId.value : this.projectId,
@@ -6111,6 +6142,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    orgId: orgId.present ? orgId.value : this.orgId,
   );
   ActiveTimer copyWithCompanion(ActiveTimersCompanion data) {
     return ActiveTimer(
@@ -6130,6 +6162,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      orgId: data.orgId.present ? data.orgId.value : this.orgId,
     );
   }
 
@@ -6145,7 +6178,8 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
           ..write('runningSince: $runningSince, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('deletedAt: $deletedAt')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('orgId: $orgId')
           ..write(')'))
         .toString();
   }
@@ -6162,6 +6196,7 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
     createdAt,
     updatedAt,
     deletedAt,
+    orgId,
   );
   @override
   bool operator ==(Object other) =>
@@ -6176,7 +6211,8 @@ class ActiveTimer extends DataClass implements Insertable<ActiveTimer> {
           other.runningSince == this.runningSince &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.deletedAt == this.deletedAt);
+          other.deletedAt == this.deletedAt &&
+          other.orgId == this.orgId);
 }
 
 class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
@@ -6190,6 +6226,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
   final Value<DateTime?> createdAt;
   final Value<DateTime?> updatedAt;
   final Value<DateTime?> deletedAt;
+  final Value<String?> orgId;
   final Value<int> rowid;
   const ActiveTimersCompanion({
     this.id = const Value.absent(),
@@ -6202,6 +6239,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.orgId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ActiveTimersCompanion.insert({
@@ -6215,6 +6253,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.orgId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<ActiveTimer> custom({
@@ -6228,6 +6267,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
+    Expression<String>? orgId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6241,6 +6281,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
+      if (orgId != null) 'org_id': orgId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6256,6 +6297,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     Value<DateTime?>? createdAt,
     Value<DateTime?>? updatedAt,
     Value<DateTime?>? deletedAt,
+    Value<String?>? orgId,
     Value<int>? rowid,
   }) {
     return ActiveTimersCompanion(
@@ -6269,6 +6311,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      orgId: orgId ?? this.orgId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6306,6 +6349,9 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
+    if (orgId.present) {
+      map['org_id'] = Variable<String>(orgId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6325,6 +6371,7 @@ class ActiveTimersCompanion extends UpdateCompanion<ActiveTimer> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
+          ..write('orgId: $orgId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10505,6 +10552,7 @@ typedef $$ActiveTimersTableCreateCompanionBuilder =
       Value<DateTime?> createdAt,
       Value<DateTime?> updatedAt,
       Value<DateTime?> deletedAt,
+      Value<String?> orgId,
       Value<int> rowid,
     });
 typedef $$ActiveTimersTableUpdateCompanionBuilder =
@@ -10519,6 +10567,7 @@ typedef $$ActiveTimersTableUpdateCompanionBuilder =
       Value<DateTime?> createdAt,
       Value<DateTime?> updatedAt,
       Value<DateTime?> deletedAt,
+      Value<String?> orgId,
       Value<int> rowid,
     });
 
@@ -10607,6 +10656,11 @@ class $$ActiveTimersTableFilterComposer
 
   ColumnFilters<DateTime> get deletedAt => $composableBuilder(
     column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orgId => $composableBuilder(
+    column: $table.orgId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10706,6 +10760,11 @@ class $$ActiveTimersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get orgId => $composableBuilder(
+    column: $table.orgId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ProjectsTableOrderingComposer get projectId {
     final $$ProjectsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -10792,6 +10851,9 @@ class $$ActiveTimersTableAnnotationComposer
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
+  GeneratedColumn<String> get orgId =>
+      $composableBuilder(column: $table.orgId, builder: (column) => column);
+
   $$ProjectsTableAnnotationComposer get projectId {
     final $$ProjectsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -10877,6 +10939,7 @@ class $$ActiveTimersTableTableManager
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> orgId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ActiveTimersCompanion(
                 id: id,
@@ -10889,6 +10952,7 @@ class $$ActiveTimersTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
+                orgId: orgId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10903,6 +10967,7 @@ class $$ActiveTimersTableTableManager
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> orgId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ActiveTimersCompanion.insert(
                 id: id,
@@ -10915,6 +10980,7 @@ class $$ActiveTimersTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
+                orgId: orgId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

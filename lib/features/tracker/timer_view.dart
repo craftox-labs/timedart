@@ -51,6 +51,12 @@ class TimerController extends ChangeNotifier {
   // timer travels to the other device promptly. Null when sync isn't active.
   VoidCallback? onEntryCommitted;
 
+  // Fired after a running-state transition that rewrites the active-timer row
+  // (start/pause) but records no entry (#300): the shell hooks this to kick a
+  // background sync so the RUNNING timer itself travels to the other device
+  // (start on desktop → shows running on the phone). Null when sync isn't active.
+  VoidCallback? onTimerChanged;
+
   int get elapsed => _store.session.elapsed;
   bool get isRunning => _store.session.isRunning;
   bool get hasSession => _store.session.hasSession;
@@ -122,6 +128,10 @@ class TimerController extends ChangeNotifier {
     _startTicker();
     notifyListeners();
     await persisted;
+    // The running timer row landed — nudge a background sync so it travels to
+    // the other device (no-op when sync isn't wired). Off the await-fast-path
+    // above so the UI never waits on a sync concern.
+    onTimerChanged?.call();
   }
 
   Future<void> pause() async {
@@ -129,6 +139,7 @@ class TimerController extends ChangeNotifier {
     final persisted = _store.pause(now: DateTime.now(), description: _note);
     notifyListeners();
     await persisted;
+    onTimerChanged?.call();
   }
 
   /// Stop: persist the finished span as a TimeEntry, tombstone the active-timer

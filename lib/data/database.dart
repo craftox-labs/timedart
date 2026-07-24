@@ -282,6 +282,12 @@ class ActiveTimers extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().nullable().clientDefault(() => DateTime.now())();
   DateTimeColumn get deletedAt => dateTime().nullable()(); // tombstone on finish
+  // Tenancy scope key (Phase 4 / #300). Nullable — null on the pure-local path
+  // (like the content tables); stamped by adoption at sign-in so the running
+  // timer joins delta sync (issue #300, schema v19). Unlike app_settings the
+  // active timer DOES sync now: it's a normal LWW row keyed by `id`, so two
+  // devices timing different work coexist as distinct rows.
+  TextColumn get orgId => text().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -363,7 +369,7 @@ class AppDatabase extends _$AppDatabase {
   /// The schema version this build ships with. The single source of truth for
   /// both drift's migration ladder and the CLI's schema-version guard (which
   /// refuses to open a DB whose on-disk `user_version` differs from this).
-  static const int latestSchemaVersion = 18;
+  static const int latestSchemaVersion = 19;
 
   @override
   int get schemaVersion => latestSchemaVersion;
@@ -970,6 +976,27 @@ class AppDatabase extends _$AppDatabase {
           variables: [Variable.withString(syncOutbox.actualTableName)],
         ).get()).isNotEmpty;
         if (!exists) await m.createTable(syncOutbox);
+      }
+      // v18 → v19: sync the running timer (issue #300). Add a nullable `org_id`
+      // to `active_timers` — the last content-ish table without one — so the
+      // live timer can join delta sync (stamped by adoption at sign-in, like the
+      // v17 content-table org_ids). Nullable, no default → existing rows NULL
+      // (= unscoped/local), no backfill. `active_timers` was created at v14 and
+      // is not touched by any historical rebuild, so a plain add-if-missing is
+      // safe (no rebuild-to-current-shape footgun here).
+      if (from < 19) {
+        final exists = (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(activeTimers.actualTableName)],
+        ).get()).isNotEmpty;
+        if (exists) {
+          final cols = await customSelect(
+            'PRAGMA table_info(${activeTimers.actualTableName})',
+          ).get();
+          if (!cols.any((r) => r.read<String>('name') == activeTimers.orgId.name)) {
+            await m.addColumn(activeTimers, activeTimers.orgId);
+          }
+        }
       }
     },
     beforeOpen: (details) async {
@@ -1834,17 +1861,22 @@ class AppDatabase extends _$AppDatabase {
   void refreshAllStreams() => markTablesUpdated(allTables);
 
   // Insert-or-update the active-timer row by id, re-stamping updatedAt at the
-  // choke-point (like every other write).
-  Future<void> saveActiveTimer(ActiveTimersCompanion row) => into(
-    activeTimers,
-  ).insertOnConflictUpdate(row.copyWith(updatedAt: Value(DateTime.now())));
+  // choke-point (like every other write) and enqueuing it for delta sync (#300).
+  Future<void> saveActiveTimer(ActiveTimersCompanion row) => transaction(() async {
+    await into(activeTimers)
+        .insertOnConflictUpdate(row.copyWith(updatedAt: Value(DateTime.now())));
+    if (row.id.present) {
+      await markDirtyForSync(activeTimers.actualTableName, [row.id.value]);
+    }
+  });
 
   // Soft-delete (tombstone) the active-timer row on finish, so the "stopped"
-  // propagates across devices once sync lands.
-  Future<void> tombstoneActiveTimer(String id) {
+  // propagates across devices (delta sync, #300).
+  Future<void> tombstoneActiveTimer(String id) => transaction(() async {
     final now = DateTime.now();
-    return (update(activeTimers)..where((t) => t.id.equals(id))).write(
+    await (update(activeTimers)..where((t) => t.id.equals(id))).write(
       ActiveTimersCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
-  }
+    await markDirtyForSync(activeTimers.actualTableName, [id]);
+  });
 }

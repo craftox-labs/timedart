@@ -1,4 +1,5 @@
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/task_wire.dart';
@@ -77,6 +78,15 @@ MergeAction decideTaskMergeFor(Task? local, RemoteTask remote) => decideMerge(
     );
 
 MergeAction decideTimeEntryMergeFor(TimeEntry? local, RemoteTimeEntry remote) =>
+    decideMerge(
+      localUpdatedAt: local?.updatedAt,
+      remoteUpdatedAt: remote.updatedAt,
+    );
+
+MergeAction decideActiveTimerMergeFor(
+  ActiveTimer? local,
+  RemoteActiveTimer remote,
+) =>
     decideMerge(
       localUpdatedAt: local?.updatedAt,
       remoteUpdatedAt: remote.updatedAt,

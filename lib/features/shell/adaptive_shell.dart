@@ -918,6 +918,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       _sync = sync;
       WidgetsBinding.instance.addObserver(this);
       _timer.onEntryCommitted = () => sync.requestSync(SyncTrigger.timerStop);
+      _timer.onTimerChanged = () => sync.requestSync(SyncTrigger.timerChanged);
       widget.db.syncSetting(kSyncEnabled).then((v) {
         if (mounted) sync.setEnabled(v == '1');
       });

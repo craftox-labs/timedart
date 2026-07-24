@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:timedart/data/database.dart';
+import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/auth_service.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
@@ -139,6 +140,7 @@ class DeltaSyncService {
     pushed += await _push(kTableProjects, _wireProjects);
     pushed += await _push(kTableTasks, _wireTasks);
     pushed += await _push(kTableTimeEntries, _wireTimeEntries);
+    pushed += await _push(kTableActiveTimers, _wireActiveTimers);
 
     // Pull + apply parent-first so the local FK constraints hold on insert.
     var pulled = 0;
@@ -148,6 +150,9 @@ class DeltaSyncService {
       (kTableProjects, _applyProject),
       (kTableTasks, _applyTask),
       (kTableTimeEntries, _applyTimeEntry),
+      // Applied LAST: active_timers FK-references projects/tasks locally, so its
+      // parents must be inserted first this pass (the backend has no FKs).
+      (kTableActiveTimers, _applyActiveTimer),
     ]) {
       final (pulled: p, applied: a) = await _pull(entry.$1, entry.$2);
       pulled += p;
@@ -197,6 +202,9 @@ class DeltaSyncService {
 
   Future<List<Map<String, dynamic>>> _wireTimeEntries(List<String> ids) async =>
       [for (final e in await _db.timeEntriesByIds(ids)) timeEntryToWire(e)];
+
+  Future<List<Map<String, dynamic>>> _wireActiveTimers(List<String> ids) async =>
+      [for (final t in await _db.activeTimersByIds(ids)) activeTimerToWire(t)];
 
   // ── Pull ────────────────────────────────────────────────────────────────
   // Rows past the cursor, applied under LWW, cursor advanced to the last
@@ -256,6 +264,14 @@ class DeltaSyncService {
     final local = await _db.timeEntryByIdIncludingDeleted(r.id);
     if (decideTimeEntryMergeFor(local, r) != MergeAction.apply) return false;
     await _db.applyRemoteTimeEntry(r);
+    return true;
+  }
+
+  Future<bool> _applyActiveTimer(Map<String, dynamic> raw) async {
+    final r = RemoteActiveTimer.fromWire(raw);
+    final local = await _db.activeTimerByIdIncludingDeleted(r.id);
+    if (decideActiveTimerMergeFor(local, r) != MergeAction.apply) return false;
+    await _db.applyRemoteActiveTimer(r);
     return true;
   }
 
