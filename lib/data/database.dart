@@ -50,7 +50,12 @@ class Clients extends Table {
 class Projects extends Table {
   TextColumn get id => text().clientDefault(() => idGen.newId())();
   TextColumn get clientId => text().references(Clients, #id)(); // FK
-  TextColumn get code => text().unique()(); // human project number
+  // Optional human project number (#331). Nullable — not every workflow uses
+  // codes. UNIQUE is kept: SQLite (and Postgres) treat NULLs as distinct, so
+  // any number of code-less projects coexist while duplicate real codes stay
+  // blocked. Reads fall back to `title` when null (see project_wire, side
+  // panel, invoice header).
+  TextColumn get code => text().nullable().unique()();
   TextColumn get title => text()();
   RealColumn get rate => real().nullable()(); // overrides client default
   // addProject also stamps status/createdAt in Dart (not leaning on this SQL
@@ -375,7 +380,7 @@ class AppDatabase extends _$AppDatabase {
   /// The schema version this build ships with. The single source of truth for
   /// both drift's migration ladder and the CLI's schema-version guard (which
   /// refuses to open a DB whose on-disk `user_version` differs from this).
-  static const int latestSchemaVersion = 20;
+  static const int latestSchemaVersion = 21;
 
   @override
   int get schemaVersion => latestSchemaVersion;
@@ -1026,6 +1031,26 @@ class AppDatabase extends _$AppDatabase {
           }
         }
       }
+      // v20 → v21: project `code` is now optional (#331). SQLite can't relax a
+      // NOT NULL column in place, so rebuild `projects` to the current shape —
+      // which makes `code` nullable while keeping the UNIQUE (NULLs are distinct,
+      // so code-less projects coexist and duplicate real codes stay blocked).
+      // No new/dropped columns and every existing row already has a code, so a
+      // straight copy needs no transformer. FK enforcement is off during
+      // migration (beforeOpen turns it on afterwards), so the rebuild is safe
+      // despite the tasks/time_entries FKs into projects.id. By v21 any upgrade
+      // path has projects at the current shape (the v12→v13 rekey rebuilds it),
+      // so this is self-consistent.
+      if (from < 21) {
+        // Guard on existence like the steps above: some partial upgrade paths
+        // (and hand-built test schemas) reach here without a `projects` table
+        // yet, and an unconditional rebuild would crash on the missing table.
+        final exists = (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(projects.actualTableName)],
+        ).get()).isNotEmpty;
+        if (exists) await m.alterTable(TableMigration(projects));
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -1189,7 +1214,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<String> addProject({
     required String clientId,
-    required String code,
+    String? code,
     required String title,
     double? rate,
   }) {
@@ -1199,7 +1224,7 @@ class AppDatabase extends _$AppDatabase {
         ProjectsCompanion.insert(
           id: Value(id),
           clientId: clientId,
-          code: code,
+          code: Value(code),
           title: title,
           rate: rate == null ? const Value.absent() : Value(rate),
           // Stamp status/createdAt in Dart rather than leaning on the columns'
@@ -1218,7 +1243,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> updateProject({
     required String id,
     required String clientId,
-    required String code,
+    String? code,
     required String title,
     double? rate,
   }) => transaction(() async {

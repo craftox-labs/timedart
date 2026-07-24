@@ -1455,7 +1455,7 @@ class ProjectAddCommand extends _CliVerb {
       ..addOption(
         'code',
         abbr: 'C',
-        help: 'Unique project code (required).',
+        help: 'Optional unique project code.',
       )
       ..addOption(
         'title',
@@ -1472,7 +1472,11 @@ class ProjectAddCommand extends _CliVerb {
   @override
   Future<int> run() async {
     final clientSel = required('client', 'project add');
-    final code = required('code', 'project add');
+    // Code is optional (#331): omit it, or pass empty, for a code-less project.
+    final codeRaw = argResults!['code'] as String?;
+    final code = (codeRaw == null || codeRaw.trim().isEmpty)
+        ? null
+        : codeRaw.trim();
     final title = required('title', 'project add');
     final rateRaw = argResults!['rate'] as String?;
     final rate = rateRaw == null ? null : _optionalRate(rateRaw);
@@ -1535,8 +1539,12 @@ class ProjectEditCommand extends _CliVerb {
       if (wants.wasParsed('client')) {
         clientId = (await resolveClient(db, wants['client'] as String)).id;
       }
+      // Passing --code with an empty value clears it (code is optional, #331);
+      // omitting --code leaves the existing code untouched.
       final newCode = wants.wasParsed('code')
-          ? required('code', 'project edit')
+          ? ((wants['code'] as String).trim().isEmpty
+                ? null
+                : (wants['code'] as String).trim())
           : p.code;
       await _guardConstraints(
         () => db.updateProject(
@@ -1643,7 +1651,7 @@ class ProjectDeleteCommand extends _CliVerb {
         );
       }
       final impact = await db.projectDeleteImpact(p.id);
-      final label = '${p.code} ${p.title}';
+      final label = p.code == null ? p.title : '${p.code} ${p.title}';
       final force = argResults!['force'] as bool;
       if (!force) {
         stdout.writeln(
@@ -2072,7 +2080,7 @@ class EntryDeleteCommand extends _CliVerb {
           ? null
           : (await _taskById(db, e.taskId!)).title;
       final label = '${formatElapsed(e.seconds)} on '
-          '${<String>[project.code, ?taskTitle].join(' / ')}';
+          '${<String>[project.code ?? project.title, ?taskTitle].join(' / ')}';
       const impact = DeleteImpact();
       final force = argResults!['force'] as bool;
       if (!force) {

@@ -802,9 +802,9 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
   late final GeneratedColumn<String> code = GeneratedColumn<String>(
     'code',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
@@ -932,8 +932,6 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
         _codeMeta,
         code.isAcceptableOrUnknown(data['code']!, _codeMeta),
       );
-    } else if (isInserting) {
-      context.missing(_codeMeta);
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -1005,7 +1003,7 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
       code: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}code'],
-      )!,
+      ),
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -1050,7 +1048,7 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
 class Project extends DataClass implements Insertable<Project> {
   final String id;
   final String clientId;
-  final String code;
+  final String? code;
   final String title;
   final double? rate;
   final String status;
@@ -1062,7 +1060,7 @@ class Project extends DataClass implements Insertable<Project> {
   const Project({
     required this.id,
     required this.clientId,
-    required this.code,
+    this.code,
     required this.title,
     this.rate,
     required this.status,
@@ -1077,7 +1075,9 @@ class Project extends DataClass implements Insertable<Project> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['client_id'] = Variable<String>(clientId);
-    map['code'] = Variable<String>(code);
+    if (!nullToAbsent || code != null) {
+      map['code'] = Variable<String>(code);
+    }
     map['title'] = Variable<String>(title);
     if (!nullToAbsent || rate != null) {
       map['rate'] = Variable<double>(rate);
@@ -1103,7 +1103,7 @@ class Project extends DataClass implements Insertable<Project> {
     return ProjectsCompanion(
       id: Value(id),
       clientId: Value(clientId),
-      code: Value(code),
+      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       title: Value(title),
       rate: rate == null && nullToAbsent ? const Value.absent() : Value(rate),
       status: Value(status),
@@ -1131,7 +1131,7 @@ class Project extends DataClass implements Insertable<Project> {
     return Project(
       id: serializer.fromJson<String>(json['id']),
       clientId: serializer.fromJson<String>(json['clientId']),
-      code: serializer.fromJson<String>(json['code']),
+      code: serializer.fromJson<String?>(json['code']),
       title: serializer.fromJson<String>(json['title']),
       rate: serializer.fromJson<double?>(json['rate']),
       status: serializer.fromJson<String>(json['status']),
@@ -1148,7 +1148,7 @@ class Project extends DataClass implements Insertable<Project> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'clientId': serializer.toJson<String>(clientId),
-      'code': serializer.toJson<String>(code),
+      'code': serializer.toJson<String?>(code),
       'title': serializer.toJson<String>(title),
       'rate': serializer.toJson<double?>(rate),
       'status': serializer.toJson<String>(status),
@@ -1163,7 +1163,7 @@ class Project extends DataClass implements Insertable<Project> {
   Project copyWith({
     String? id,
     String? clientId,
-    String? code,
+    Value<String?> code = const Value.absent(),
     String? title,
     Value<double?> rate = const Value.absent(),
     String? status,
@@ -1175,7 +1175,7 @@ class Project extends DataClass implements Insertable<Project> {
   }) => Project(
     id: id ?? this.id,
     clientId: clientId ?? this.clientId,
-    code: code ?? this.code,
+    code: code.present ? code.value : this.code,
     title: title ?? this.title,
     rate: rate.present ? rate.value : this.rate,
     status: status ?? this.status,
@@ -1255,7 +1255,7 @@ class Project extends DataClass implements Insertable<Project> {
 class ProjectsCompanion extends UpdateCompanion<Project> {
   final Value<String> id;
   final Value<String> clientId;
-  final Value<String> code;
+  final Value<String?> code;
   final Value<String> title;
   final Value<double?> rate;
   final Value<String> status;
@@ -1282,7 +1282,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
   ProjectsCompanion.insert({
     this.id = const Value.absent(),
     required String clientId,
-    required String code,
+    this.code = const Value.absent(),
     required String title,
     this.rate = const Value.absent(),
     this.status = const Value.absent(),
@@ -1293,7 +1293,6 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     this.orgId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : clientId = Value(clientId),
-       code = Value(code),
        title = Value(title);
   static Insertable<Project> custom({
     Expression<String>? id,
@@ -1328,7 +1327,7 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
   ProjectsCompanion copyWith({
     Value<String>? id,
     Value<String>? clientId,
-    Value<String>? code,
+    Value<String?>? code,
     Value<String>? title,
     Value<double?>? rate,
     Value<String>? status,
@@ -7182,7 +7181,7 @@ typedef $$ProjectsTableCreateCompanionBuilder =
     ProjectsCompanion Function({
       Value<String> id,
       required String clientId,
-      required String code,
+      Value<String?> code,
       required String title,
       Value<double?> rate,
       Value<String> status,
@@ -7197,7 +7196,7 @@ typedef $$ProjectsTableUpdateCompanionBuilder =
     ProjectsCompanion Function({
       Value<String> id,
       Value<String> clientId,
-      Value<String> code,
+      Value<String?> code,
       Value<String> title,
       Value<double?> rate,
       Value<String> status,
@@ -7702,7 +7701,7 @@ class $$ProjectsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> clientId = const Value.absent(),
-                Value<String> code = const Value.absent(),
+                Value<String?> code = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),
@@ -7730,7 +7729,7 @@ class $$ProjectsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 required String clientId,
-                required String code,
+                Value<String?> code = const Value.absent(),
                 required String title,
                 Value<double?> rate = const Value.absent(),
                 Value<String> status = const Value.absent(),

@@ -249,7 +249,9 @@ Future<List<ReportRow>> queryReport(
         key = project?.id;
         label = project == null
             ? '(unknown project)'
-            : '${project.code} ${project.title}';
+            : (project.code == null
+                  ? project.title
+                  : '${project.code} ${project.title}');
       case ReportGroupBy.task:
         key = task?.id;
         label = task?.title ?? '(no task)';

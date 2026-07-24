@@ -39,7 +39,7 @@ class RemoteProject {
   final String id;
   final String? orgId;
   final String clientId;
-  final String code;
+  final String? code; // optional (#331); NULL for code-less projects
   final String title;
   final double? rate;
   final String status;
@@ -73,7 +73,7 @@ class RemoteProject {
     id: m['id'] as String,
     orgId: m['org_id'] as String?,
     clientId: m['client_id'] as String,
-    code: m['code'] as String,
+    code: m['code'] as String?,
     title: m['title'] as String,
     rate: (m['rate'] as num?)?.toDouble(),
     status: m['status'] as String,

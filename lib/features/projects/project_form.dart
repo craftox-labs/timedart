@@ -49,7 +49,6 @@ class _ProjectFormState extends State<ProjectForm> {
     text: rateText(widget.initial?.rate),
   );
   String? _clientError;
-  String? _codeError;
   String? _titleError;
   String? _rateError;
 
@@ -99,20 +98,20 @@ class _ProjectFormState extends State<ProjectForm> {
 
   Future<void> _submit() async {
     final code = _code.text.trim();
+    // Code is optional (#331). Store NULL (not '') when blank so the UNIQUE
+    // constraint keeps treating code-less projects as distinct — many empty
+    // strings would collide, but NULLs don't.
+    final codeValue = code.isEmpty ? null : code;
     final title = _title.text.trim();
     final parsed = parseRate(_rate.text);
     // Flag each required field on its own control (not one combined bail-out),
     // and set the state before returning so the messages actually render.
     setState(() {
       _clientError = _clientId == null ? 'Select a client' : null;
-      _codeError = code.isEmpty ? 'Enter a code' : null;
       _titleError = title.isEmpty ? 'Enter a title' : null;
       _rateError = parsed.error;
     });
-    if (_clientError != null ||
-        _codeError != null ||
-        _titleError != null ||
-        _rateError != null) {
+    if (_clientError != null || _titleError != null || _rateError != null) {
       return;
     }
     // Only persist a rate the user took ownership of; an untouched inherited
@@ -125,14 +124,14 @@ class _ProjectFormState extends State<ProjectForm> {
         await widget.db.updateProject(
           id: widget.initial!.id,
           clientId: _clientId!, // allow reassigning the client
-          code: code,
+          code: codeValue,
           title: title,
           rate: rate,
         );
       } else {
         createdProjectId = await widget.db.addProject(
           clientId: _clientId!,
-          code: code,
+          code: codeValue,
           title: title,
           rate: rate,
         );
@@ -215,9 +214,8 @@ class _ProjectFormState extends State<ProjectForm> {
         TextField(
           controller: _code,
           onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(
-            label: requiredLabel(context, 'Code'),
-            errorText: _codeError,
+          decoration: const InputDecoration(
+            label: Text('Code'),
           ),
         ),
         const SizedBox(height: AppTokens.spaceXl),

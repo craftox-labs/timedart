@@ -54,7 +54,8 @@ List<PanelRow> buildPanelRows({
 
   final q = query.trim().toLowerCase();
   final searching = q.isNotEmpty;
-  bool projectMatches(Project j) => '${j.code} ${j.title}'.toLowerCase().contains(q);
+  bool projectMatches(Project j) =>
+      '${j.code ?? ''} ${j.title}'.toLowerCase().contains(q);
 
   final rows = <PanelRow>[];
   for (final c in clients) {

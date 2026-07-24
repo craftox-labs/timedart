@@ -193,7 +193,8 @@ String formatProjectsHuman(List<ProjectListItem> items) {
       .map((p) {
         final client = p.clientName == null ? '' : '  (${p.clientName})';
         final archived = p.archived ? '  [archived]' : '';
-        return '${p.code}  ${p.title}$client$archived\n  ${p.id}';
+        final code = p.code == null ? '' : '${p.code}  ';
+        return '$code${p.title}$client$archived\n  ${p.id}';
       })
       .join('\n');
 }
@@ -400,7 +401,8 @@ String formatProject(
     });
   }
   final client = p.clientName == null ? '' : ' (${p.clientName})';
-  return '$action project ${p.code} "${p.title}"$client.\n  ${p.id}';
+  final code = p.code == null ? '' : '${p.code} ';
+  return '$action project $code"${p.title}"$client.\n  ${p.id}';
 }
 
 // ── task create/edit rendering ─────────────────────────────────────────────

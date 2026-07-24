@@ -1,8 +1,8 @@
-/// A row in `list projects` — a live project with its stable UUID, human code
-/// and title, and owning client.
+/// A row in `list projects` — a live project with its stable UUID, optional
+/// human code, title, and owning client.
 class ProjectListItem {
   final String id;
-  final String code;
+  final String? code; // optional (#331)
   final String title;
   final String clientId;
   final String? clientName;
@@ -11,7 +11,7 @@ class ProjectListItem {
 
   const ProjectListItem({
     required this.id,
-    required this.code,
+    this.code,
     required this.title,
     required this.clientId,
     this.clientName,
