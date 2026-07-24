@@ -122,19 +122,22 @@ class SettingsPanel extends StatefulWidget {
   State<SettingsPanel> createState() => _SettingsPanelState();
 }
 
-// Order here drives the panel's section order: General first, then the lists.
-enum _Section { general, templates, profiles }
+// Order here drives the panel's section order: General first, then the lists,
+// then Sync last.
+enum _Section { general, templates, profiles, sync }
 
 String _sectionLabel(_Section s) => switch (s) {
   _Section.templates => 'Templates',
   _Section.profiles => 'Profiles',
   _Section.general => 'General',
+  _Section.sync => 'Sync',
 };
 
 String _sectionSingular(_Section s) => switch (s) {
   _Section.templates => 'Template',
   _Section.profiles => 'Profile',
   _Section.general => 'General',
+  _Section.sync => 'Sync',
 };
 
 // A flattened visible row: a section header, or one entity under an open one.
@@ -274,12 +277,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _Section.templates => widget.onAddTemplate,
     _Section.profiles => widget.onAddProfile,
     _Section.general => null, // actions, not a list you add to
+    _Section.sync => null, // actions, not a list you add to
   };
 
   bool _editableSection(_Section s) => switch (s) {
     _Section.templates => widget.onEditTemplate != null,
     _Section.profiles => widget.onEditProfile != null,
     _Section.general => false,
+    _Section.sync => false,
   };
 
   // The wired General-section actions (only those with a callback present).
@@ -309,24 +314,24 @@ class _SettingsPanelState extends State<SettingsPanel> {
         icon: Icons.replay,
         onTap: () => widget.onRerunOnboarding!(),
       ),
-    // Delta sync (Phase 5d, #294): an opt-in toggle, and — once on — the
-    // manual pass (with live status) and the account/status dialog. All gated
-    // on a controller being wired, so released builds show none of them.
-    ..._deltaSyncRows(),
   ];
 
+  // Delta sync (Phase 5d, #294): an opt-in toggle, and — once on — the manual
+  // pass (with live status) and the account/status dialog. These populate the
+  // dedicated "Sync" section; all gated on a controller being wired, so
+  // released builds show no rows (and the section header is suppressed too).
   List<_ActionRow> _deltaSyncRows() {
     final sync = widget.syncController;
     if (sync == null || widget.onToggleDeltaSync == null) return const [];
     return [
       _ActionRow(
-        label: sync.enabled ? 'Disable sync (delta)' : 'Enable sync (delta)',
+        label: sync.enabled ? 'Disable sync' : 'Enable sync',
         icon: sync.enabled ? Icons.cloud_done_outlined : Icons.cloud_outlined,
         onTap: () => widget.onToggleDeltaSync!(),
       ),
       if (sync.enabled && widget.onSyncNow != null)
         _ActionRow(
-          label: 'Sync now (delta)$_syncStatusSuffix',
+          label: 'Sync now$_syncStatusSuffix',
           icon: Icons.cloud_sync_outlined,
           onTap: () => widget.onSyncNow!(),
         ),
@@ -384,6 +389,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
           }
         }
       case _Section.general:
+      case _Section.sync:
         break; // no editable entities — actions handle their own onTap
     }
   }
@@ -589,6 +595,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
             _EntityRow(s, id: x.id, name: x.name, isDefault: x.isDefault),
         ],
         _Section.general => _actionRows(),
+        _Section.sync => _deltaSyncRows(),
       };
       if (!_searching) return all;
       return all.where((r) => matches(_rowLabel(r))).toList();
@@ -597,9 +604,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
     final rows = <_BRow>[];
     for (final s in _Section.values) {
       final sectionItems = items(s);
-      // Hide a section with no items: General is hidden whenever empty, and any
-      // section is hidden while searching if nothing under it matches.
-      if (sectionItems.isEmpty && (s == _Section.general || _searching)) {
+      // Hide a section with no items: General and Sync are hidden whenever
+      // empty (Sync has no rows in released, non-delta builds → no bare
+      // header), and any section is hidden while searching if nothing under it
+      // matches.
+      if (sectionItems.isEmpty &&
+          (s == _Section.general || s == _Section.sync || _searching)) {
         continue;
       }
       // An active query force-expands every surviving section so matches show.
@@ -650,6 +660,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                 _Section.templates => row.id == widget.selectedTemplateId,
                 _Section.profiles => row.id == widget.selectedProfileId,
                 _Section.general => false,
+                _Section.sync => false,
               },
               onTap: () {
                 setState(() => _cursor = i);
