@@ -62,7 +62,7 @@ class InvoiceDocument {
   final DateTime issueDate;
   final DateTime periodFrom;
   final DateTime periodTo;
-  final String reference; // the project code (RE:)
+  final String reference; // project code, or the title when code-less (RE:, #331)
   final InvoiceRegion region; // sender's region — shapes tax/identity/title
   final String title; // "Tax Invoice" (AU + tax) or "Invoice"
 
