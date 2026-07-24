@@ -803,7 +803,7 @@ class ProjectHeader extends StatelessWidget {
           spacing: 4,
           children: [
             Text(
-              '${client.name} : ${project.code}',
+              '${client.name} : ${project.code ?? project.title}',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Theme.of(context).colorScheme.primary,

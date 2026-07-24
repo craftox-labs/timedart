@@ -192,7 +192,8 @@ class _InvoiceViewState extends State<InvoiceView> {
 
   Future<void> _exportPdf() async {
     try {
-      final safe = widget.project.code.replaceAll(
+      // Filename stem: the code when present, else the title (#331).
+      final safe = (widget.project.code ?? widget.project.title).replaceAll(
         RegExp(r'[^A-Za-z0-9_-]'),
         '_',
       );
@@ -384,7 +385,10 @@ class _InvoiceViewState extends State<InvoiceView> {
             children: [
               const TextSpan(text: 'Invoice:'),
               TextSpan(
-                text: ' ${widget.project.code} — ${widget.project.title}',
+                // Code — title, or just the title when there's no code (#331).
+                text: widget.project.code == null
+                    ? ' ${widget.project.title}'
+                    : ' ${widget.project.code} — ${widget.project.title}',
                 style: TextStyle(
                   fontFamily: AppTokens.fontFamily,
                   fontStyle: FontStyle.normal,

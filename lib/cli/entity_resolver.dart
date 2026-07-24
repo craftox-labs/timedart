@@ -30,7 +30,8 @@ Future<Project> resolveProject(AppDatabase db, String query) async {
     byName,
     kind: 'project',
     query: query,
-    describe: (p) => '${p.code} "${p.title}" (${p.id})',
+    describe: (p) =>
+        '${p.code == null ? '' : '${p.code} '}"${p.title}" (${p.id})',
   );
 }
 

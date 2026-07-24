@@ -39,13 +39,16 @@ create table if not exists public.projects (
   id text primary key,
   org_id text,
   client_id text not null,
-  code text not null,
+  code text, -- optional (#331); NULL for code-less projects
   title text not null,
   rate double precision,
   status text not null,
   archived_at bigint, created_at bigint not null, updated_at bigint, deleted_at bigint,
   server_seq bigint
 );
+-- #331: project code is optional. Idempotent for an already-deployed projects
+-- table (create table if not exists above won't alter an existing column).
+alter table public.projects alter column code drop not null;
 create table if not exists public.tasks (
   id text primary key,
   org_id text,

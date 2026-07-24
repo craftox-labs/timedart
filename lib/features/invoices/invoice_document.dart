@@ -268,7 +268,7 @@ InvoiceDocument buildInvoiceDocument({
     issueDate: issueDate,
     periodFrom: from,
     periodTo: to,
-    reference: project.code,
+    reference: project.code ?? project.title, // code, else title (#331)
     region: region,
     title: region.invoiceTitle(hasTax: tax != null),
     showBank: resolvedShowBank,

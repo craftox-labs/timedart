@@ -644,7 +644,9 @@ class ProjectRowItem extends StatelessWidget {
       context: context,
       selected: isSelected,
       title: Text(
-        '${project.code} - ${project.title}',
+        project.code == null
+            ? project.title
+            : '${project.code} - ${project.title}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).extension<AppTextStyles>()!.rowTitleSmall,

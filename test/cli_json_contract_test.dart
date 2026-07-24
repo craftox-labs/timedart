@@ -255,7 +255,7 @@ void main() {
   test('version line states CLI version, schema version and sync-awareness', () {
     final v = versionLine();
     expect(v, contains(kCliVersion));
-    expect(v, contains('schema v20'));
+    expect(v, contains('schema v21'));
     expect(v, contains('sync:'));
   });
 

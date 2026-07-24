@@ -371,7 +371,7 @@ void main() {
       await db.into(db.projects).insert(ProjectsCompanion.insert(
             id: const Value('p1'),
             clientId: 'c1',
-            code: 'P1',
+            code: const Value('P1'),
             title: 'Proj',
             createdAt: Value(t0),
             updatedAt: Value(t0),

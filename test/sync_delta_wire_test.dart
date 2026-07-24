@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/active_timer_wire.dart';
@@ -74,6 +75,18 @@ void main() {
         'server_seq': 1,
       });
       expect(r.deletedAt, DateTime.fromMillisecondsSinceEpoch(3000));
+    });
+
+    test('a code-less project round-trips a null code (#331)', () {
+      // copyWith takes a Value for the nullable column; Value(null) sets it
+      // null (Value.absent would instead keep the existing 'P1').
+      final codeless = project.copyWith(code: const Value(null));
+      expect(codeless.code, isNull);
+      final wire = projectToWire(codeless);
+      expect(wire['code'], isNull);
+      final r = RemoteProject.fromWire({...wire, 'server_seq': 1});
+      expect(r.code, isNull);
+      expect(r.toCompanion().code.value, isNull);
     });
   });
 

@@ -228,6 +228,38 @@ void main() {
       );
     });
 
+    // #331: code is optional. Omitting --code succeeds and stores NULL (not '',
+    // which would collide across multiple code-less projects under the UNIQUE).
+    test('add without a code succeeds and stores null', () async {
+      final s = await _seed(tmp);
+      expect(
+        await runTimedartCli([
+          'project', 'add', '--client', 'Acme Co', //
+          '--title', 'No Code', '--db', s.file.path,
+        ]),
+        CliExit.success,
+      );
+      final db = _open(s.file);
+      addTearDown(db.close);
+      final p = (await (db.select(db.projects)
+            ..where((p) => p.title.equals('No Code')))
+          .get()).single;
+      expect(p.code, isNull);
+    });
+
+    // The crux of the design (#331): UNIQUE + nullable relies on SQLite treating
+    // NULLs as distinct, so any number of code-less projects coexist.
+    test('multiple code-less projects coexist (NULLs are distinct)', () async {
+      final s = await _seed(tmp);
+      final db = _open(s.file);
+      addTearDown(db.close);
+      await db.addProject(clientId: s.clientId, title: 'One'); // no code
+      await db.addProject(clientId: s.clientId, title: 'Two'); // no code
+      final codeless =
+          await (db.select(db.projects)..where((p) => p.code.isNull())).get();
+      expect(codeless.length, 2);
+    });
+
     // `runTimedartCli` only returns the exit code (the message goes to
     // stderr), so this drives the real duplicate-code failure straight through
     // the DB layer and pins the clean message (#288): no raw SqliteException,
