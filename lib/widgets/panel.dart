@@ -40,21 +40,24 @@ class PanelSearchField extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     // Field + clear-button reach a full touch target on narrow; compact on wide.
     final touchMin = context.isNarrow ? AppTokens.minTouchTarget : 36.0;
-    // Square left corners so the field sits flush to the panel border;
-    // rounded on the right only.
-    const fieldRadius = BorderRadius.horizontal(
-      right: Radius.circular(AppTokens.radiusSm),
-    );
+    // Narrow full-page Settings search (no trailing) runs the full panel width,
+    // square both sides. Elsewhere the field is flush-left / rounded-right, with
+    // the right inset reserved for a trailing add.
+    final fullWidth = context.isNarrow && trailing == null;
+    final fieldRadius = fullWidth
+        ? BorderRadius.zero
+        : const BorderRadius.horizontal(
+            right: Radius.circular(AppTokens.radiusSm),
+          );
+    // Left flush to the border; right inset matches the rows so a trailing add
+    // lands in the edit-button column — dropped to 0 only for the narrow
+    // full-width field. Wide top matches the content pane's spaceLg inset so
+    // both panes start level; narrow tightens (and stays symmetric top/bottom)
+    // since there's no adjacent pane to align with.
+    final vPad = context.isNarrow ? AppTokens.spaceMd : AppTokens.spaceLg;
+    final rightPad = fullWidth ? 0.0 : AppTokens.spaceMd;
     return Padding(
-      // Left flush to the border; right inset matches the rows so a trailing
-      // add lands in the edit-button column. Top matches the content pane's
-      // spaceLg inset so both panes start at the same height.
-      padding: const EdgeInsets.fromLTRB(
-        0,
-        AppTokens.spaceLg,
-        AppTokens.spaceMd,
-        AppTokens.spaceLg,
-      ),
+      padding: EdgeInsets.fromLTRB(0, vPad, rightPad, vPad),
       child: Row(
         children: [
           Expanded(
@@ -89,11 +92,11 @@ class PanelSearchField extends StatelessWidget {
                   // Same cap as the prefix so the field height doesn't jump when
                   // the clear button appears on input.
                   suffixIconConstraints: BoxConstraints(minHeight: touchMin),
-                  enabledBorder: const OutlineInputBorder(
+                  enabledBorder: OutlineInputBorder(
                     borderRadius: fieldRadius,
                     borderSide: BorderSide.none,
                   ),
-                  focusedBorder: const OutlineInputBorder(
+                  focusedBorder: OutlineInputBorder(
                     borderRadius: fieldRadius,
                     borderSide: BorderSide.none,
                   ),

@@ -44,6 +44,7 @@ class SettingsPanel extends StatefulWidget {
     this.onFocusPanel,
     this.settingsActive = false,
     this.showFooter = true,
+    this.showBadge = true,
     this.autofocus = false,
     this.cursorFocusNode,
     this.searchFocusNode,
@@ -116,6 +117,9 @@ class SettingsPanel extends StatefulWidget {
   final bool settingsActive;
   // Suppressed in the wide layout — the header carries those actions there.
   final bool showFooter;
+  // The Craftox branding badge at the very bottom. Suppressed on the narrow
+  // full-page Settings screen, which supplies its own links + version footer.
+  final bool showBadge;
   final bool autofocus;
 
   @override
@@ -563,7 +567,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
               onOpenTracker: widget.onOpenTracker,
               settingsActive: widget.settingsActive,
             ),
-          const CraftoxBadge(),
+          if (widget.showBadge) const CraftoxBadge(),
         ],
       ),
     );

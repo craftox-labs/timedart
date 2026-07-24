@@ -49,44 +49,41 @@ class _SettingsHomeState extends State<SettingsHome> {
         ? 'timedart'
         : 'timedart · v$_version$_channel';
 
-    // Links + version — pinned to the baseline of the placeholder, and reused
-    // on its own as the narrow full-page Settings footer.
-    final footer = Column(
+    final linksRow = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton.icon(
-              onPressed: () => launchUrl(_websiteUri),
-              icon: const Icon(Icons.public, size: AppTokens.iconSm),
-              label: const Text('Visit website'),
-            ),
-            const SizedBox(width: AppTokens.spaceSm),
-            TextButton.icon(
-              onPressed: () => openDocs(context),
-              icon: const Icon(
-                Icons.menu_book_outlined,
-                size: AppTokens.iconSm,
-              ),
-              label: const Text('Documentation'),
-            ),
-          ],
+        TextButton.icon(
+          onPressed: () => launchUrl(_websiteUri),
+          icon: const Icon(Icons.public, size: AppTokens.iconSm),
+          label: const Text('Visit website'),
         ),
-        const SizedBox(height: AppTokens.spaceMd),
-        Text(
-          versionLabel,
-          style: t.textTheme.labelSmall?.copyWith(
-            color: t.colorScheme.onSurfaceVariant,
-          ),
+        const SizedBox(width: AppTokens.spaceSm),
+        TextButton.icon(
+          onPressed: () => openDocs(context),
+          icon: const Icon(Icons.menu_book_outlined, size: AppTokens.iconSm),
+          label: const Text('Documentation'),
         ),
       ],
     );
+    final versionText = Text(
+      versionLabel,
+      style: t.textTheme.labelSmall?.copyWith(
+        color: t.colorScheme.onSurfaceVariant,
+      ),
+    );
 
+    // Narrow full-page Settings footer: compact, version on top with the links
+    // beneath it — the sections list above is the screen, so this stays short.
     if (widget.footerOnly) {
       return Padding(
-        padding: const EdgeInsets.only(top: AppTokens.spaceMd),
-        child: footer,
+        padding: const EdgeInsets.only(top: AppTokens.spaceXs),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            versionText,
+            linksRow,
+          ],
+        ),
       );
     }
 
@@ -114,7 +111,10 @@ class _SettingsHomeState extends State<SettingsHome> {
             ),
           ),
         ),
-        footer,
+        // Links + version pinned to the baseline of the placeholder.
+        linksRow,
+        const SizedBox(height: AppTokens.spaceMd),
+        versionText,
       ],
     );
   }

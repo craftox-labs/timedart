@@ -1050,6 +1050,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       VoidCallback? before,
       bool keyboardNav = false,
       bool showFooter = true,
+      bool showBadge = true,
     }) {
       void run(VoidCallback action) {
         before?.call();
@@ -1103,6 +1104,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           onFocusPanel: keyboardNav ? _focusPanel : null,
           settingsActive: true,
           showFooter: showFooter,
+          showBadge: showBadge,
           autofocus: keyboardNav,
           // Keyboard nav wired only where the panel is persistent (wide) —
           // mirrors SidePanel below, so Tab/Ctrl-h/Ctrl-l pane-switching can
@@ -1176,9 +1178,10 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       if (!wide && _detail is _Settings) {
         return Column(
           children: [
-            Expanded(child: settingsPanelView(showFooter: false)),
+            Expanded(
+              child: settingsPanelView(showFooter: false, showBadge: false),
+            ),
             const SettingsHome(footerOnly: true),
-            const SizedBox(height: AppTokens.spaceMd),
           ],
         );
       }
