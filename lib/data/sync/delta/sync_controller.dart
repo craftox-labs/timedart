@@ -48,6 +48,13 @@ enum SyncTrigger {
   /// while this one sits open).
   periodic,
 
+  /// The maintainer navigated within the app — opened the list sheet or
+  /// switched a tab (#329). On mobile there's no window-focus event, so an
+  /// already-foregrounded app would otherwise sit on the 5-min periodic tick;
+  /// this is the "user is active again" nudge. Throttled (see
+  /// [interactionThrottle]) so rapid navigation doesn't start a pass per tap.
+  interaction,
+
   /// The maintainer just turned sync on — the first pass signs in and adopts
   /// any offline-created local rows (Phase 5d).
   enable,
@@ -72,6 +79,13 @@ const Duration kMaxBackoff = Duration(minutes: 30);
 /// surfaces as `offline` within it.
 const Duration kSyncTimeout = Duration(seconds: 15);
 
+/// Minimum gap between passes started by [SyncTrigger.interaction]. Navigation
+/// nudges arrive on every tap; without this, heavy browsing (especially while
+/// offline, where each pass burns the [kSyncTimeout] deadline) would start a
+/// pass each time. One nudge-driven pass per this window is plenty to feel
+/// live. Other triggers are never throttled.
+const Duration kInteractionThrottle = Duration(seconds: 30);
+
 /// Owns automatic sync scheduling and the observable sync status. A
 /// [ChangeNotifier] so a status widget can rebuild on every transition.
 class SyncController extends ChangeNotifier {
@@ -82,6 +96,7 @@ class SyncController extends ChangeNotifier {
     this.enablePeriodic = true,
     this.periodicInterval = kPeriodicSyncInterval,
     this.syncTimeout = kSyncTimeout,
+    this.interactionThrottle = kInteractionThrottle,
     bool startEnabled = false,
   })  : _clock = clock ?? DateTime.now,
         _enabled = startEnabled {
@@ -103,6 +118,10 @@ class SyncController extends ChangeNotifier {
   /// The per-pass deadline: a pass exceeding this is failed as offline instead
   /// of hanging on a dead socket (see [kSyncTimeout]).
   final Duration syncTimeout;
+
+  /// Minimum gap between [SyncTrigger.interaction]-driven passes (see
+  /// [kInteractionThrottle]).
+  final Duration interactionThrottle;
   late final Future<SyncResult> Function() _runner;
   DeltaSyncService? _service;
 
@@ -132,6 +151,12 @@ class SyncController extends ChangeNotifier {
   // ── Scheduling state ─────────────────────────────────────────────────────
   Future<void>? _inFlight;
   bool _rerunQueued = false;
+
+  /// When the last pass was *started* (any trigger, success or not). Gates the
+  /// [SyncTrigger.interaction] throttle — distinct from [_lastSyncedAt], which
+  /// only advances on a successful pull so it can't relax the throttle while
+  /// offline.
+  DateTime? _lastAttemptAt;
   int _consecutiveFailures = 0;
   Timer? _periodicTimer;
   bool _enabled;
@@ -170,6 +195,17 @@ class SyncController extends ChangeNotifier {
   /// await the outcome. A no-op while sync is [enabled] == false.
   Future<void> requestSync(SyncTrigger trigger) {
     if (_disposed || !_enabled) return Future<void>.value();
+    // Throttle the navigation nudge: skip if a pass started recently. Checked
+    // BEFORE the in-flight branch — a bare nudge carries no local change, so
+    // there's nothing to coalesce, and gating here (not only when idle) keeps
+    // the floor honest even while an offline pass is burning its 15s timeout
+    // (otherwise browsing would queue a rerun per tap). Only interaction is
+    // throttled — foreground/manual/timer triggers always fire.
+    if (trigger == SyncTrigger.interaction &&
+        _lastAttemptAt != null &&
+        _clock().difference(_lastAttemptAt!) < interactionThrottle) {
+      return _inFlight ?? Future<void>.value();
+    }
     if (_inFlight != null) {
       _rerunQueued = true;
       return _inFlight!;
@@ -200,6 +236,7 @@ class SyncController extends ChangeNotifier {
   }
 
   Future<void> _runOnce() async {
+    _lastAttemptAt = _clock();
     try {
       // Bound the pass: a hung network call (device went offline mid-request)
       // otherwise leaves us in `syncing` until the OS socket timeout, which in

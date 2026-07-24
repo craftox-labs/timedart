@@ -887,10 +887,18 @@ class _AdaptiveShellState extends State<AdaptiveShell>
   void _editProfile(InvoiceProfile p, {bool startEditing = false}) =>
       _navigateTo(_ProfileEditorDetail(p, startEditing: startEditing));
 
+  // A "user is active again" nudge (#329). The narrow layout's nav paths call
+  // this — opening the sheet, switching a tab — because a phone (no window-focus
+  // event) would otherwise sit on the 5-min periodic tick. Gated by width, not
+  // platform, so a narrowed desktop window nudges too; harmless — desktop keeps
+  // its foreground trigger and the controller throttles either way.
+  void _syncOnInteraction() => _sync?.requestSync(SyncTrigger.interaction);
+
   // ── Narrow list-panel sheet (open/close + drag settle) ──────────────
   void _openPanel() {
     setState(() => _panelOpen = true);
     _sheetCtrl.animateTo(1, curve: Curves.easeOutCubic);
+    _syncOnInteraction();
   }
 
   void _closePanel() {
@@ -1419,6 +1427,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                           onTap: () {
                             _closePanel();
                             _showTracker();
+                            _syncOnInteraction();
                           },
                         ),
                         // Pronounced centre button — opens/closes the list panel.
@@ -1473,6 +1482,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                           onTap: () {
                             _closePanel();
                             _openSettings();
+                            _syncOnInteraction();
                           },
                         ),
                       ],

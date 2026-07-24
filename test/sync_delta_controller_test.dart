@@ -184,6 +184,101 @@ void main() {
     expect(calls, 2);
   });
 
+  test('interaction triggers are throttled; other triggers bypass the throttle',
+      () async {
+    var calls = 0;
+    var now = DateTime.fromMillisecondsSinceEpoch(5000);
+    final c = SyncController(
+      db,
+      runner: () async {
+        calls++;
+        return const SyncResult(pushed: 1);
+      },
+      clock: () => now,
+      enablePeriodic: false,
+      startEnabled: true,
+      interactionThrottle: const Duration(seconds: 30),
+    );
+
+    // First navigation nudge runs a pass and stamps the attempt time.
+    await c.requestSync(SyncTrigger.interaction);
+    expect(calls, 1);
+
+    // A second nudge inside the window is dropped, even after time advances but
+    // stays under the throttle.
+    await c.requestSync(SyncTrigger.interaction);
+    expect(calls, 1);
+    now = now.add(const Duration(seconds: 20));
+    await c.requestSync(SyncTrigger.interaction);
+    expect(calls, 1);
+
+    // A non-interaction trigger is never throttled — fires immediately.
+    await c.requestSync(SyncTrigger.foreground);
+    expect(calls, 2);
+
+    // Past the window, the nudge runs again. (foreground above re-stamped the
+    // attempt time, so measure from there.)
+    now = now.add(const Duration(seconds: 31));
+    await c.requestSync(SyncTrigger.interaction);
+    expect(calls, 3);
+  });
+
+  test('an interaction nudge during an in-flight pass is throttled, not queued',
+      () async {
+    // The offline case the throttle targets: a pass is held open (mimicking a
+    // request burning its timeout) while the user navigates. The nudge must NOT
+    // queue a rerun — otherwise the 30s floor collapses to the pass duration.
+    var calls = 0;
+    final now = DateTime.fromMillisecondsSinceEpoch(5000);
+    final gate = Completer<void>();
+    final c = SyncController(
+      db,
+      runner: () async {
+        calls++;
+        if (calls == 1) await gate.future; // hold pass 1 open
+        return const SyncResult(pushed: 1);
+      },
+      clock: () => now,
+      enablePeriodic: false,
+      startEnabled: true,
+      interactionThrottle: const Duration(seconds: 30),
+    );
+
+    final first = c.requestSync(SyncTrigger.interaction); // pass 1 starts
+    expect(c.isSyncing, isTrue);
+
+    // Nudges arriving mid-pass, inside the window, return the in-flight future
+    // without queuing a rerun.
+    final a = c.requestSync(SyncTrigger.interaction);
+    final b = c.requestSync(SyncTrigger.interaction);
+    expect(identical(a, first), isTrue);
+    expect(identical(b, first), isTrue);
+
+    gate.complete();
+    await Future.wait([first, a, b]);
+    expect(calls, 1); // no coalesced rerun from the throttled nudges
+
+    // A real change trigger, by contrast, still coalesces a rerun (unthrottled).
+    final gate2 = Completer<void>();
+    calls = 0;
+    final c2 = SyncController(
+      db,
+      runner: () async {
+        calls++;
+        if (calls == 1) await gate2.future;
+        return const SyncResult(pushed: 1);
+      },
+      clock: () => now,
+      enablePeriodic: false,
+      startEnabled: true,
+    );
+    final f2 = c2.requestSync(SyncTrigger.interaction);
+    c2.requestSync(SyncTrigger.timerStop); // carries a local change → queues
+    gate2.complete();
+    await f2;
+    expect(calls, 2);
+  });
+
   test('requestSync after dispose is a no-op that does not run or notify',
       () async {
     var calls = 0;
