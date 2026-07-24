@@ -246,6 +246,22 @@ class _AdaptiveShellState extends State<AdaptiveShell>
   // The single gate every _detail transition goes through, so an unsaved
   // change in the open Template/Profile editor can never be silently
   // discarded. No-ops if `next` targets the entity already open.
+  // The unsaved-changes gate shared by every path that leaves the active
+  // Template/Profile editor. Returns true if it's safe to leave (nothing dirty,
+  // or the user saved / discarded); false to stay put (cancelled, or save
+  // failed validation). Any leave path MUST await this before mutating _detail,
+  // or a dirty edit is silently discarded — see _navigateTo and _selectProject.
+  Future<bool> _confirmLeaveActiveEditor() async {
+    if (!(_activeEditor?.isDirty ?? false)) return true;
+    final action = await confirmUnsavedChanges(context);
+    if (action == null) return false; // stay put, keep editing
+    if (action == UnsavedChangesAction.save) {
+      final ok = await _activeEditor?.save() ?? true;
+      if (!ok) return false; // validation failed; stay on the editor
+    }
+    return true;
+  }
+
   Future<void> _navigateTo(_Detail next) async {
     final cur = _detail;
     final sameEntity = switch ((cur, next)) {
@@ -256,14 +272,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       _ => false,
     };
     if (sameEntity) return;
-    if (_activeEditor?.isDirty ?? false) {
-      final action = await confirmUnsavedChanges(context);
-      if (action == null) return; // stay put, keep editing
-      if (action == UnsavedChangesAction.save) {
-        final ok = await _activeEditor?.save() ?? true;
-        if (!ok) return; // validation failed; stay on the editor
-      }
-    }
+    if (!await _confirmLeaveActiveEditor()) return;
 
     if (!mounted) return;
     final wasInSettings = _inSettings; // reads the *old* _detail
@@ -285,10 +294,20 @@ class _AdaptiveShellState extends State<AdaptiveShell>
   }
 
   void _showTracker() => _navigateTo(const _Tracker());
-  void _selectProject(String id) => setState(() {
-    _selectedProjectId = id;
-    _detail = const _Tracker(); // picking a project returns you to the timer
-  });
+  // Picking a project returns you to the timer. The narrow drawer now shows the
+  // client tree even while a Template/Profile editor is open, so this leave path
+  // must run the same unsaved-changes gate as _navigateTo and clear the active
+  // editor — otherwise selecting a project mid-edit discards the edit silently
+  // and orphans _activeEditor.
+  Future<void> _selectProject(String id) async {
+    if (!await _confirmLeaveActiveEditor()) return;
+    if (!mounted) return;
+    setState(() {
+      _selectedProjectId = id;
+      _detail = const _Tracker();
+      _activeEditor = null;
+    });
+  }
 
   // Client/project editing are modals (like task/entry), so they open over the
   // content pane rather than replacing it.
