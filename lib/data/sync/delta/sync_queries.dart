@@ -4,8 +4,10 @@ import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
+import 'package:timedart/data/sync/delta/profile_wire.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/task_wire.dart';
+import 'package:timedart/data/sync/delta/template_wire.dart';
 import 'package:timedart/data/sync/delta/time_entry_wire.dart';
 
 // Phase 5 delta-sync (#294) — the database seam for sync, kept OUT of the giant
@@ -96,6 +98,18 @@ extension DeltaSyncQueries on AppDatabase {
     return (select(activeTimers)..where((t) => t.id.isIn(list))).get();
   }
 
+  Future<List<InvoiceTemplate>> templatesByIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value(const []);
+    return (select(templates)..where((t) => t.id.isIn(list))).get();
+  }
+
+  Future<List<InvoiceProfile>> profilesByIds(Iterable<String> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value(const []);
+    return (select(profiles)..where((p) => p.id.isIn(list))).get();
+  }
+
   // ── Pull: local match for LWW (tombstones NOT filtered) ─────────────────────
   // Unlike the app's getters these do NOT filter `deletedAt IS NULL` — LWW must
   // compare against a locally-deleted row too, so a remote un-delete (or a
@@ -116,6 +130,12 @@ extension DeltaSyncQueries on AppDatabase {
   Future<ActiveTimer?> activeTimerByIdIncludingDeleted(String id) =>
       (select(activeTimers)..where((t) => t.id.equals(id))).getSingleOrNull();
 
+  Future<InvoiceTemplate?> templateByIdIncludingDeleted(String id) =>
+      (select(templates)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Future<InvoiceProfile?> profileByIdIncludingDeleted(String id) =>
+      (select(profiles)..where((p) => p.id.equals(id))).getSingleOrNull();
+
   // ── Apply (fromRemote): full-row upsert keyed by `id`, remote clock verbatim ─
   // Idempotent (upsert by PK) and echo-free (equal `updatedAt` round-trips to a
   // LWW no-op). Crucially these do NOT enqueue into the outbox — that is the
@@ -135,6 +155,48 @@ extension DeltaSyncQueries on AppDatabase {
 
   Future<void> applyRemoteActiveTimer(RemoteActiveTimer remote) =>
       into(activeTimers).insertOnConflictUpdate(remote.toCompanion());
+
+  Future<void> applyRemoteTemplate(RemoteTemplate remote) =>
+      into(templates).insertOnConflictUpdate(remote.toCompanion());
+
+  // NB: RemoteProfile.toCompanion() omits the `logo` BLOB (Value.absent) — so
+  // this never clobbers a local logo; the bytes reconcile via Storage (#320).
+  Future<void> applyRemoteProfile(RemoteProfile remote) =>
+      into(profiles).insertOnConflictUpdate(remote.toCompanion());
+
+  // ── Logo replication helpers (#320) — NON-enqueuing, NON-clocked writes ────
+  // These reconcile the local logo BLOB/path with Storage during a sync pass.
+  // They must NOT bump `updatedAt` (would restart LWW) and must NOT enqueue
+  // (would echo) — like the `fromRemote` apply path. They touch only the
+  // logo-carrying columns.
+
+  /// Persist the Storage [path] a just-uploaded local logo now lives at (or
+  /// null to clear a stale path when the logo was removed), without bumping the
+  /// clock or enqueuing (push-side, after upload/removal).
+  Future<void> setLocalLogoPath(String profileId, String? path) =>
+      (update(profiles)..where((p) => p.id.equals(profileId)))
+          .write(ProfilesCompanion(logoPath: Value(path)));
+
+  /// Write logo [bytes] (and [mime]) fetched from Storage into the local BLOB,
+  /// without bumping the clock or enqueuing (pull-side, fetch-on-miss).
+  Future<void> setLocalLogoBytes(
+    String profileId,
+    Uint8List bytes,
+    String? mime,
+  ) =>
+      (update(profiles)..where((p) => p.id.equals(profileId))).write(
+        ProfilesCompanion(logo: Value(bytes), logoMime: Value(mime)),
+      );
+
+  /// Clear the local logo BLOB (remote says there's no logo now), without
+  /// bumping the clock or enqueuing.
+  Future<void> clearLocalLogo(String profileId) =>
+      (update(profiles)..where((p) => p.id.equals(profileId))).write(
+        const ProfilesCompanion(
+          logo: Value<Uint8List?>(null),
+          logoMime: Value<String?>(null),
+        ),
+      );
 
   // ── Adoption / re-home (sign-in) ─────────────────────────────────────────────
   // Claim local rows for [orgId]: stamp it onto every row that isn't already on
@@ -171,6 +233,14 @@ extension DeltaSyncQueries on AppDatabase {
   Future<int> adoptOrphanActiveTimers(String orgId) => _adoptOrphans(
       activeTimers, activeTimers.id, activeTimers.orgId, orgId,
       (o, now) => ActiveTimersCompanion(orgId: Value(o), updatedAt: Value(now)));
+
+  Future<int> adoptOrphanTemplates(String orgId) => _adoptOrphans(
+      templates, templates.id, templates.orgId, orgId,
+      (o, now) => TemplatesCompanion(orgId: Value(o), updatedAt: Value(now)));
+
+  Future<int> adoptOrphanProfiles(String orgId) => _adoptOrphans(
+      profiles, profiles.id, profiles.orgId, orgId,
+      (o, now) => ProfilesCompanion(orgId: Value(o), updatedAt: Value(now)));
 
   /// Shared adoption body. [companionFor] builds the table's companion from the
   /// (orgId, now) pair — the one per-table bit the generic can't express.
@@ -231,6 +301,8 @@ extension DeltaSyncQueries on AppDatabase {
           syncCursorKey(kTableTasks),
           syncCursorKey(kTableTimeEntries),
           syncCursorKey(kTableActiveTimers),
+          syncCursorKey(kTableTemplates),
+          syncCursorKey(kTableProfiles),
         ]) {
           await (delete(appSettings)..where((s) => s.key.equals(key))).go();
         }

@@ -1,8 +1,10 @@
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
+import 'package:timedart/data/sync/delta/profile_wire.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/task_wire.dart';
+import 'package:timedart/data/sync/delta/template_wire.dart';
 import 'package:timedart/data/sync/delta/time_entry_wire.dart';
 
 // Phase 5a delta-sync (#294) — the pure conflict rule for applying a pulled row.
@@ -87,6 +89,18 @@ MergeAction decideActiveTimerMergeFor(
   ActiveTimer? local,
   RemoteActiveTimer remote,
 ) =>
+    decideMerge(
+      localUpdatedAt: local?.updatedAt,
+      remoteUpdatedAt: remote.updatedAt,
+    );
+
+MergeAction decideTemplateMergeFor(InvoiceTemplate? local, RemoteTemplate remote) =>
+    decideMerge(
+      localUpdatedAt: local?.updatedAt,
+      remoteUpdatedAt: remote.updatedAt,
+    );
+
+MergeAction decideProfileMergeFor(InvoiceProfile? local, RemoteProfile remote) =>
     decideMerge(
       localUpdatedAt: local?.updatedAt,
       remoteUpdatedAt: remote.updatedAt,

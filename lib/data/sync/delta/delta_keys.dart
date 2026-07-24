@@ -31,6 +31,14 @@ const String kTableTimeEntries = 'time_entries';
 /// must land first). A normal LWW row keyed by `id`.
 const String kTableActiveTimers = 'active_timers';
 
+/// Invoice branding (issue #320): the visual `templates` and the business
+/// `profiles`. Synced like the content tables; `profiles` is applied AFTER
+/// `templates` (its `templateId` FK-references one locally). The profile logo
+/// BLOB itself doesn't sync as a column — it goes to Supabase Storage and the
+/// row carries only `logo_path`.
+const String kTableTemplates = 'templates';
+const String kTableProfiles = 'profiles';
+
 /// Pull cursor for a table: the max server-authored `server_seq` already
 /// applied. Next pull requests rows with `server_seq` strictly greater. Keyed
 /// per table so each advances independently. (Phase 5b replaced the 5a push

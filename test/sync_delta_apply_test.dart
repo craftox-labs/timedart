@@ -7,6 +7,7 @@ import 'package:timedart/data/sync/delta/active_timer_wire.dart';
 import 'package:timedart/data/sync/delta/client_wire.dart';
 import 'package:timedart/data/sync/delta/delta_keys.dart';
 import 'package:timedart/data/sync/delta/merge.dart';
+import 'package:timedart/data/sync/delta/profile_wire.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/sync_queries.dart';
 import 'package:timedart/data/sync/delta/task_wire.dart';
@@ -478,6 +479,144 @@ void main() {
         ),
         MergeAction.skip,
       );
+    });
+  });
+
+  group('branding sync — templates & profiles (#320)', () {
+    Future<String> seedTemplate() =>
+        db.insertTemplate(TemplatesCompanion.insert(
+          name: 'Brand',
+          colorBackground: 1,
+          colorSurface: 2,
+          colorPrimary: 3,
+          colorText: 4,
+          colorAccent: 5,
+          fontFamily: const Value('Outfit'),
+        ));
+
+    test('insert/update/delete/setDefault enqueue templates', () async {
+      final id = await seedTemplate();
+      expect(await db.outboxRowIds(kTableTemplates), [id]);
+
+      await db.clearOutbox(kTableTemplates, [id]);
+      await db.updateTemplateById(id, const TemplatesCompanion(name: Value('X')));
+      expect(await db.outboxRowIds(kTableTemplates), [id]);
+
+      await db.clearOutbox(kTableTemplates, [id]);
+      await db.deleteTemplate(id);
+      expect(await db.outboxRowIds(kTableTemplates), [id]);
+    });
+
+    test('setDefaultTemplate enqueues BOTH the old default and the new one',
+        () async {
+      final a = await seedTemplate();
+      await db.setDefaultTemplate(a); // a is now default
+      final b = await seedTemplate();
+      await db.clearOutbox(kTableTemplates, [a, b]);
+      await db.setDefaultTemplate(b); // flips a→false, b→true
+      expect(await db.outboxRowIds(kTableTemplates), unorderedEquals([a, b]));
+    });
+
+    test('setDefault does NOT bump updatedAt on unrelated (non-default) rows',
+        () async {
+      // Regression (#320 review): an unfiltered clear-write bumped every row's
+      // updatedAt without enqueuing it → its clock races the server and a
+      // concurrent remote edit loses LWW. c is a non-default row: setDefault(b)
+      // must leave c untouched.
+      final a = await seedTemplate();
+      await db.setDefaultTemplate(a);
+      final b = await seedTemplate();
+      final c = await seedTemplate(); // non-default, never touched
+      final cBefore = (await db.templateByIdIncludingDeleted(c))!.updatedAt;
+      await db.clearOutbox(
+          kTableTemplates, await db.outboxRowIds(kTableTemplates));
+      await db.setDefaultTemplate(b);
+      expect((await db.templateByIdIncludingDeleted(c))!.updatedAt, cBefore,
+          reason: 'unrelated row clock must not advance');
+      expect(await db.outboxRowIds(kTableTemplates), unorderedEquals([a, b]),
+          reason: 'only the cleared-old + new default are enqueued');
+    });
+
+    test('insert/update/delete enqueue profiles', () async {
+      final id = await db.insertProfile(ProfilesCompanion.insert(name: 'P'));
+      expect(await db.outboxRowIds(kTableProfiles), [id]);
+      await db.clearOutbox(kTableProfiles, [id]);
+      await db.updateProfileById(id, const ProfilesCompanion(email: Value('e')));
+      expect(await db.outboxRowIds(kTableProfiles), [id]);
+    });
+
+    test('sync-OFF path enqueues neither table', () async {
+      db.enableSyncOutbox = false;
+      final t = await seedTemplate();
+      await db.setDefaultTemplate(t);
+      await db.insertProfile(ProfilesCompanion.insert(name: 'P'));
+      expect(await db.outboxRowIds(kTableTemplates), isEmpty);
+      expect(await db.outboxRowIds(kTableProfiles), isEmpty);
+    });
+
+    test('adoption claims templates + profiles', () async {
+      // Raw inserts (no org, not pre-queued).
+      await db.into(db.templates).insert(TemplatesCompanion.insert(
+            id: const Value('tpl1'),
+            name: 'Brand',
+            colorBackground: 1, colorSurface: 2, colorPrimary: 3,
+            colorText: 4, colorAccent: 5,
+            fontFamily: const Value('Outfit'),
+            updatedAt: Value(t0),
+          ));
+      await db.into(db.profiles).insert(ProfilesCompanion.insert(
+            id: const Value('pr1'),
+            name: 'P',
+            updatedAt: Value(t0),
+          ));
+      expect(await db.adoptOrphanTemplates('mine'), 1);
+      expect(await db.adoptOrphanProfiles('mine'), 1);
+      expect((await db.templateByIdIncludingDeleted('tpl1'))!.orgId, 'mine');
+      expect((await db.profileByIdIncludingDeleted('pr1'))!.orgId, 'mine');
+      expect(await db.outboxRowIds(kTableTemplates), ['tpl1']);
+      expect(await db.outboxRowIds(kTableProfiles), ['pr1']);
+    });
+
+    test('applyRemoteProfile does NOT clobber a local logo BLOB, no enqueue',
+        () async {
+      final logo = Uint8List.fromList([9, 8, 7]);
+      // A local profile with a logo already set (raw insert → not queued).
+      await db.into(db.profiles).insert(ProfilesCompanion.insert(
+            id: const Value('pr1'),
+            name: 'P',
+            logo: Value(logo),
+            logoMime: const Value('image/png'),
+            updatedAt: Value(t0),
+          ));
+      // A newer remote wins LWW; its toCompanion omits logo bytes.
+      await db.applyRemoteProfile(RemoteProfile.fromWire({
+        'id': 'pr1', 'org_id': 'mine', 'name': 'P renamed',
+        'logo_path': 'mine/pr1-abc.png', 'logo_mime': 'image/png',
+        'is_default': 0, 'currency': 'USD', 'region': 'au',
+        'updated_at': 2000, 'server_seq': 1,
+      }));
+      final row = await db.profileByIdIncludingDeleted('pr1');
+      expect(row!.name, 'P renamed'); // row fields applied
+      expect(row.logo, logo, reason: 'local logo bytes preserved, not nulled');
+      expect(row.logoPath, 'mine/pr1-abc.png');
+      expect(await db.outboxRowIds(kTableProfiles), isEmpty,
+          reason: 'apply path never enqueues');
+    });
+
+    test('logo helpers (setLocalLogoPath/Bytes, clearLocalLogo) do not enqueue',
+        () async {
+      await db.into(db.profiles).insert(ProfilesCompanion.insert(
+            id: const Value('pr1'), name: 'P', updatedAt: Value(t0)));
+      await db.setLocalLogoPath('pr1', 'mine/pr1-x.png');
+      await db.setLocalLogoBytes(
+          'pr1', Uint8List.fromList([1, 2]), 'image/png');
+      final row = await db.profileByIdIncludingDeleted('pr1');
+      expect(row!.logoPath, 'mine/pr1-x.png');
+      expect(row.logo, Uint8List.fromList([1, 2]));
+      expect(row.updatedAt, t0, reason: 'logo helpers never re-clock');
+      await db.clearLocalLogo('pr1');
+      expect((await db.profileByIdIncludingDeleted('pr1'))!.logo, equals(null));
+      expect(await db.outboxRowIds(kTableProfiles), isEmpty);
     });
   });
 }

@@ -1,9 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timedart/data/database.dart';
 import 'package:timedart/data/sync/delta/active_timer_wire.dart';
+import 'package:timedart/data/sync/delta/logo_storage.dart';
 import 'package:timedart/data/sync/delta/merge.dart';
+import 'package:timedart/data/sync/delta/profile_wire.dart';
 import 'package:timedart/data/sync/delta/project_wire.dart';
 import 'package:timedart/data/sync/delta/task_wire.dart';
+import 'package:timedart/data/sync/delta/template_wire.dart';
 import 'package:timedart/data/sync/delta/time_entry_wire.dart';
 
 // Phase 5b delta-sync (#294): the Postgres wire codecs for the three tables 5b
@@ -260,6 +265,169 @@ void main() {
       // Two devices, DIFFERENT work → different ids → no local match → apply
       // (the row coexists rather than clobbering the other's timer).
       expect(decideActiveTimerMergeFor(null, rt(t0)), MergeAction.apply);
+    });
+  });
+
+  group('template wire codec (#320, first synced table with a bool)', () {
+    final template = InvoiceTemplate(
+      id: 'tpl1',
+      orgId: 'org1',
+      name: 'Brand',
+      colorBackground: 0xFF11140E,
+      colorSurface: 0xFF23241F,
+      colorPrimary: 0xFF69E228,
+      colorText: 0xFFE2E3D8,
+      colorAccent: 0xFF2E6C0F,
+      fontFamily: 'Outfit',
+      isDefault: true,
+      createdAt: t0,
+      updatedAt: t1,
+      deletedAt: null,
+    );
+
+    test('templateToWire → colours as ints, is_default as 1/0, no server_seq',
+        () {
+      final w = templateToWire(template);
+      expect(w['color_primary'], 0xFF69E228);
+      expect(w['font_family'], 'Outfit');
+      expect(w['is_default'], 1);
+      expect(w['updated_at'], 2000);
+      expect(w.containsKey('server_seq'), isFalse);
+    });
+
+    test('fromWire round-trips; is_default 0 decodes false', () {
+      final r = RemoteTemplate.fromWire({...templateToWire(template), 'server_seq': 4});
+      expect(r.isDefault, isTrue);
+      expect(r.colorAccent, 0xFF2E6C0F);
+      expect(r.serverSeq, 4);
+      expect(r.toCompanion().updatedAt.value, t1);
+      final off =
+          RemoteTemplate.fromWire({...templateToWire(template), 'is_default': 0});
+      expect(off.isDefault, isFalse);
+    });
+  });
+
+  group('profile wire codec (#320, logo via Storage not a column)', () {
+    final profile = InvoiceProfile(
+      id: 'pr1',
+      orgId: 'org1',
+      name: 'Default',
+      businessName: 'Acme Pty',
+      logo: Uint8List.fromList([1, 2, 3]),
+      logoMime: 'image/png',
+      logoPath: 'org1/pr1-abc.png',
+      email: 'a@b.co',
+      phone: null,
+      website: null,
+      address: null,
+      abn: null,
+      payeeName: null,
+      bankName: null,
+      bankBsb: null,
+      bankAccount: null,
+      swift: null,
+      paymentLink: null,
+      currency: 'AUD',
+      taxLabel: 'GST',
+      taxRate: 10.0,
+      isDefault: true,
+      templateId: 'tpl1',
+      region: 'au',
+      iban: null,
+      sortCode: null,
+      routingNumber: null,
+      payid: null,
+      institutionNumber: null,
+      transitNumber: null,
+      showBank: true,
+      showPaymentLink: false,
+      showTax: true,
+      showRateColumn: true,
+      showTimeColumn: false,
+      reverseCharge: false,
+      createdAt: t0,
+      updatedAt: t1,
+      deletedAt: null,
+    );
+
+    test('profileToWire carries logo_path/logo_mime but NOT the bytes', () {
+      final w = profileToWire(profile);
+      expect(w['logo_path'], 'org1/pr1-abc.png');
+      expect(w['logo_mime'], 'image/png');
+      expect(w.containsKey('logo'), isFalse);
+      expect(w['is_default'], 1);
+      expect(w['show_payment_link'], 0);
+      expect(w['show_time_column'], 0);
+      expect(w['tax_rate'], 10.0);
+      expect(w['template_id'], 'tpl1');
+      expect(w.containsKey('server_seq'), isFalse);
+    });
+
+    test('fromWire round-trips; toCompanion OMITS logo (no clobber)', () {
+      final r = RemoteProfile.fromWire({...profileToWire(profile), 'server_seq': 8});
+      expect(r.logoPath, 'org1/pr1-abc.png');
+      expect(r.showPaymentLink, isFalse);
+      expect(r.showBank, isTrue);
+      expect(r.taxRate, 10.0);
+      expect(r.serverSeq, 8);
+      final c = r.toCompanion();
+      expect(c.logo.present, isFalse,
+          reason: 'logo bytes reconcile via Storage, never via the row apply');
+      expect(c.logoPath.value, 'org1/pr1-abc.png');
+      expect(c.updatedAt.value, t1);
+    });
+
+    test('missing show_* booleans default to true (backfill-safe)', () {
+      final w = profileToWire(profile)
+        ..remove('show_bank')
+        ..remove('show_tax');
+      final r = RemoteProfile.fromWire(w);
+      expect(r.showBank, isTrue);
+      expect(r.showTax, isTrue);
+    });
+
+    test('decideProfileMergeFor / decideTemplateMergeFor delegate to LWW', () {
+      final rp = RemoteProfile.fromWire(profileToWire(profile));
+      expect(decideProfileMergeFor(null, rp), MergeAction.apply);
+    });
+  });
+
+  group('logoObjectPath (#320) — deterministic, content-addressed', () {
+    final bytesA = Uint8List.fromList([10, 20, 30]);
+    final bytesB = Uint8List.fromList([10, 20, 31]);
+
+    test('same inputs → same path (idempotent upload key)', () {
+      expect(
+        logoObjectPath('org1', 'pr1', bytesA, 'image/png'),
+        logoObjectPath('org1', 'pr1', bytesA, 'image/png'),
+      );
+    });
+
+    test('org is the first path segment (Storage RLS folder)', () {
+      final p = logoObjectPath('org1', 'pr1', bytesA, 'image/png');
+      expect(p.split('/').first, 'org1');
+      expect(p.endsWith('.png'), isTrue);
+    });
+
+    test('different bytes → different path (cache-busts a swapped logo)', () {
+      expect(
+        logoObjectPath('org1', 'pr1', bytesA, 'image/png'),
+        isNot(logoObjectPath('org1', 'pr1', bytesB, 'image/png')),
+      );
+    });
+
+    test('mime picks the extension', () {
+      expect(logoObjectPath('o', 'p', bytesA, 'image/jpeg').endsWith('.jpg'),
+          isTrue);
+      expect(logoObjectPath('o', 'p', bytesA, null).endsWith('.bin'), isTrue);
+    });
+
+    test('hash segment is exactly 16 lowercase hex chars (no signed "-")', () {
+      // Regression: FNV-1a on native is signed → the old code leaked a leading
+      // '-' and never padded. Path shape must be <org>/<profileId>-<16hex>.<ext>.
+      final p = logoObjectPath('org1', 'pr1', bytesA, 'image/png');
+      final hashPart = p.substring('org1/pr1-'.length, p.length - '.png'.length);
+      expect(hashPart, matches(RegExp(r'^[0-9a-f]{16}$')));
     });
   });
 

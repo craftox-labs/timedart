@@ -157,6 +157,12 @@ class Profiles extends Table {
   TextColumn get businessName => text().withDefault(const Constant(''))();
   BlobColumn get logo => blob().nullable()(); // PNG/JPG bytes; null = no logo
   TextColumn get logoMime => text().nullable()(); // e.g. image/png
+  // Delta-sync (#320, v20): the logo's object path in Supabase Storage (bucket
+  // `logos`, keyed `<org_id>/<profileId>-<hash>.<ext>`). The local [logo] BLOB
+  // stays the source of truth; this text path is what rides delta sync so the
+  // logo can be fetched-on-miss on another device. Null = no logo. The hash in
+  // the path changes when the bytes change, so a swapped logo re-downloads.
+  TextColumn get logoPath => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get phone => text().nullable()();
   TextColumn get website => text().nullable()();
@@ -369,7 +375,7 @@ class AppDatabase extends _$AppDatabase {
   /// The schema version this build ships with. The single source of truth for
   /// both drift's migration ladder and the CLI's schema-version guard (which
   /// refuses to open a DB whose on-disk `user_version` differs from this).
-  static const int latestSchemaVersion = 19;
+  static const int latestSchemaVersion = 20;
 
   @override
   int get schemaVersion => latestSchemaVersion;
@@ -879,7 +885,10 @@ class AppDatabase extends _$AppDatabase {
                 mapped('templates', 'template_id'),
               ),
             },
-            newColumns: [profiles.orgId], // Phase 4 scope key postdates v13
+            // Columns that postdate v13 must be declared new here so the rebuild
+            // to current shape doesn't try to copy them from the old table:
+            // orgId (Phase 4) and logoPath (#320, v20).
+            newColumns: [profiles.orgId, profiles.logoPath],
           ),
         );
 
@@ -995,6 +1004,25 @@ class AppDatabase extends _$AppDatabase {
           ).get();
           if (!cols.any((r) => r.read<String>('name') == activeTimers.orgId.name)) {
             await m.addColumn(activeTimers, activeTimers.orgId);
+          }
+        }
+      }
+      // v19 → v20: branding sync (issue #320). Add a nullable `logo_path` to
+      // `profiles` — the Storage object path the logo rides on, so branding can
+      // join delta sync (templates need no new column; they were already
+      // sync-shaped). Some upgrade paths (< v13) rebuild `profiles` to the
+      // current shape and so already carry the column — hence add-if-missing.
+      if (from < 20) {
+        final exists = (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+          variables: [Variable.withString(profiles.actualTableName)],
+        ).get()).isNotEmpty;
+        if (exists) {
+          final cols = await customSelect(
+            'PRAGMA table_info(${profiles.actualTableName})',
+          ).get();
+          if (!cols.any((r) => r.read<String>('name') == profiles.logoPath.name)) {
+            await m.addColumn(profiles, profiles.logoPath);
           }
         }
       }
@@ -1680,31 +1708,50 @@ class AppDatabase extends _$AppDatabase {
   )).getSingleOrNull();
   // Generates the uuid PK and returns it: insert() yields the int rowid, not the
   // text id, so callers that need the new row's id get it from here.
-  Future<String> insertTemplate(TemplatesCompanion t) {
+  Future<String> insertTemplate(TemplatesCompanion t) => transaction(() async {
     final id = idGen.newId();
-    return into(templates).insert(t.copyWith(id: Value(id))).then((_) => id);
-  }
+    await into(templates).insert(t.copyWith(id: Value(id)));
+    await markDirtyForSync(templates.actualTableName, [id]);
+    return id;
+  });
 
   Future<void> updateTemplateById(String id, TemplatesCompanion t) =>
-      (update(templates)..where((x) => x.id.equals(id))).write(
-        t.copyWith(updatedAt: Value(DateTime.now())),
-      );
+      transaction(() async {
+        await (update(templates)..where((x) => x.id.equals(id))).write(
+          t.copyWith(updatedAt: Value(DateTime.now())),
+        );
+        await markDirtyForSync(templates.actualTableName, [id]);
+      });
   // Soft-delete: hide from [watchTemplates] but keep the row so any invoice/
   // profile still pointing at it resolves via [templateById] (left unfiltered).
-  Future<void> deleteTemplate(String id) {
+  Future<void> deleteTemplate(String id) => transaction(() async {
     final now = DateTime.now();
-    return (update(templates)..where((x) => x.id.equals(id))).write(
+    await (update(templates)..where((x) => x.id.equals(id))).write(
       TemplatesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
-  }
+    await markDirtyForSync(templates.actualTableName, [id]);
+  });
+  // Enqueues EVERY affected row (the cleared old default + the new one) so both
+  // isDefault flips sync (#320).
   Future<void> setDefaultTemplate(String id) => transaction(() async {
     final now = DateTime.now();
-    await update(templates).write(
-      TemplatesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
-    );
+    final cleared = await (select(templates)
+          ..where((x) => x.isDefault.equals(true) & x.id.equals(id).not()))
+        .map((r) => r.id)
+        .get();
+    // Clear ONLY the current default(s) — the rows we enqueue below. An
+    // unfiltered write would bump every row's updatedAt without enqueuing them,
+    // racing their local clocks ahead of the server so a concurrent remote edit
+    // to one loses LWW and is silently dropped (#320 review).
+    if (cleared.isNotEmpty) {
+      await (update(templates)..where((x) => x.id.isIn(cleared))).write(
+        TemplatesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
+      );
+    }
     await (update(templates)..where((x) => x.id.equals(id))).write(
       TemplatesCompanion(isDefault: const Value(true), updatedAt: Value(now)),
     );
+    await markDirtyForSync(templates.actualTableName, [...cleared, id]);
   });
 
   // Profiles (business identity + payment; each points at a Template)
@@ -1720,31 +1767,45 @@ class AppDatabase extends _$AppDatabase {
   Future<InvoiceProfile?> defaultProfile() => (select(profiles)..where(
     (p) => p.isDefault.equals(true) & p.deletedAt.isNull(),
   )).getSingleOrNull();
-  Future<String> insertProfile(ProfilesCompanion p) {
+  Future<String> insertProfile(ProfilesCompanion p) => transaction(() async {
     final id = idGen.newId();
-    return into(profiles).insert(p.copyWith(id: Value(id))).then((_) => id);
-  }
+    await into(profiles).insert(p.copyWith(id: Value(id)));
+    await markDirtyForSync(profiles.actualTableName, [id]);
+    return id;
+  });
 
   Future<void> updateProfileById(String id, ProfilesCompanion p) =>
-      (update(profiles)..where((x) => x.id.equals(id))).write(
-        p.copyWith(updatedAt: Value(DateTime.now())),
-      );
+      transaction(() async {
+        await (update(profiles)..where((x) => x.id.equals(id))).write(
+          p.copyWith(updatedAt: Value(DateTime.now())),
+        );
+        await markDirtyForSync(profiles.actualTableName, [id]);
+      });
   // Soft-delete: hide from [watchProfiles] but keep the row so a past invoice
   // still resolves it via [profileById] (left unfiltered).
-  Future<void> deleteProfile(String id) {
+  Future<void> deleteProfile(String id) => transaction(() async {
     final now = DateTime.now();
-    return (update(profiles)..where((x) => x.id.equals(id))).write(
+    await (update(profiles)..where((x) => x.id.equals(id))).write(
       ProfilesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
     );
-  }
+    await markDirtyForSync(profiles.actualTableName, [id]);
+  });
   Future<void> setDefaultProfile(String id) => transaction(() async {
     final now = DateTime.now();
-    await update(profiles).write(
-      ProfilesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
-    );
+    final cleared = await (select(profiles)
+          ..where((x) => x.isDefault.equals(true) & x.id.equals(id).not()))
+        .map((r) => r.id)
+        .get();
+    // Clear ONLY the current default(s) — see setDefaultTemplate (#320 review).
+    if (cleared.isNotEmpty) {
+      await (update(profiles)..where((x) => x.id.isIn(cleared))).write(
+        ProfilesCompanion(isDefault: const Value(false), updatedAt: Value(now)),
+      );
+    }
     await (update(profiles)..where((x) => x.id.equals(id))).write(
       ProfilesCompanion(isDefault: const Value(true), updatedAt: Value(now)),
     );
+    await markDirtyForSync(profiles.actualTableName, [...cleared, id]);
   });
 
   // ── App settings (key-value; PRD #133) ─────────────────────────────────────

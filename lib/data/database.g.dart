@@ -3475,6 +3475,17 @@ class $ProfilesTable extends Profiles
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _logoPathMeta = const VerificationMeta(
+    'logoPath',
+  );
+  @override
+  late final GeneratedColumn<String> logoPath = GeneratedColumn<String>(
+    'logo_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _emailMeta = const VerificationMeta('email');
   @override
   late final GeneratedColumn<String> email = GeneratedColumn<String>(
@@ -3865,6 +3876,7 @@ class $ProfilesTable extends Profiles
     businessName,
     logo,
     logoMime,
+    logoPath,
     email,
     phone,
     website,
@@ -3941,6 +3953,12 @@ class $ProfilesTable extends Profiles
       context.handle(
         _logoMimeMeta,
         logoMime.isAcceptableOrUnknown(data['logo_mime']!, _logoMimeMeta),
+      );
+    }
+    if (data.containsKey('logo_path')) {
+      context.handle(
+        _logoPathMeta,
+        logoPath.isAcceptableOrUnknown(data['logo_path']!, _logoPathMeta),
       );
     }
     if (data.containsKey('email')) {
@@ -4197,6 +4215,10 @@ class $ProfilesTable extends Profiles
         DriftSqlType.string,
         data['${effectivePrefix}logo_mime'],
       ),
+      logoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logo_path'],
+      ),
       email: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}email'],
@@ -4344,6 +4366,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
   final String businessName;
   final Uint8List? logo;
   final String? logoMime;
+  final String? logoPath;
   final String? email;
   final String? phone;
   final String? website;
@@ -4383,6 +4406,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     required this.businessName,
     this.logo,
     this.logoMime,
+    this.logoPath,
     this.email,
     this.phone,
     this.website,
@@ -4428,6 +4452,9 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     }
     if (!nullToAbsent || logoMime != null) {
       map['logo_mime'] = Variable<String>(logoMime);
+    }
+    if (!nullToAbsent || logoPath != null) {
+      map['logo_path'] = Variable<String>(logoPath);
     }
     if (!nullToAbsent || email != null) {
       map['email'] = Variable<String>(email);
@@ -4522,6 +4549,9 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       logoMime: logoMime == null && nullToAbsent
           ? const Value.absent()
           : Value(logoMime),
+      logoPath: logoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logoPath),
       email: email == null && nullToAbsent
           ? const Value.absent()
           : Value(email),
@@ -4613,6 +4643,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       businessName: serializer.fromJson<String>(json['businessName']),
       logo: serializer.fromJson<Uint8List?>(json['logo']),
       logoMime: serializer.fromJson<String?>(json['logoMime']),
+      logoPath: serializer.fromJson<String?>(json['logoPath']),
       email: serializer.fromJson<String?>(json['email']),
       phone: serializer.fromJson<String?>(json['phone']),
       website: serializer.fromJson<String?>(json['website']),
@@ -4659,6 +4690,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
       'businessName': serializer.toJson<String>(businessName),
       'logo': serializer.toJson<Uint8List?>(logo),
       'logoMime': serializer.toJson<String?>(logoMime),
+      'logoPath': serializer.toJson<String?>(logoPath),
       'email': serializer.toJson<String?>(email),
       'phone': serializer.toJson<String?>(phone),
       'website': serializer.toJson<String?>(website),
@@ -4701,6 +4733,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     String? businessName,
     Value<Uint8List?> logo = const Value.absent(),
     Value<String?> logoMime = const Value.absent(),
+    Value<String?> logoPath = const Value.absent(),
     Value<String?> email = const Value.absent(),
     Value<String?> phone = const Value.absent(),
     Value<String?> website = const Value.absent(),
@@ -4740,6 +4773,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     businessName: businessName ?? this.businessName,
     logo: logo.present ? logo.value : this.logo,
     logoMime: logoMime.present ? logoMime.value : this.logoMime,
+    logoPath: logoPath.present ? logoPath.value : this.logoPath,
     email: email.present ? email.value : this.email,
     phone: phone.present ? phone.value : this.phone,
     website: website.present ? website.value : this.website,
@@ -4789,6 +4823,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           : this.businessName,
       logo: data.logo.present ? data.logo.value : this.logo,
       logoMime: data.logoMime.present ? data.logoMime.value : this.logoMime,
+      logoPath: data.logoPath.present ? data.logoPath.value : this.logoPath,
       email: data.email.present ? data.email.value : this.email,
       phone: data.phone.present ? data.phone.value : this.phone,
       website: data.website.present ? data.website.value : this.website,
@@ -4853,6 +4888,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           ..write('businessName: $businessName, ')
           ..write('logo: $logo, ')
           ..write('logoMime: $logoMime, ')
+          ..write('logoPath: $logoPath, ')
           ..write('email: $email, ')
           ..write('phone: $phone, ')
           ..write('website: $website, ')
@@ -4897,6 +4933,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
     businessName,
     $driftBlobEquality.hash(logo),
     logoMime,
+    logoPath,
     email,
     phone,
     website,
@@ -4940,6 +4977,7 @@ class InvoiceProfile extends DataClass implements Insertable<InvoiceProfile> {
           other.businessName == this.businessName &&
           $driftBlobEquality.equals(other.logo, this.logo) &&
           other.logoMime == this.logoMime &&
+          other.logoPath == this.logoPath &&
           other.email == this.email &&
           other.phone == this.phone &&
           other.website == this.website &&
@@ -4981,6 +5019,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
   final Value<String> businessName;
   final Value<Uint8List?> logo;
   final Value<String?> logoMime;
+  final Value<String?> logoPath;
   final Value<String?> email;
   final Value<String?> phone;
   final Value<String?> website;
@@ -5021,6 +5060,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.businessName = const Value.absent(),
     this.logo = const Value.absent(),
     this.logoMime = const Value.absent(),
+    this.logoPath = const Value.absent(),
     this.email = const Value.absent(),
     this.phone = const Value.absent(),
     this.website = const Value.absent(),
@@ -5062,6 +5102,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     this.businessName = const Value.absent(),
     this.logo = const Value.absent(),
     this.logoMime = const Value.absent(),
+    this.logoPath = const Value.absent(),
     this.email = const Value.absent(),
     this.phone = const Value.absent(),
     this.website = const Value.absent(),
@@ -5103,6 +5144,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Expression<String>? businessName,
     Expression<Uint8List>? logo,
     Expression<String>? logoMime,
+    Expression<String>? logoPath,
     Expression<String>? email,
     Expression<String>? phone,
     Expression<String>? website,
@@ -5144,6 +5186,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       if (businessName != null) 'business_name': businessName,
       if (logo != null) 'logo': logo,
       if (logoMime != null) 'logo_mime': logoMime,
+      if (logoPath != null) 'logo_path': logoPath,
       if (email != null) 'email': email,
       if (phone != null) 'phone': phone,
       if (website != null) 'website': website,
@@ -5187,6 +5230,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     Value<String>? businessName,
     Value<Uint8List?>? logo,
     Value<String?>? logoMime,
+    Value<String?>? logoPath,
     Value<String?>? email,
     Value<String?>? phone,
     Value<String?>? website,
@@ -5228,6 +5272,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
       businessName: businessName ?? this.businessName,
       logo: logo ?? this.logo,
       logoMime: logoMime ?? this.logoMime,
+      logoPath: logoPath ?? this.logoPath,
       email: email ?? this.email,
       phone: phone ?? this.phone,
       website: website ?? this.website,
@@ -5282,6 +5327,9 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
     }
     if (logoMime.present) {
       map['logo_mime'] = Variable<String>(logoMime.value);
+    }
+    if (logoPath.present) {
+      map['logo_path'] = Variable<String>(logoPath.value);
     }
     if (email.present) {
       map['email'] = Variable<String>(email.value);
@@ -5396,6 +5444,7 @@ class ProfilesCompanion extends UpdateCompanion<InvoiceProfile> {
           ..write('businessName: $businessName, ')
           ..write('logo: $logo, ')
           ..write('logoMime: $logoMime, ')
+          ..write('logoPath: $logoPath, ')
           ..write('email: $email, ')
           ..write('phone: $phone, ')
           ..write('website: $website, ')
@@ -9421,6 +9470,7 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       Value<String> businessName,
       Value<Uint8List?> logo,
       Value<String?> logoMime,
+      Value<String?> logoPath,
       Value<String?> email,
       Value<String?> phone,
       Value<String?> website,
@@ -9463,6 +9513,7 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<String> businessName,
       Value<Uint8List?> logo,
       Value<String?> logoMime,
+      Value<String?> logoPath,
       Value<String?> email,
       Value<String?> phone,
       Value<String?> website,
@@ -9552,6 +9603,11 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<String> get logoMime => $composableBuilder(
     column: $table.logoMime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logoPath => $composableBuilder(
+    column: $table.logoPath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9773,6 +9829,11 @@ class $$ProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get logoPath => $composableBuilder(
+    column: $table.logoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get email => $composableBuilder(
     column: $table.email,
     builder: (column) => ColumnOrderings(column),
@@ -9983,6 +10044,9 @@ class $$ProfilesTableAnnotationComposer
   GeneratedColumn<String> get logoMime =>
       $composableBuilder(column: $table.logoMime, builder: (column) => column);
 
+  GeneratedColumn<String> get logoPath =>
+      $composableBuilder(column: $table.logoPath, builder: (column) => column);
+
   GeneratedColumn<String> get email =>
       $composableBuilder(column: $table.email, builder: (column) => column);
 
@@ -10154,6 +10218,7 @@ class $$ProfilesTableTableManager
                 Value<String> businessName = const Value.absent(),
                 Value<Uint8List?> logo = const Value.absent(),
                 Value<String?> logoMime = const Value.absent(),
+                Value<String?> logoPath = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<String?> website = const Value.absent(),
@@ -10194,6 +10259,7 @@ class $$ProfilesTableTableManager
                 businessName: businessName,
                 logo: logo,
                 logoMime: logoMime,
+                logoPath: logoPath,
                 email: email,
                 phone: phone,
                 website: website,
@@ -10236,6 +10302,7 @@ class $$ProfilesTableTableManager
                 Value<String> businessName = const Value.absent(),
                 Value<Uint8List?> logo = const Value.absent(),
                 Value<String?> logoMime = const Value.absent(),
+                Value<String?> logoPath = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<String?> website = const Value.absent(),
@@ -10276,6 +10343,7 @@ class $$ProfilesTableTableManager
                 businessName: businessName,
                 logo: logo,
                 logoMime: logoMime,
+                logoPath: logoPath,
                 email: email,
                 phone: phone,
                 website: website,

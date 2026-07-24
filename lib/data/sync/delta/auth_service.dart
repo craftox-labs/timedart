@@ -183,6 +183,8 @@ class DeltaAuthService {
     await _db.adoptOrphanTasks(orgId);
     await _db.adoptOrphanTimeEntries(orgId);
     await _db.adoptOrphanActiveTimers(orgId); // #300
+    await _db.adoptOrphanTemplates(orgId); // #320
+    await _db.adoptOrphanProfiles(orgId); // #320
     return orgId;
   }
 }
