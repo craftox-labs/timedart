@@ -608,7 +608,10 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                       children: [
                         TextSpan(
                           text: '$label: ',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(dialogContext).colorScheme.primary,
+                          ),
                         ),
                         TextSpan(text: value),
                       ],
@@ -619,7 +622,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           ),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Close'),
           ),
@@ -742,7 +745,7 @@ class _AdaptiveShellState extends State<AdaptiveShell>
           }
 
           final actions = <Widget>[
-            TextButton(
+            OutlinedButton(
               onPressed: busy ? null : () => Navigator.of(dialogContext).pop(),
               child: const Text('Close'),
             ),
