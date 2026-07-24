@@ -593,9 +593,10 @@ class _AdaptiveShellState extends State<AdaptiveShell>
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Sync details'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Column(
+        content: dialogContent(
+          dialogContext,
+          maxWidth: 460,
+          Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -801,9 +802,9 @@ class _AdaptiveShellState extends State<AdaptiveShell>
 
           return AlertDialog(
             title: const Text('Sync account'),
-            content: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
+            content: dialogContent(
+              dialogContext,
+              Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: children,

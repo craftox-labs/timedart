@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 
-/// Shared content wrapper for the confirmation modals: caps width at 420 (so a
-/// long message wraps into a readable column instead of stretching the modal,
-/// matching the entity-editor dialog) and forces the body to [onSurface] — the
-/// dialog theme greens the title but leaves the body inheriting that tint.
-Widget _dialogContent(BuildContext ctx, Widget child) => ConstrainedBox(
-  constraints: const BoxConstraints(maxWidth: 420),
+/// Shared content wrapper for the modal dialogs: caps width (so a long message
+/// wraps into a readable column instead of stretching the modal, matching the
+/// entity-editor dialog) and forces the body to [onSurface] — the dialog theme
+/// greens the title but leaves the body inheriting that tint. Shared by the
+/// confirmation dialogs here and the sync dialogs in the shell so every
+/// AlertDialog reads the same: green heading, off-white body.
+Widget dialogContent(
+  BuildContext ctx,
+  Widget child, {
+  double maxWidth = 420,
+}) => ConstrainedBox(
+  constraints: BoxConstraints(maxWidth: maxWidth),
   child: DefaultTextStyle.merge(
     style: TextStyle(color: Theme.of(ctx).colorScheme.onSurface),
     child: child,
@@ -23,7 +29,7 @@ Future<bool> confirmDelete(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: _dialogContent(ctx, Text(message)),
+      content: dialogContent(ctx, Text(message)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
@@ -53,7 +59,7 @@ Future<bool> confirmAction(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: _dialogContent(ctx, Text(message)),
+      content: dialogContent(ctx, Text(message)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
@@ -81,7 +87,7 @@ Future<UnsavedChangesAction?> confirmUnsavedChanges(BuildContext context) =>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Unsaved changes'),
-        content: _dialogContent(
+        content: dialogContent(
           ctx,
           const Text(
             'You have unsaved changes. Save before leaving, or discard them?',
@@ -115,7 +121,7 @@ Future<void> showInfoDialog(
   context: context,
   builder: (ctx) => AlertDialog(
     title: Text(title),
-    content: _dialogContent(ctx, Text(message)),
+    content: dialogContent(ctx, Text(message)),
     actions: [
       FilledButton(
         autofocus: true, // Enter dismisses
