@@ -887,9 +887,11 @@ class _AdaptiveShellState extends State<AdaptiveShell>
   void _editProfile(InvoiceProfile p, {bool startEditing = false}) =>
       _navigateTo(_ProfileEditorDetail(p, startEditing: startEditing));
 
-  // A mobile "user is active again" nudge (#329). Narrow-only nav paths call
-  // this — opening the sheet, switching a tab — since mobile has no window-focus
-  // event to drive the foreground trigger. Throttled inside the controller.
+  // A "user is active again" nudge (#329). The narrow layout's nav paths call
+  // this — opening the sheet, switching a tab — because a phone (no window-focus
+  // event) would otherwise sit on the 5-min periodic tick. Gated by width, not
+  // platform, so a narrowed desktop window nudges too; harmless — desktop keeps
+  // its foreground trigger and the controller throttles either way.
   void _syncOnInteraction() => _sync?.requestSync(SyncTrigger.interaction);
 
   // ── Narrow list-panel sheet (open/close + drag settle) ──────────────

@@ -195,16 +195,20 @@ class SyncController extends ChangeNotifier {
   /// await the outcome. A no-op while sync is [enabled] == false.
   Future<void> requestSync(SyncTrigger trigger) {
     if (_disposed || !_enabled) return Future<void>.value();
-    if (_inFlight != null) {
-      _rerunQueued = true;
-      return _inFlight!;
-    }
-    // Throttle the navigation nudge: skip if we started a pass recently. Only
-    // interaction is throttled — foreground/manual/timer triggers always fire.
+    // Throttle the navigation nudge: skip if a pass started recently. Checked
+    // BEFORE the in-flight branch — a bare nudge carries no local change, so
+    // there's nothing to coalesce, and gating here (not only when idle) keeps
+    // the floor honest even while an offline pass is burning its 15s timeout
+    // (otherwise browsing would queue a rerun per tap). Only interaction is
+    // throttled — foreground/manual/timer triggers always fire.
     if (trigger == SyncTrigger.interaction &&
         _lastAttemptAt != null &&
         _clock().difference(_lastAttemptAt!) < interactionThrottle) {
-      return Future<void>.value();
+      return _inFlight ?? Future<void>.value();
+    }
+    if (_inFlight != null) {
+      _rerunQueued = true;
+      return _inFlight!;
     }
     _lastTrigger = trigger;
     return _inFlight = _pump();
