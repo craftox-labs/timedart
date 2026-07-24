@@ -1417,24 +1417,15 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                             onTap: _togglePanel,
                             child: Padding(
                               padding: const EdgeInsets.all(AppTokens.spaceSm),
-                              // The sheet is the client/project tree, so at rest
-                              // the glyph is onboarding's custom clients mark
-                              // (tinted to one tone like the Tracker symbol);
-                              // it flips to a close icon when the sheet is open.
-                              child: _panelOpen
-                                  ? const Icon(
-                                      Icons.close,
-                                      color: AppTokens.colorOnAccent,
-                                      size: AppTokens.iconMd,
-                                    )
-                                  : SvgPicture.asset(
-                                      'assets/icons/client-duo.svg',
-                                      height: AppTokens.iconMd,
-                                      colorFilter: const ColorFilter.mode(
-                                        AppTokens.colorAccentText,
-                                        BlendMode.srcIn,
-                                      ),
-                                    ),
+                              child: Icon(
+                                // Menu at rest, close when the sheet is open.
+                                // (A clients-specific glyph is a later pass.)
+                                _panelOpen ? Icons.close : Icons.menu,
+                                color: _panelOpen
+                                    ? AppTokens.colorOnAccent
+                                    : AppTokens.colorAccentText,
+                                size: AppTokens.iconMd,
+                              ),
                             ),
                           ),
                         ),
