@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:timedart/constants/layout.dart';
 import 'package:timedart/constants/tokens.dart';
 import 'package:timedart/features/docs/docs_screen.dart';
 
@@ -44,7 +43,6 @@ class _SettingsHomeState extends State<SettingsHome> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
-    final narrow = context.isNarrow;
     final versionLabel = _version.isEmpty
         ? 'timedart'
         : 'timedart · v$_version$_channel';
@@ -103,12 +101,13 @@ class _SettingsHomeState extends State<SettingsHome> {
               children: [
                 SvgPicture.asset(
                   'assets/logo/timedart_logo_stacked.svg',
-                  height: narrow ? 140 : 200,
+                  height: 200,
                 ),
                 const SizedBox(height: AppTokens.spaceXl),
                 Text(
-                  // Narrow opens the list from the bottom menu, not a side panel.
-                  'Select an item from the ${narrow ? 'menu' : 'panel'} to edit.',
+                  // Full placeholder is the wide content pane only; narrow
+                  // renders the sections list itself (see AdaptiveShell).
+                  'Select an item from the panel to edit.',
                   style: t.textTheme.bodyLarge?.copyWith(
                     color: t.colorScheme.primary,
                   ),
