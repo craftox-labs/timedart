@@ -1414,7 +1414,12 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                               colorFilter: ColorFilter.mode(c, BlendMode.srcIn),
                             ),
                           ),
-                          onTap: _showTracker,
+                          // Close the client sheet if it's open, so the tab
+                          // lands on its page rather than behind a raised sheet.
+                          onTap: () {
+                            _closePanel();
+                            _showTracker();
+                          },
                         ),
                         // Pronounced centre button — opens/closes the list panel.
                         // Styled like the app's primary button: muted accent-dim
@@ -1463,7 +1468,12 @@ class _AdaptiveShellState extends State<AdaptiveShell>
                             size: AppTokens.iconLg,
                             color: c,
                           ),
-                          onTap: _openSettings,
+                          // Close the client sheet if it's open, so the tab
+                          // lands on its page rather than behind a raised sheet.
+                          onTap: () {
+                            _closePanel();
+                            _openSettings();
+                          },
                         ),
                       ],
                     ),
